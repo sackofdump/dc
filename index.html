@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0612" />
+  <title>XxDungeonSlayerxX</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="game-root">
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Mini-map (bottom-left). Click 🔒 to unlock for drag + scroll-resize. -->
+    <div id="minimap" class="hud">
+      <canvas id="minimap-canvas" width="220" height="150"></canvas>
+      <button id="minimap-toggle" type="button" title="Unlock to drag + scroll to resize">🔒</button>
+    </div>
+
+    <!-- Currency (top-right corner, separate from action HUD) -->
+    <div id="currency-bar" class="hud">
+      <span class="currency gold"><span class="ico">●</span><span id="gold">0</span></span>
+      <span class="currency dust"><span class="ico">◆</span><span id="dust">0</span></span>
+    </div>
+
+    <!-- Bottom HUD action row: HP | Floor+Time | CATACLYSM -->
+    <div id="hud-top" class="hud">
+      <div id="hp-wrap">
+        <div id="hp-bar"><div id="hp-fill"></div></div>
+        <span id="hp-text">100 / 100</span>
+        <div id="stamina-bar"><div id="stamina-fill"></div></div>
+      </div>
+      <div id="floor-info">
+        <div id="floor-num">FLOOR 1</div>
+        <div id="time">0:00</div>
+      </div>
+      <div id="cata-combo-stack">
+        <div id="ult-bar">
+          <div id="ult-bar-fill"></div>
+          <div id="ult-bar-label">
+            <span class="ult-bar-name">CATACLYSM</span>
+            <span class="ult-bar-status">READY · SPACE</span>
+          </div>
+        </div>
+        <div id="slaughter-bar">
+          <div id="slaughter-fill"></div>
+          <span id="slaughter-text">COMBO</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- XP bar (level inside, centered) -->
+    <div id="xp-wrap" class="hud">
+      <div id="xp-bar">
+        <div id="xp-fill"></div>
+        <span id="xp-text">Lv 1</span>
+      </div>
+    </div>
+
+
+    <!-- Boss HP -->
+    <div id="boss-wrap" class="hud hidden">
+      <div id="boss-name">BOSS</div>
+      <div id="boss-bar"><div id="boss-fill"></div></div>
+    </div>
+
+    <!-- Floating "EXIT ZONE" button — appears after zone clear, while player keeps playing -->
+    <button id="btn-zone-exit" class="hud hidden" type="button">EXIT ZONE</button>
+
+    <!-- Zone progress (visible only inside biome zones) — separate kill + shard bars -->
+    <div id="zone-progress-wrap" class="hud hidden">
+      <div id="zone-progress-label"><span id="zone-progress-name">ZONE</span> <span id="zone-progress-status"></span></div>
+      <div class="zp-row">
+        <span class="zp-icon zp-kills">☠</span>
+        <div class="zp-bar zp-bar-kills"><div class="zp-fill zp-fill-kills"></div></div>
+        <span class="zp-text zp-text-kills">0/0</span>
+      </div>
+      <div class="zp-row">
+        <span class="zp-icon zp-shards">◆</span>
+        <div class="zp-bar zp-bar-shards"><div class="zp-fill zp-fill-shards"></div></div>
+        <span class="zp-text zp-text-shards">0/0</span>
+      </div>
+    </div>
+
+    <!-- Ability toolbar (bottom-center, tappable) -->
+    <div id="ability-bar" class="hud"></div>
+
+    <!-- Mobile joystick -->
+    <div id="joystick" class="hud">
+      <div id="joystick-knob"></div>
+    </div>
+
+    <!-- Action buttons -->
+    <div id="action-buttons" class="hud">
+      <button id="btn-cast" class="action-btn" title="Active Cast (hold)">⚡</button>
+      <button id="btn-magnet" class="action-btn" title="Greed Pulse (E)">◉</button>
+      <div id="ult-stack">
+        <button id="btn-overdrive" class="action-btn" title="Cataclysm (Spacebar)">
+          <span class="ult-ring"></span>
+          <span class="ult-glyph">★</span>
+          <span id="ult-cd-text"></span>
+        </button>
+        <div id="ult-name">CATACLYSM</div>
+      </div>
+    </div>
+
+
+    <!-- Level-up panel (non-blocking, top-center, small) -->
+    <div id="modal-levelup" class="hidden">
+      <div class="lvl-card">
+        <div class="lvl-head">
+          <span class="lvl-title">LEVEL UP! <span id="lvl-pending-badge" class="hidden"></span></span>
+        </div>
+        <div id="levelup-choices"></div>
+        <div class="lvl-foot">
+          <button id="btn-reroll" class="lvl-mini-btn"><span class="kbd">4</span> Reroll <span id="reroll-count">3</span></button>
+          <button id="btn-skip" class="lvl-mini-btn"><span class="kbd">5</span> Skip (+50 dust)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tutorial overlay (first run only) -->
+    <div id="modal-tutorial" class="modal hidden">
+      <div class="modal-card tutorial-card">
+        <h2 id="tut-title">HOW TO PLAY</h2>
+        <div id="tut-body"></div>
+        <div class="modal-foot tutorial-foot">
+          <button id="btn-tut-prev" class="ghost-btn">BACK</button>
+          <button id="btn-tut-next" class="primary-btn">NEXT</button>
+          <button id="btn-tut-skip" class="ghost-btn">SKIP</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pause menu (Esc during run) -->
+    <div id="modal-pause" class="modal hidden">
+      <div class="modal-card">
+        <h2>PAUSED</h2>
+        <div class="modal-foot pause-buttons">
+          <button id="btn-resume" class="primary-btn">RESUME</button>
+          <button id="btn-pause-settings" class="ghost-btn">SETTINGS</button>
+          <button id="btn-quit-run" class="danger-btn">QUIT RUN</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Zone Complete modal -->
+    <div id="modal-zone" class="modal hidden">
+      <div class="modal-card">
+        <h2 id="zone-title" style="color: var(--accent-gold)">ZONE CLEARED</h2>
+        <div id="zone-summary"></div>
+        <div class="modal-foot pause-buttons">
+          <button id="btn-zone-forge" class="ghost-btn">VISIT FORGE</button>
+          <button id="btn-zone-return" class="primary-btn">RETURN TO MAIN</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Death modal -->
+    <div id="modal-death" class="modal hidden">
+      <div class="modal-card">
+        <h2 id="death-title">YOU HAVE FALLEN</h2>
+        <div id="death-summary"></div>
+        <div class="modal-foot">
+          <button id="btn-revive" class="primary-btn revive-btn hidden">REVIVE · 1,000 DUST</button>
+          <button id="btn-restart" class="primary-btn">NEW RUN</button>
+          <button id="btn-death-menu" class="ghost-btn">MAIN MENU</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Title screen -->
+    <div id="modal-title" class="modal hidden">
+      <div class="modal-card">
+        <div class="profile-pill" id="profile-pill" title="Switch profile">
+          <span class="dot"></span><span id="profile-name">—</span>
+        </div>
+        <h1 class="game-title"><span class="gt-x">Xx</span><span class="gt-mid">DungeonSlayer</span><span class="gt-x">xX</span></h1>
+        <p class="tagline">Auto-battle. Loot. Become absurd.</p>
+        <div id="title-stats"></div>
+        <div class="modal-foot title-buttons">
+          <button id="btn-start" class="primary-btn">DESCEND</button>
+          <button id="btn-forge" class="ghost-btn">FORGE</button>
+          <button id="btn-settings" class="ghost-btn">SETTINGS</button>
+          <button id="btn-title-switch" class="ghost-btn">SWITCH PROFILE</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Login / Profile picker -->
+    <div id="modal-login" class="modal">
+      <div class="modal-card">
+        <h1 class="game-title"><span class="gt-x">Xx</span><span class="gt-mid">DungeonSlayer</span><span class="gt-x">xX</span></h1>
+        <p class="tagline">Choose your delver.</p>
+        <div id="profile-list"></div>
+        <div class="new-profile-row hidden" id="new-profile-row">
+          <input id="new-profile-name" type="text" maxlength="18" placeholder="Enter delver name…" />
+          <button id="btn-new-confirm" class="primary-btn">CREATE</button>
+          <button id="btn-new-cancel" class="ghost-btn">CANCEL</button>
+        </div>
+        <div class="modal-foot login-foot">
+          <button id="btn-new-profile" class="primary-btn">+ NEW DELVER</button>
+          <button id="btn-login-settings" class="ghost-btn">SETTINGS</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Forge (meta upgrades) -->
+    <div id="modal-forge" class="modal hidden">
+      <div class="modal-card forge-card">
+        <h2>THE FORGE</h2>
+        <div class="forge-balance">
+          Soul Dust <b id="forge-dust">0</b>
+          <button id="btn-burn-gold" class="ghost-btn forge-burn-btn">BURN GOLD → DUST <span class="burn-rate">(80:1)</span></button>
+          <span id="forge-gold">0 gold</span>
+        </div>
+        <div id="forge-grid"></div>
+        <div class="modal-foot">
+          <button id="btn-forge-back" class="ghost-btn">BACK</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div id="modal-settings" class="modal hidden">
+      <div class="modal-card">
+        <h2>SETTINGS</h2>
+        <div id="settings-list">
+          <label class="setting"><span>Sound</span><input type="checkbox" id="set-sound" /></label>
+          <label class="setting"><span>Auto-aim</span><input type="checkbox" id="set-autoaim" /></label>
+          <label class="setting"><span>Screen Shake</span><input type="checkbox" id="set-shake" /></label>
+        </div>
+        <h3 class="settings-h3">KEYBINDS</h3>
+        <div id="keybind-list"></div>
+        <div class="settings-actions">
+          <button id="btn-customize-hud" class="ghost-btn">CUSTOMIZE HUD</button>
+          <button id="btn-keybinds-reset" class="ghost-btn">RESET BINDS</button>
+          <button id="btn-switch-profile" class="ghost-btn">SWITCH PROFILE</button>
+          <button id="btn-reset-save" class="danger-btn">RESET SAVE</button>
+        </div>
+        <div class="modal-foot">
+          <button id="btn-settings-back" class="ghost-btn">BACK</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- HUD edit mode banner -->
+    <div id="hud-edit-banner" class="hud hidden">
+      <span class="label">DRAG BARS TO MOVE</span>
+      <button id="btn-hud-reset" type="button">RESET</button>
+      <button id="btn-hud-done" class="primary" type="button">DONE</button>
+    </div>
+
+    <!-- Floating toast -->
+    <div id="toast" class="hidden"></div>
+  </div>
+
+  <!-- Load order matters. ?v= busts browser cache when files change. -->
+  <script src="js/util.js?v=106"></script>
+  <script src="js/data.js?v=106"></script>
+  <script src="js/save.js?v=106"></script>
+  <script src="js/assets.js?v=106"></script>
+  <script src="js/entities.js?v=106"></script>
+  <script src="js/systems.js?v=106"></script>
+  <script src="js/fx.js?v=106"></script>
+  <script src="js/input.js?v=106"></script>
+  <script src="js/ui.js?v=106"></script>
+  <script src="js/render.js?v=106"></script>
+  <script src="js/hudedit.js?v=106"></script>
+  <script src="js/minimap.js?v=106"></script>
+  <script src="js/main.js?v=106"></script>
+</body>
+</html>
