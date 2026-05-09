@@ -694,16 +694,23 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
   color: var(--accent-gold); text-shadow: 0 4px 0 #2a1a00, 0 0 16px rgba(255,217,102,0.4);
 }
 .modal-card h1 .sub { font-size: 16px; color: var(--accent-violet); letter-spacing: 0.4em; }
-/* Game logo — replaces the gamertag title text on title + auth screens.
-   Capped at 100% so it can't overflow the card and confuse margin auto. */
+/* Modals that float a logo above their card — keep them tight together */
+.modal-with-logo {
+  flex-direction: column;
+  gap: 0;
+  justify-content: center;
+}
+.modal-with-logo .game-logo {
+  margin: 0 0 -8px;     /* slight overlap into the card so they read as one block */
+}
+/* Game logo — replaces the gamertag title text on title + auth screens. */
 .game-logo {
   display: block;
   margin: 0 auto 14px;
-  width: 100%;
-  max-width: 360px;
+  width: min(560px, 92vw);
   height: auto;
   object-fit: contain;
-  filter: drop-shadow(0 0 28px rgba(178,102,255,0.6));
+  filter: drop-shadow(0 0 32px rgba(178,102,255,0.65));
 }
 
 /* Gamertag-style title — XxDungeonSlayerxX with violet x's flanking the gold middle */
@@ -857,6 +864,25 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
   border-color: var(--accent-gold);
   box-shadow: 0 0 18px rgba(255,217,102,0.5);
   background: linear-gradient(180deg, rgba(255,217,102,0.08), rgba(0,0,0,0.4));
+}
+.char-pick.locked {
+  cursor: not-allowed;
+  filter: grayscale(0.9) brightness(0.55);
+  position: relative;
+}
+.char-pick.locked:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--panel-edge);
+}
+.char-lock {
+  margin-top: 6px;
+  padding: 4px 10px;
+  border-radius: 5px;
+  background: rgba(0,0,0,0.7);
+  border: 1px solid #ff6477;
+  color: #ff8a99;
+  font-size: 11px; font-weight: 800; letter-spacing: 0.10em;
 }
 .char-portrait {
   width: 100%; aspect-ratio: 1 / 1;

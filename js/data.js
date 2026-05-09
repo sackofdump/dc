@@ -394,6 +394,37 @@ DDI.data = (function () {
     },
   };
 
+  // ---- Warrior physical extras ----
+  ABILITIES.whirlwind = {
+    id: 'whirlwind', name: 'Whirlwind', icon: '🌀', element: 'physical', color: '#fff066',
+    desc: 'A spinning aura of steel that shreds nearby foes.',
+    type: 'aura', maxLevel: 8,
+    base: { cooldown: 0.4, damage: 10, area: 110 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage: b.damage * (1 + 0.20 * lvl),
+        area:   b.area   * (1 + 0.08 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg/tick · radius ' + Math.round(s.area); },
+  };
+  ABILITIES.endurance = {
+    id: 'endurance', name: 'Endurance', icon: '🛡️', element: 'physical', color: '#6dff9b',
+    desc: 'Iron vitality — passive HP regen and damage reduction.',
+    type: 'buff', maxLevel: 8,
+    base: { cooldown: 1.5, heal: 3, dr: 0.03 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        heal:     b.heal     * (1 + 0.25 * lvl),
+        cooldown: b.cooldown * (1 - 0.04 * lvl),
+        dr:       Math.min(0.30, b.dr + 0.015 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) {
+      return '+' + Math.round(s.heal) + ' HP every ' + s.cooldown.toFixed(2) + 's · ' + Math.round(s.dr*100) + '% DR';
+    },
+  };
+
   const STARTER_ABILITY = 'fireball';
 
   // ============================================================
@@ -404,11 +435,13 @@ DDI.data = (function () {
   const CLASSES = {
     default: {
       name: 'Warrior',
+      requiredRank: 1,    // unlocked from the start
       starters: ['daggers', 'blades'],
-      pool:     ['daggers', 'blades', 'boneSpear', 'bats'],
+      pool:     ['daggers', 'blades', 'boneSpear', 'bats', 'whirlwind', 'endurance'],
     },
     mage: {
       name: 'Mage',
+      requiredRank: 3,
       starters: ['fireball', 'chain'],
       pool:     ['fireball', 'chain', 'frostAura', 'poisonNova', 'meteor', 'halo'],
     },
@@ -585,6 +618,31 @@ DDI.data = (function () {
     return Math.ceil(u.baseCost * Math.pow(u.growth, currentLevel));
   }
 
+  // ============================================================
+  // ACCOUNT RANK — XP-per-run that builds toward an account-level rank.
+  // Higher ranks unlock new classes (see CLASSES[x].requiredRank).
+  // ============================================================
+  function accountXpForRank(rank) {
+    // Cumulative XP needed to reach `rank`.  rank 1 == 0 XP (starting rank).
+    return Math.floor(120 * (rank - 1) + Math.pow(Math.max(0, rank - 1), 1.6) * 25);
+  }
+  function accountRankFromXp(xp) {
+    let r = 1;
+    while (xp >= accountXpForRank(r + 1)) r++;
+    return r;
+  }
+  function accountXpForRunStats(g, runDifficulty) {
+    if (!g) return 0;
+    const acts  = Math.max(0, (g.act || 1) - 1);
+    return Math.floor(
+      (g.kills  || 0) * 0.4 +
+      (g.elites || 0) * 6 +
+      (g.bosses || 0) * 35 +
+      (g.level  || 0) * 8 +
+      acts * 100
+    );
+  }
+
   function applyMetaUpgrades(hero, permUpgrades) {
     if (!permUpgrades) return;
     for (const id in permUpgrades) {
@@ -595,5 +653,6 @@ DDI.data = (function () {
   }
 
   return { RARITY, HERO_BASE, ABILITIES, UPGRADES, ENEMIES, BIOMES, STARTER_ABILITY,
-           CLASSES, META_UPGRADES, metaUpgradeCost, applyMetaUpgrades, ULTS, ZONE_THEMES };
+           CLASSES, META_UPGRADES, metaUpgradeCost, applyMetaUpgrades, ULTS, ZONE_THEMES,
+           accountXpForRank, accountRankFromXp, accountXpForRunStats };
 })();

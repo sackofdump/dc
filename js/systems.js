@@ -194,6 +194,7 @@ DDI.systems = (function () {
         const stats = def.scale(a.level - 1, def.base);
         if (def.type === 'orbital') { this.tickOrbital(app, a, def, stats, dt); continue; }
         if (def.type === 'aura')    { this.tickAura(app, a, def, stats, dt); continue; }
+        if (def.type === 'buff')    { this.tickBuff(app, a, def, stats, dt); continue; }
         a.cd -= dt;
         if (a.cd > 0) continue;
         // No enemies in range → don't waste the cast. Keep cd at 0, ready to fire instantly.
@@ -423,6 +424,24 @@ DDI.systems = (function () {
             slot.state.hitCds.set(e.id, stats.hitCd);
           }
         });
+      }
+    },
+
+    // Buff abilities: heal hero on tick + apply temporary damage reduction.
+    tickBuff: function (app, slot, def, stats, dt) {
+      slot.t = (slot.t || 0) - dt;
+      if (slot.t > 0) {
+        // Even between ticks, keep _buffDR applied so takeDamage stays consistent
+        if (stats.dr) app.hero._buffDR = stats.dr;
+        return;
+      }
+      slot.t = (stats.cooldown || 1.5) * (app.hero.cooldownMult || 1);
+      if (stats.dr) app.hero._buffDR = stats.dr;
+      const hero = app.hero;
+      if (stats.heal && hero.hp < hero.maxHp) {
+        const heal = Math.max(1, Math.round(stats.heal));
+        hero.hp = Math.min(hero.maxHp, hero.hp + heal);
+        app.fx.damageNumber(hero.x, hero.y - hero.radius * 0.8, '+' + heal + ' HP', def.color || '#6dff9b', false);
       }
     },
 

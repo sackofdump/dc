@@ -50,7 +50,9 @@ DDI.entities = (function () {
     }
     takeDamage(amount) {
       if (this.iframes > 0) return 0;
-      const reduced = amount * (1 - clamp(this.damageReduce, 0, 0.85));
+      // Combine static damage reduction (from meta upgrades) with active buff DR
+      const totalDR = clamp((this.damageReduce || 0) + (this._buffDR || 0), 0, 0.85);
+      const reduced = amount * (1 - totalDR);
       this.hp -= reduced;
       this.iframes = 0.45;
       this.flash = 0.18;

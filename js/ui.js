@@ -327,13 +327,27 @@ DDI.UI = (function () {
       // sees exactly what each class will play with.
       const CLASSES   = (DDI.data && DDI.data.CLASSES)   || {};
       const ABILITIES = (DDI.data && DDI.data.ABILITIES) || {};
+      const accountRank = (this.app.save && this.app.save.accountRank) || 1;
       const picks = modal.querySelectorAll('.char-pick');
       picks.forEach(function (el) {
         const myChar = el.getAttribute('data-char');
-        el.classList.toggle('selected', myChar === self._chosenChar);
+        const klass = CLASSES[myChar] || CLASSES.default;
+        const reqRank = (klass && klass.requiredRank) || 1;
+        const locked = accountRank < reqRank;
+        el.classList.toggle('selected', myChar === self._chosenChar && !locked);
+        el.classList.toggle('locked',   locked);
+        el.disabled = locked;
+        // Replace any existing lock badge to keep state fresh
+        let lockBadge = el.querySelector('.char-lock');
+        if (lockBadge) lockBadge.remove();
+        if (locked) {
+          lockBadge = document.createElement('div');
+          lockBadge.className = 'char-lock';
+          lockBadge.textContent = '🔒 RANK ' + reqRank + ' REQUIRED';
+          el.appendChild(lockBadge);
+        }
         const abilEl = el.querySelector('.char-abilities');
         if (abilEl) {
-          const klass = CLASSES[myChar] || CLASSES.default;
           const starters = (klass && klass.starters) || [];
           const pool     = (klass && klass.pool)     || [];
           abilEl.innerHTML = '';
@@ -352,6 +366,7 @@ DDI.UI = (function () {
         if (!el._wired) {
           el._wired = true;
           el.addEventListener('click', function () {
+            if (el.classList.contains('locked')) return;
             picks.forEach(function (p) { p.classList.remove('selected'); });
             el.classList.add('selected');
             self._chosenChar = el.getAttribute('data-char');
@@ -1213,8 +1228,17 @@ DDI.UI = (function () {
         pname = DDI.save.activeName() || pname;
       }
       this.$('profile-name').textContent = pname.toUpperCase();
+      const rk = this.app.save.accountRank || 1;
+      const xp = this.app.save.accountXp   || 0;
+      const D = DDI.data || {};
+      const xpThis = (D.accountXpForRank ? D.accountXpForRank(rk) : 0);
+      const xpNext = (D.accountXpForRank ? D.accountXpForRank(rk + 1) : xpThis + 100);
+      const into   = Math.max(0, xp - xpThis);
+      const span   = Math.max(1, xpNext - xpThis);
+      const pct    = Math.min(100, (into / span) * 100).toFixed(0);
       this.$('title-stats').innerHTML =
-        'Best Floor <b>' + (this.app.save.bestFloor || 1) + '</b> · Soul Dust <b>' + shortNum(this.app.save.dust || 0) + '</b>';
+        '<div>Rank <b>' + rk + '</b> · ' + into + ' / ' + (xpNext - xpThis) + ' XP <span style="color:var(--ink-fade)">(' + pct + '%)</span></div>' +
+        '<div>Best Floor <b>' + (this.app.save.bestFloor || 1) + '</b> · Soul Dust <b>' + shortNum(this.app.save.dust || 0) + '</b></div>';
     }
     hideTitle() { this.$('modal-title').classList.add('hidden'); this.modalOpen = false; }
 
@@ -1251,6 +1275,8 @@ DDI.UI = (function () {
         '<div class="row sub"><span>· from Bosses</span><span class="v dust">+' + (b.bosses||0) + '</span></div>' +
         '<div class="row sub"><span>· from Level</span><span class="v dust">+' + (b.level||0) + '</span></div>' +
         '<div class="row sub"><span>· from Gold (1 dust per 25 gold)</span><span class="v dust">+' + (b.gold||0) + '</span></div>';
+      const acctXp = a._lastRunXpEarned || 0;
+      const rankUp = !!a._lastRunRankUp;
       this.$('death-summary').innerHTML =
         '<div class="row"><span>Time</span><span class="v">' + fmtTime(a.game.time) + '</span></div>' +
         '<div class="row"><span>Level</span><span class="v">' + a.game.level + '</span></div>' +
@@ -1260,7 +1286,10 @@ DDI.UI = (function () {
         '<div class="row"><span>Gold Earned</span><span class="v gold">' + shortNum(a.game.gold) + '</span></div>' +
         '<hr class="death-divider" />' +
         '<div class="row"><span><b>Soul Dust Earned</b></span><span class="v dust"><b>+' + shortNum(summary.dustEarned) + '</b></span></div>' +
-        breakdownHtml;
+        breakdownHtml +
+        '<hr class="death-divider" />' +
+        '<div class="row"><span><b>Account XP Earned</b></span><span class="v" style="color:#b266ff"><b>+' + acctXp + '</b></span></div>' +
+        '<div class="row"><span>Rank</span><span class="v"><b>' + (a.save.accountRank || 1) + '</b>' + (rankUp ? ' <span style="color:#ffd966">RANK UP!</span>' : '') + '</span></div>';
     }
     hideDeath() { this.$('modal-death').classList.add('hidden'); this.modalOpen = false; }
 

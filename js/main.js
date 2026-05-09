@@ -197,6 +197,18 @@
       this.game._killsPaid = this.game.kills;
       if (this.game.level > this.save.bestLevel) this.save.bestLevel = this.game.level;
       if (this.game.floor > this.save.bestFloor) this.save.bestFloor = this.game.floor;
+      // Account XP — persistent across runs, gates character unlocks
+      const D = DDI.data;
+      const xpEarned = (D && D.accountXpForRunStats) ? D.accountXpForRunStats(this.game, this.runDifficulty) : 0;
+      const xpAlreadyPaid = this.game._accountXpPaid || 0;
+      const xpNew = Math.max(0, xpEarned - xpAlreadyPaid);
+      this.save.accountXp   = (this.save.accountXp || 0) + xpNew;
+      this.game._accountXpPaid = xpEarned;
+      const newRank = (D && D.accountRankFromXp) ? D.accountRankFromXp(this.save.accountXp) : 1;
+      const rankUp  = newRank > (this.save.accountRank || 1);
+      this.save.accountRank = newRank;
+      this._lastRunXpEarned = xpNew;
+      this._lastRunRankUp   = rankUp;
       this.persist();
       this.submitLeaderboard({});
       const self = this;
