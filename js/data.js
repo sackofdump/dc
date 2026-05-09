@@ -149,12 +149,12 @@ DDI.data = (function () {
       id: 'bats', name: 'Bat Swarm', icon: '🦇', element: 'curse', color: '#b266ff',
       desc: 'Releases homing bats that hunt enemies.',
       type: 'homing', maxLevel: 8,
-      base: { cooldown: 2.0, damage: 11, count: 4, speed: 280, life: 3.2, pierce: 0 },
+      base: { cooldown: 2.0, damage: 11, count: 4, speed: 240, life: 1.6, pierce: 0 },
       scale: function (lvl, b) {
         return Object.assign({}, b, {
           count:  b.count  + Math.floor((lvl + 1) / 2),
           damage: b.damage * (1 + 0.18 * lvl),
-          life:   b.life   + 0.2 * lvl,
+          life:   b.life   + 0.08 * lvl,
         });
       },
       desc_at: function (lvl, s) { return s.count + ' bats · ' + Math.round(s.damage) + ' dmg · ' + s.life.toFixed(1) + 's flight'; },
