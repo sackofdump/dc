@@ -169,6 +169,9 @@
       const klass = (CLASSES && CLASSES[charKey]) || CLASSES.default;
       const starters = (klass && klass.starters) || [STARTER_ABILITY, 'blades'];
       starters.forEach((ab) => Abilities.add(this, ab));
+      // Mark the root so HUD bars are visible only while a run is live
+      const rootEl = document.getElementById('game-root');
+      if (rootEl) rootEl.classList.add('in-game');
       this.fx.toast('FLOOR ' + this.game.floor);
       this.save.totalRuns++;
       this.persist();
@@ -178,6 +181,8 @@
       if (!this.game.running) return;
       this.game.running = false;
       this.game.paused = true;
+      const rootEl = document.getElementById('game-root');
+      if (rootEl) rootEl.classList.remove('in-game');
       // Dust breakdown — shown in death summary so players see where it came from.
       const dustFromKills  = Math.floor(this.game.kills * 0.5);
       const dustFromElites = this.game.elites * 25;

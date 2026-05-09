@@ -69,6 +69,10 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
 }
 .hud button, .hud .interactive { pointer-events: auto; }
 
+/* Hide all in-game HUD bars when the player isn't actually in a run.
+   Modals add their own UI; HP/Floor/Combo/Mini-map shouldn't bleed through. */
+#game-root:not(.in-game) .hud { display: none !important; }
+
 .hidden { display: none !important; }
 
 /* ===== Bottom HUD action row (HP | Floor | CATACLYSM) ===== */
@@ -694,14 +698,17 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
   color: var(--accent-gold); text-shadow: 0 4px 0 #2a1a00, 0 0 16px rgba(255,217,102,0.4);
 }
 .modal-card h1 .sub { font-size: 16px; color: var(--accent-violet); letter-spacing: 0.4em; }
-/* Modals that float a logo above their card — keep them tight together */
+/* Modals that float a logo above their card — anchor to top so the card sits
+   right beneath the logo instead of centering as a group. */
 .modal-with-logo {
   flex-direction: column;
   gap: 0;
-  justify-content: center;
+  justify-content: flex-start;
+  padding-top: 4vh;
+  align-items: center;
 }
 .modal-with-logo .game-logo {
-  margin: 0 0 -68px;     /* deep overlap — logo sits well into the top of the card */
+  margin: 0 0 -56px;     /* overlap so logo bleeds into the top of the card */
   position: relative;
   z-index: 2;
 }

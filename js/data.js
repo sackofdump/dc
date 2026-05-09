@@ -408,7 +408,67 @@ DDI.data = (function () {
     },
     desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg/tick · radius ' + Math.round(s.area); },
   };
-  // ---- Rogue extras ----
+  // ---- Rogue exclusive kit ----
+  ABILITIES.venomStrike = {
+    id: 'venomStrike', name: 'Venom Strike', icon: '☣️', element: 'poison', color: '#a8ff66',
+    desc: 'Hurls a poisoned blade that bleeds toxic DoT on hit.',
+    type: 'projectile', maxLevel: 8,
+    base: { cooldown: 1.0, damage: 12, count: 2, speed: 400, pierce: 0, area: 12, life: 1.1, dotDps: 8, dotDur: 4 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage:   b.damage   * (1 + 0.18 * lvl),
+        count:    b.count    + Math.floor(lvl / 2),
+        cooldown: b.cooldown * (1 - 0.04 * lvl),
+        dotDps:   b.dotDps   * (1 + 0.20 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg + ' + Math.round(s.dotDps) + ' poison/s · ' + s.count + ' shots'; },
+  };
+  ABILITIES.smokeBomb = {
+    id: 'smokeBomb', name: 'Smoke Bomb', icon: '💨', element: 'physical', color: '#9aa3b0',
+    desc: 'Drops a billowing cloud — damages and slows everyone inside.',
+    type: 'nova', maxLevel: 8,
+    base: { cooldown: 3.2, damage: 22, area: 150 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage:   b.damage   * (1 + 0.20 * lvl),
+        area:     b.area     * (1 + 0.10 * lvl),
+        cooldown: b.cooldown * (1 - 0.05 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · radius ' + Math.round(s.area); },
+  };
+  ABILITIES.kunaiFan = {
+    id: 'kunaiFan', name: 'Kunai Fan', icon: '🔪', element: 'physical', color: '#cdd5e0',
+    desc: 'Whirling kunai orbit the rogue, slashing what they touch.',
+    type: 'orbital', maxLevel: 8,
+    base: { count: 4, damage: 7, radius: 70, rps: 1.6, hitCd: 0.30 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        count:  b.count  + Math.floor(lvl / 2),
+        damage: b.damage * (1 + 0.16 * lvl),
+        radius: b.radius * (1 + 0.08 * lvl),
+        rps:    b.rps    * (1 + 0.06 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return s.count + ' kunai · ' + Math.round(s.damage) + ' dmg/hit · radius ' + Math.round(s.radius); },
+  };
+  ABILITIES.backstab = {
+    id: 'backstab', name: 'Backstab', icon: '🥷', element: 'physical', color: '#ff3d52',
+    desc: 'A killing blow on the most-wounded foe — heavy single-target damage.',
+    type: 'homing', maxLevel: 8,
+    base: { cooldown: 2.4, damage: 60, count: 1, life: 0.4, pierce: 0 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage:   b.damage * (1 + 0.25 * lvl),
+        count:    b.count + Math.floor(lvl / 3),
+        cooldown: b.cooldown * (1 - 0.05 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · ' + s.count + ' target' + (s.count>1?'s':'') + ' · CD ' + s.cooldown.toFixed(2) + 's'; },
+  };
+
+  // ---- Rogue movement / utility ----
   ABILITIES.shadowstep = {
     id: 'shadowstep', name: 'Shadowstep', icon: '🗡️', element: 'physical', color: '#b266ff',
     desc: 'Phantom strikes — daggers from the shadows on the nearest foes.',
@@ -477,8 +537,8 @@ DDI.data = (function () {
     rogue: {
       name: 'Rogue',
       requiredRank: 1,    // TODO: re-raise to 2 once balance/testing is locked in
-      starters: ['daggers', 'cruelty'],
-      pool:     ['daggers', 'cruelty', 'shadowstep', 'poisonNova', 'blades', 'bats'],
+      starters: ['venomStrike', 'cruelty'],
+      pool:     ['venomStrike', 'cruelty', 'shadowstep', 'smokeBomb', 'kunaiFan', 'backstab'],
     },
   };
 
