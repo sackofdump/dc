@@ -503,7 +503,7 @@ DDI.UI = (function () {
           '<div class="row"><span class="key">SHIFT</span><span>Hold to <strong>sprint</strong> — drains the cyan stamina bar under your HP.</span></div>' },
         { title: 'COMBAT', html:
           '<p>Your abilities <strong>auto-cast</strong> at the nearest enemy. The bottom toolbar shows what you have.</p>' +
-          '<div class="row"><span class="key">TAP</span><span>Tap a toolbar slot to <strong>force-cast</strong> if ready, or <strong>shave 35% off</strong> the cooldown if not. Spam-friendly.</span></div>' },
+          '<p>Tap a toolbar slot any time to see what it does and what level it is.</p>' },
         { title: 'ULT — CATACLYSM', html:
           '<div class="row"><span class="key">SPACE</span><span>Trigger the <strong>Cataclysm</strong> ult — annihilates everything on screen. 30s cooldown.</span></div>' +
           '<p>The flame button on the bottom-right glows when ULT is ready.</p>' },
@@ -1109,7 +1109,7 @@ DDI.UI = (function () {
       slot.type = 'button';
       slot.style.borderColor = def.color;
       slot.style.color = def.color;
-      slot.title = def.name + ' — tap to cast / shave cooldown';
+      slot.title = def.name + ' — tap for info';
       slot.innerHTML =
         '<div class="ring"></div>' +
         '<span class="glyph">' + def.icon + '</span>' +
@@ -1132,27 +1132,9 @@ DDI.UI = (function () {
       if (!ab) return;
       const def = ABILITIES[ab.id];
       const stats = def.scale(ab.level - 1, def.base);
-
-      // Always show info tooltip on click
+      // Tapping a slot now only surfaces the info tooltip — abilities auto-cast
+      // on cooldown.  No more "tap to shave" or force-cast.
       this.showAbilityTooltip(slotEl, def, ab, stats);
-
-      // Cast/shave logic — only during a running, unpaused game
-      if (!a.game.running || a.game.paused) return;
-      if (def.type === 'orbital' || def.type === 'aura') return;
-      if (ab.cd <= 0.05) {
-        const fullCd = (stats.cooldown || 1) * a.hero.cooldownMult;
-        ab.cd = fullCd;
-        DDI.systems.Abilities.castOnce(a, ab, def, stats);
-        a.fx.shake(1);
-      } else {
-        ab.cd = Math.max(0, ab.cd - ab.cd * 0.35);
-      }
-      const hero = a.hero;
-      a.particles.spawn({
-        x: hero.x, y: hero.y - hero.radius * 0.3,
-        vx: 0, vy: -40,
-        life: 0.35, color: def.color, size: 14, kind: 'ring', fade: 1,
-      });
     }
 
     showAbilityTooltip(slotEl, def, ab, stats) {
