@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <div id="game-root">
@@ -159,6 +160,21 @@
       </div>
     </div>
 
+    <!-- Act Complete modal (shown after defeating the act boss) -->
+    <div id="modal-act-complete" class="modal hidden">
+      <div class="modal-card">
+        <h2 id="act-complete-title" style="color: var(--accent-gold)">★  ACT 1 COMPLETE  ★</h2>
+        <p class="tagline" id="act-complete-sub">The act boss has fallen. The realm shifts.</p>
+        <div id="act-complete-summary"></div>
+        <div class="modal-foot title-buttons">
+          <button id="btn-act-continue" class="primary-btn">ENTER ACT 2</button>
+          <button id="btn-act-forge" class="ghost-btn">FORGE</button>
+          <button id="btn-act-settings" class="ghost-btn">SETTINGS</button>
+          <button id="btn-act-menu" class="ghost-btn">MAIN MENU</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Death modal -->
     <div id="modal-death" class="modal hidden">
       <div class="modal-card">
@@ -184,26 +200,60 @@
         <div class="modal-foot title-buttons">
           <button id="btn-start" class="primary-btn">DESCEND</button>
           <button id="btn-forge" class="ghost-btn">FORGE</button>
+          <button id="btn-leaderboard" class="ghost-btn">LEADERBOARD</button>
           <button id="btn-settings" class="ghost-btn">SETTINGS</button>
-          <button id="btn-title-switch" class="ghost-btn">SWITCH PROFILE</button>
+          <button id="btn-title-signout" class="ghost-btn">SIGN OUT</button>
         </div>
       </div>
     </div>
 
-    <!-- Login / Profile picker -->
-    <div id="modal-login" class="modal">
-      <div class="modal-card">
+    <!-- Auth modal — login + signup (shown on first load if no session) -->
+    <div id="modal-auth" class="modal">
+      <div class="modal-card auth-card">
         <h1 class="game-title"><span class="gt-x">Xx</span><span class="gt-mid">DungeonSlayer</span><span class="gt-x">xX</span></h1>
-        <p class="tagline">Choose your delver.</p>
-        <div id="profile-list"></div>
-        <div class="new-profile-row hidden" id="new-profile-row">
-          <input id="new-profile-name" type="text" maxlength="18" placeholder="Enter delver name…" />
-          <button id="btn-new-confirm" class="primary-btn">CREATE</button>
-          <button id="btn-new-cancel" class="ghost-btn">CANCEL</button>
+        <p class="tagline" id="auth-tagline">Sign in to begin your descent.</p>
+        <div class="auth-tabs">
+          <button id="auth-tab-login"  class="auth-tab active" type="button">LOG IN</button>
+          <button id="auth-tab-signup" class="auth-tab"        type="button">SIGN UP</button>
         </div>
-        <div class="modal-foot login-foot">
-          <button id="btn-new-profile" class="primary-btn">+ NEW DELVER</button>
-          <button id="btn-login-settings" class="ghost-btn">SETTINGS</button>
+        <div id="auth-form-login" class="auth-form">
+          <input type="email"    id="login-email"    placeholder="Email"    autocomplete="email" />
+          <input type="password" id="login-password" placeholder="Password" autocomplete="current-password" />
+          <button id="btn-login"  class="primary-btn">LOG IN</button>
+          <button id="btn-forgot" class="ghost-btn link-btn">Forgot password?</button>
+        </div>
+        <div id="auth-form-signup" class="auth-form hidden">
+          <input type="text"     id="signup-name"     placeholder="Display name (3–18 chars)" maxlength="18" />
+          <input type="email"    id="signup-email"    placeholder="Email"    autocomplete="email" />
+          <input type="password" id="signup-password" placeholder="Password (8+ chars)" autocomplete="new-password" />
+          <button id="btn-signup" class="primary-btn">CREATE ACCOUNT</button>
+        </div>
+        <div id="auth-error" class="auth-error"></div>
+        <div class="auth-divider"><span>or</span></div>
+        <div class="auth-guest">
+          <button id="btn-auth-guest" class="ghost-btn guest-btn" type="button">PLAY AS GUEST</button>
+          <div class="guest-hint">Save lives only on this device · no leaderboard</div>
+        </div>
+        <div class="modal-foot auth-foot">
+          <button id="btn-auth-settings"    class="ghost-btn">SETTINGS</button>
+          <button id="btn-auth-leaderboard" class="ghost-btn">LEADERBOARD</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Leaderboard modal -->
+    <div id="modal-leaderboard" class="modal hidden">
+      <div class="modal-card lb-card">
+        <h2>LEADERBOARD</h2>
+        <div class="lb-tabs">
+          <button data-sort="act"   class="lb-tab active" type="button">HIGHEST ACT</button>
+          <button data-sort="floor" class="lb-tab"        type="button">BEST FLOOR</button>
+          <button data-sort="dust"  class="lb-tab"        type="button">TOTAL DUST</button>
+          <button data-sort="time"  class="lb-tab"        type="button">FASTEST ACT 1</button>
+        </div>
+        <div id="lb-list" class="lb-list">Loading…</div>
+        <div class="modal-foot">
+          <button id="btn-lb-back" class="ghost-btn">BACK</button>
         </div>
       </div>
     </div>
@@ -214,7 +264,7 @@
         <h2>THE FORGE</h2>
         <div class="forge-balance">
           Soul Dust <b id="forge-dust">0</b>
-          <button id="btn-burn-gold" class="ghost-btn forge-burn-btn">BURN GOLD → DUST <span class="burn-rate">(80:1)</span></button>
+          <button id="btn-burn-gold" class="ghost-btn forge-burn-btn">BURN GOLD → <b>0</b> DUST</button>
           <span id="forge-gold">0 gold</span>
         </div>
         <div id="forge-grid"></div>
@@ -259,18 +309,19 @@
   </div>
 
   <!-- Load order matters. ?v= busts browser cache when files change. -->
-  <script src="js/util.js?v=106"></script>
-  <script src="js/data.js?v=106"></script>
-  <script src="js/save.js?v=106"></script>
-  <script src="js/assets.js?v=106"></script>
-  <script src="js/entities.js?v=106"></script>
-  <script src="js/systems.js?v=106"></script>
-  <script src="js/fx.js?v=106"></script>
-  <script src="js/input.js?v=106"></script>
-  <script src="js/ui.js?v=106"></script>
-  <script src="js/render.js?v=106"></script>
-  <script src="js/hudedit.js?v=106"></script>
-  <script src="js/minimap.js?v=106"></script>
-  <script src="js/main.js?v=106"></script>
+  <script src="js/util.js?v=115"></script>
+  <script src="js/auth.js?v=115"></script>
+  <script src="js/data.js?v=115"></script>
+  <script src="js/save.js?v=115"></script>
+  <script src="js/assets.js?v=115"></script>
+  <script src="js/entities.js?v=115"></script>
+  <script src="js/systems.js?v=115"></script>
+  <script src="js/fx.js?v=115"></script>
+  <script src="js/input.js?v=115"></script>
+  <script src="js/ui.js?v=115"></script>
+  <script src="js/render.js?v=115"></script>
+  <script src="js/hudedit.js?v=115"></script>
+  <script src="js/minimap.js?v=115"></script>
+  <script src="js/main.js?v=115"></script>
 </body>
 </html>

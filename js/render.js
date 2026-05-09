@@ -2077,11 +2077,9 @@ DDI.Renderer = (function () {
           ctx.fillRect(x, y, w * clamp(e.hp / e.maxHp, 0, 1), 4);
         }
 
-        // Elite/Boss name label — skull marker for elites, crown marker for bosses
+        // Elite/Boss name label — bare name, no decorative marker
         if (e.def.isElite || e.def.isBoss) {
           const nameY = e.y - e.radius * sc - (e.def.isBoss ? 36 : 24);
-          const marker = e.def.isBoss ? '👑' : '☠';
-          const labelText = marker + '  ' + e.def.name + '  ' + marker;
           ctx.save();
           ctx.font = 'bold 12px Cinzel, "Cinzel Decorative", serif';
           ctx.textAlign = 'center';
@@ -2089,8 +2087,8 @@ DDI.Renderer = (function () {
           ctx.lineWidth = 3;
           ctx.strokeStyle = '#000';
           ctx.fillStyle = e.def.isBoss ? '#ff3d52' : '#ffe14d';
-          ctx.strokeText(labelText, e.x, nameY);
-          ctx.fillText(labelText, e.x, nameY);
+          ctx.strokeText(e.def.name, e.x, nameY);
+          ctx.fillText(e.def.name, e.x, nameY);
           ctx.restore();
         }
 
@@ -2111,7 +2109,10 @@ DDI.Renderer = (function () {
         ctx.lineWidth = 3;
         ctx.strokeStyle = '#000';
         ctx.fillStyle = lvlColor;
-        const lvlStr = 'Lv ' + eLvl;
+        // Skull marker next to level for elites, crown marker for bosses
+        let lvlStr = 'Lv ' + eLvl;
+        if (e.def.isBoss)       lvlStr = '👑 ' + lvlStr;
+        else if (e.def.isElite) lvlStr = '☠ '  + lvlStr;
         ctx.strokeText(lvlStr, e.x, lvlY);
         ctx.fillText(lvlStr, e.x, lvlY);
         ctx.restore();   // close fade-alpha wrapper opened at the top of this iteration

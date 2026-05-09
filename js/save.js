@@ -20,6 +20,7 @@ DDI.save = (function () {
 
   const DEFAULT_SAVE = {
     dust: 0, bestFloor: 1, totalRuns: 0, totalKills: 0, bestLevel: 1,
+    bestAct: 1, act1ClearSeconds: null,
     unlockedClasses: ['mage'],
     permUpgrades: {},
     settings: { sound: true, autoAim: true, screenShake: true },

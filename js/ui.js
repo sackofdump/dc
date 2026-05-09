@@ -81,10 +81,52 @@ DDI.UI = (function () {
       if (btnSwitch) btnSwitch.addEventListener('click', function () { self.switchProfile(); });
       const btnTitleSwitch = this.$('btn-title-switch');
       if (btnTitleSwitch) btnTitleSwitch.addEventListener('click', function () { self.switchProfile(); });
+      const btnTitleSignout = this.$('btn-title-signout');
+      if (btnTitleSignout) btnTitleSignout.addEventListener('click', function () { self.signOutFromTitle(); });
       const btnLoginSettings = this.$('btn-login-settings');
       if (btnLoginSettings) btnLoginSettings.addEventListener('click', function () {
         self._settingsFromLogin = true;
         self.openSettings();
+      });
+
+      // Auth modal: tab switching, login/signup buttons, forgot password
+      const tabLogin  = this.$('auth-tab-login');
+      const tabSignup = this.$('auth-tab-signup');
+      const btnLogin  = this.$('btn-login');
+      const btnSignup = this.$('btn-signup');
+      const btnForgot = this.$('btn-forgot');
+      if (tabLogin)  tabLogin .addEventListener('click', function () { self.switchAuthTab('login');  });
+      if (tabSignup) tabSignup.addEventListener('click', function () { self.switchAuthTab('signup'); });
+      if (btnLogin)  btnLogin .addEventListener('click', function () { self.submitLogin();  });
+      if (btnSignup) btnSignup.addEventListener('click', function () { self.submitSignup(); });
+      if (btnForgot) btnForgot.addEventListener('click', function () { self.submitForgot(); });
+      // Enter-key submits the active form
+      const onEnter = function (formId, action) {
+        const form = self.$(formId);
+        if (!form) return;
+        form.querySelectorAll('input').forEach(function (inp) {
+          inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') action.call(self); });
+        });
+      };
+      onEnter('auth-form-login',  self.submitLogin);
+      onEnter('auth-form-signup', self.submitSignup);
+      const btnAuthSettings = this.$('btn-auth-settings');
+      if (btnAuthSettings) btnAuthSettings.addEventListener('click', function () {
+        self._settingsFromLogin = true; self.openSettings();
+      });
+      const btnAuthLb = this.$('btn-auth-leaderboard');
+      if (btnAuthLb) btnAuthLb.addEventListener('click', function () { self._lbFromAuth = true; self.showLeaderboard(); });
+      const btnAuthGuest = this.$('btn-auth-guest');
+      if (btnAuthGuest) btnAuthGuest.addEventListener('click', function () { self.app.playAsGuest(); });
+
+      // Title leaderboard button
+      const btnLb = this.$('btn-leaderboard');
+      if (btnLb) btnLb.addEventListener('click', function () { self.showLeaderboard(); });
+      const btnLbBack = this.$('btn-lb-back');
+      if (btnLbBack) btnLbBack.addEventListener('click', function () {
+        self.hideLeaderboard();
+        if (self._lbFromAuth) { self._lbFromAuth = false; self.showAuth(); }
+        else                    self.showTitle();
       });
 
       // Customize HUD: force-close ALL other overlays so the user can drag freely
@@ -143,92 +185,179 @@ DDI.UI = (function () {
       });
     }
 
-    // ---- Login / Profile picker ----
-    showLogin() {
+    // ---- Auth (Supabase) ----
+    showAuth() {
       this.modalOpen = true;
       this.$('modal-title').classList.add('hidden');
       this.$('modal-death').classList.add('hidden');
       this.$('modal-levelup').classList.add('hidden');
       this.$('modal-forge').classList.add('hidden');
       this.$('modal-settings').classList.add('hidden');
-      this.$('modal-login').classList.remove('hidden');
-      this.showNewProfileInput(false);
-      this.renderProfileList();
+      this.$('modal-leaderboard').classList.add('hidden');
+      this.$('modal-auth').classList.remove('hidden');
+      this.setAuthError('');
+      this.switchAuthTab('login');
     }
-    hideLogin() {
-      this.$('modal-login').classList.add('hidden');
+    hideAuth() {
+      this.$('modal-auth').classList.add('hidden');
       this.modalOpen = false;
     }
-    renderProfileList() {
-      const list = this.$('profile-list');
-      list.innerHTML = '';
-      const profiles = DDI.save.listProfiles();
-      const self = this;
-      if (profiles.length === 0) {
-        const empty = document.createElement('div');
-        empty.className = 'profile-empty';
-        empty.textContent = 'No delvers yet. Create one to begin.';
-        list.appendChild(empty);
-        // auto-show name input for first user
-        this.showNewProfileInput(true);
-        return;
-      }
-      profiles.forEach(function (p) {
-        const card = document.createElement('button');
-        card.className = 'profile-card';
-        card.type = 'button';
-        const initial = (p.name || '?')[0].toUpperCase();
-        card.innerHTML =
-          '<div class="crest">' + initial + '</div>' +
-          '<div class="meta">' +
-            '<div class="name">' + p.name + '</div>' +
-            '<div class="stats">FLOOR ' + (p.bestFloor || 1) + ' · ' + shortNum(p.dust || 0) + ' DUST</div>' +
-          '</div>' +
-          '<button class="del" type="button" title="Delete">✕</button>';
-        const delBtn = card.querySelector('.del');
-        if (delBtn) delBtn.addEventListener('click', function (e) {
-          e.preventDefault(); e.stopPropagation();
-          if (confirm('Delete delver "' + p.name + '"? This is permanent.')) {
-            DDI.save.deleteProfile(p.id);
-            self.renderProfileList();
-          }
-        });
-        card.addEventListener('click', function () {
-          if (DDI.save.selectProfile(p.id)) {
-            self.app.save = DDI.save.load();
-            self.hideLogin();
-            self.showTitle();
-          }
-        });
-        list.appendChild(card);
-      });
+    // Legacy alias — keep showLogin/hideLogin pointing at the new flow so
+    // older call sites (`showLogin()` from settings, etc.) keep working.
+    showLogin() { return this.showAuth(); }
+    hideLogin() { return this.hideAuth(); }
+    switchAuthTab(which) {
+      const isSignup = (which === 'signup');
+      this.$('auth-tab-login') .classList.toggle('active', !isSignup);
+      this.$('auth-tab-signup').classList.toggle('active',  isSignup);
+      this.$('auth-form-login') .classList.toggle('hidden',  isSignup);
+      this.$('auth-form-signup').classList.toggle('hidden', !isSignup);
+      this.setAuthError('');
     }
-    showNewProfileInput(show) {
-      const row = this.$('new-profile-row');
-      const newBtn = this.$('btn-new-profile');
-      if (show) {
-        row.classList.remove('hidden');
-        if (newBtn) newBtn.classList.add('hidden');
-        const inp = this.$('new-profile-name');
-        if (inp) { inp.value = ''; setTimeout(function () { inp.focus(); }, 50); }
-      } else {
-        row.classList.add('hidden');
-        if (newBtn) newBtn.classList.remove('hidden');
-      }
+    setAuthError(msg, kind) {
+      const el = this.$('auth-error');
+      if (!el) return;
+      el.textContent = msg || '';
+      el.classList.toggle('success', kind === 'success');
+      el.classList.toggle('info',    kind === 'info');
     }
-    createProfileSubmit() {
-      const inp = this.$('new-profile-name');
-      const name = (inp && inp.value || '').trim();
-      if (!name) { inp && inp.focus(); return; }
-      DDI.save.createProfile(name);
-      this.app.save = DDI.save.load();
-      this.hideLogin();
+    async submitLogin() {
+      this.setAuthError('');
+      const email = (this.$('login-email').value || '').trim();
+      const pw    =  this.$('login-password').value || '';
+      if (!email || !pw) { this.setAuthError('Email and password required'); return; }
+      this.setAuthError('Logging in…', 'info');
+      const { data, error } = await DDI.auth.signIn(email, pw);
+      if (error) { this.setAuthError(error.message || 'Login failed'); return; }
+      await this.app.onAuthChanged();
+      this.hideAuth();
       this.showTitle();
     }
-    switchProfile() {
-      // Logout and return to login screen
-      DDI.save.logout();
-      this.showLogin();
+    async submitSignup() {
+      this.setAuthError('');
+      const name  = (this.$('signup-name') .value || '').trim();
+      const email = (this.$('signup-email').value || '').trim();
+      const pw    =  this.$('signup-password').value || '';
+      if (!name || !email || !pw) { this.setAuthError('All fields required'); return; }
+      this.setAuthError('Creating account…', 'info');
+      const { data, error } = await DDI.auth.signUp(email, pw, name);
+      if (error) { this.setAuthError(error.message || 'Signup failed'); return; }
+      // If email confirmation is OFF in Supabase, we're auto-signed-in → drop into the game.
+      if (data && data.session) {
+        this.setAuthError('✓ Account created — entering the dungeon…', 'success');
+        // Brief pause so the success flashes before we hide the modal
+        const self = this;
+        setTimeout(async function () {
+          await self.app.onAuthChanged();
+          self.hideAuth();
+          self.showTitle();
+        }, 700);
+      } else {
+        // Email confirmation required — surface a strong success state, then bounce them to login
+        this.switchAuthTab('login');
+        // Pre-fill the email so they don't re-type
+        const loginEmail = this.$('login-email');
+        if (loginEmail) loginEmail.value = email;
+        this.setAuthError('✓ Account created! Check ' + email + ' for a confirmation link, then log in here.', 'success');
+      }
+    }
+    async submitForgot() {
+      const email = (this.$('login-email').value || '').trim();
+      if (!email) { this.setAuthError('Enter your email above first'); return; }
+      this.setAuthError('Sending reset email…', 'info');
+      const { error } = await DDI.auth.sendPasswordReset(email);
+      if (error) { this.setAuthError(error.message || 'Failed to send'); return; }
+      this.setAuthError('✓ Reset link sent — check ' + email + '.', 'success');
+    }
+    async signOutFromTitle() {
+      // Guests just bounce back to the auth screen — no Supabase call needed
+      if (this.app.isGuest) {
+        this.app.isGuest = false;
+        this.app.save = null;
+        this.$('modal-title').classList.add('hidden');
+        this.showAuth();
+        return;
+      }
+      if (DDI.auth && DDI.auth.signOut) await DDI.auth.signOut();
+      this.app.save = null;
+      this.$('modal-title').classList.add('hidden');
+      this.showAuth();
+    }
+    switchProfile() { return this.signOutFromTitle(); }   // legacy alias
+
+    // ---- Leaderboard ----
+    showLeaderboard() {
+      this.modalOpen = true;
+      this.$('modal-title').classList.add('hidden');
+      this.$('modal-auth').classList.add('hidden');
+      this.$('modal-leaderboard').classList.remove('hidden');
+      this._lbSort = this._lbSort || 'act';
+      this.refreshLeaderboardTabs();
+      this.refreshLeaderboard();
+    }
+    hideLeaderboard() {
+      this.$('modal-leaderboard').classList.add('hidden');
+      this.modalOpen = false;
+    }
+    refreshLeaderboardTabs() {
+      const self = this;
+      const tabs = this.$('modal-leaderboard').querySelectorAll('.lb-tab');
+      tabs.forEach(function (t) {
+        const isActive = t.getAttribute('data-sort') === self._lbSort;
+        t.classList.toggle('active', isActive);
+        if (!t._wired) {
+          t._wired = true;
+          t.addEventListener('click', function () {
+            self._lbSort = t.getAttribute('data-sort');
+            self.refreshLeaderboardTabs();
+            self.refreshLeaderboard();
+          });
+        }
+      });
+    }
+    async refreshLeaderboard() {
+      const list = this.$('lb-list');
+      list.innerHTML = '<div class="lb-loading">Loading…</div>';
+      const rows = await DDI.auth.fetchLeaderboard(this._lbSort, 25);
+      const me = (DDI.auth.user && DDI.auth.user()) || null;
+      const myId = me && me.id;
+      if (!rows.length) {
+        list.innerHTML = '<div class="lb-empty">No runs yet — be the first.</div>';
+        return;
+      }
+      const sort = this._lbSort;
+      list.innerHTML = '';
+      rows.forEach(function (r, i) {
+        const rank = i + 1;
+        const rankCls = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
+        const isMe = (r.user_id === myId);
+        const name = (r.display_name || 'Delver').replace(/[<>&]/g, '');
+        let primary, secondary;
+        if (sort === 'floor') {
+          primary   = '<span class="label">FLOOR</span> <b>' + r.best_floor + '</b>';
+          secondary = '<span class="label">DUST</span> <b>' + shortNum(r.total_dust) + '</b>';
+        } else if (sort === 'dust') {
+          primary   = '<span class="label">DUST</span> <b>' + shortNum(r.total_dust) + '</b>';
+          secondary = '<span class="label">ACT</span> <b>' + r.best_act + '</b>';
+        } else if (sort === 'time') {
+          const t = (r.act1_clear_seconds == null) ? '—' : fmtTime(r.act1_clear_seconds);
+          primary   = '<span class="label">ACT 1</span> <b>' + t + '</b>';
+          secondary = '<span class="label">ACT</span> <b>' + r.best_act + '</b>';
+        } else {
+          primary   = '<span class="label">ACT</span> <b>'   + r.best_act   + '</b>';
+          secondary = '<span class="label">FLOOR</span> <b>' + r.best_floor + '</b>';
+        }
+        const tertiary = '<span class="label">DUST</span> <b>' + shortNum(r.total_dust) + '</b>';
+        const row = document.createElement('div');
+        row.className = 'lb-row' + (isMe ? ' me' : '');
+        row.innerHTML =
+          '<div class="rank ' + rankCls + '">#' + rank + '</div>' +
+          '<div class="name">' + name + '</div>' +
+          '<div class="stat">' + primary   + '</div>' +
+          '<div class="stat">' + secondary + '</div>' +
+          '<div class="stat">' + (sort === 'dust' ? '' : tertiary) + '</div>';
+        list.appendChild(row);
+      });
     }
 
     // ---- Tutorial ----
@@ -310,6 +439,71 @@ DDI.UI = (function () {
       this.$('modal-tutorial').classList.add('hidden');
       this.modalOpen = false;
       this.showTitle();
+    }
+
+    // ---- Act Complete (post-act-boss intermission menu) ----
+    showActComplete(actNum) {
+      const a = this.app;
+      this.modalOpen = true;
+      const m = this.$('modal-act-complete');
+      m.classList.remove('hidden');
+      const next = (actNum || 1) + 1;
+      this.$('act-complete-title').textContent = '★  ACT ' + (actNum || 1) + ' COMPLETE  ★';
+      this.$('act-complete-sub').textContent = 'The act boss has fallen. The realm shifts beneath your feet.';
+      this.$('act-complete-summary').innerHTML =
+        '<div class="row"><span>Time</span><span class="v">' + fmtTime(a.game.time) + '</span></div>' +
+        '<div class="row"><span>Hero Level</span><span class="v">' + a.game.level + '</span></div>' +
+        '<div class="row"><span>Kills</span><span class="v">' + a.game.kills + '</span></div>' +
+        '<div class="row"><span>Bosses Slain</span><span class="v">' + a.game.bosses + '</span></div>' +
+        '<div class="row"><span>Gold</span><span class="v gold">' + shortNum(a.game.gold) + '</span></div>' +
+        '<div class="row"><span>Soul Dust</span><span class="v dust">' + shortNum(a.save.dust) + '</span></div>';
+      const btnCont = this.$('btn-act-continue');
+      if (btnCont) btnCont.textContent = 'ENTER ACT ' + next;
+      const self = this;
+      const btnForge = this.$('btn-act-forge');
+      const btnSet = this.$('btn-act-settings');
+      const btnMenu = this.$('btn-act-menu');
+      if (btnCont && !btnCont._wired) {
+        btnCont._wired = true;
+        btnCont.addEventListener('click', function () {
+          self.hideActComplete();
+          self.app.continueToNextAct();
+        });
+      }
+      if (btnForge && !btnForge._wired) {
+        btnForge._wired = true;
+        btnForge.addEventListener('click', function () {
+          self.$('modal-act-complete').classList.add('hidden');
+          self._forgeFromActComplete = true;
+          self.openForge();
+        });
+      }
+      if (btnSet && !btnSet._wired) {
+        btnSet._wired = true;
+        btnSet.addEventListener('click', function () {
+          self.$('modal-act-complete').classList.add('hidden');
+          self._settingsFromActComplete = true;
+          self.openSettings();
+        });
+      }
+      if (btnMenu && !btnMenu._wired) {
+        btnMenu._wired = true;
+        btnMenu.addEventListener('click', function () {
+          self.hideActComplete();
+          // End the run cleanly so dust/best-floor/etc. lock in, then bounce to title
+          self.app.endRun(true);
+          // Skip the death modal — go straight to title
+          setTimeout(function () {
+            self.$('modal-death').classList.add('hidden');
+            self.modalOpen = false;
+            self.showTitle();
+          }, 100);
+        });
+      }
+    }
+    hideActComplete() {
+      this.$('modal-act-complete').classList.add('hidden');
+      this.modalOpen = false;
     }
 
     // ---- Zone Exit button (non-blocking — appears after zone clear) ----
@@ -395,6 +589,7 @@ DDI.UI = (function () {
     // ---- Forge ----
     openForge() {
       this.$('modal-title').classList.add('hidden');
+      this.$('modal-act-complete').classList.add('hidden');
       this.$('modal-forge').classList.remove('hidden');
       this.renderForge();
     }
@@ -407,6 +602,12 @@ DDI.UI = (function () {
         this.app.returnToMain();
         return;
       }
+      // If we came here from the act-complete intermission, return to it
+      if (this._forgeFromActComplete) {
+        this._forgeFromActComplete = false;
+        this.showActComplete(this.app.game.act || 1);
+        return;
+      }
       this.$('modal-title').classList.remove('hidden');
       this.showTitle();
     }
@@ -417,12 +618,19 @@ DDI.UI = (function () {
       const cost = DDI.data.metaUpgradeCost;
       this.$('forge-dust').textContent = shortNum(a.save.dust);
       const goldEl = this.$('forge-gold');
-      if (goldEl) goldEl.textContent = (a.game && a.game.gold) ? shortNum(a.game.gold) + ' gold' : '0 gold';
+      const goldNow = (a.game && a.game.gold) || 0;
+      if (goldEl) goldEl.textContent = goldNow ? shortNum(goldNow) + ' gold' : '0 gold';
       const burnBtn = this.$('btn-burn-gold');
-      if (burnBtn && !burnBtn._wired) {
-        burnBtn._wired = true;
-        const self2 = this;
-        burnBtn.addEventListener('click', function () { self2.burnGoldForDust(); });
+      if (burnBtn) {
+        // Show the dust the player would get for burning their full gold pile (80 gold = 1 dust)
+        const projectedDust = Math.floor(goldNow / 80);
+        burnBtn.innerHTML = 'BURN GOLD → <b>' + shortNum(projectedDust) + '</b> DUST';
+        burnBtn.disabled = projectedDust <= 0;
+        if (!burnBtn._wired) {
+          burnBtn._wired = true;
+          const self2 = this;
+          burnBtn.addEventListener('click', function () { self2.burnGoldForDust(); });
+        }
       }
       const grid = this.$('forge-grid');
       grid.innerHTML = '';
@@ -564,6 +772,7 @@ DDI.UI = (function () {
     openSettings() {
       this.$('modal-title').classList.add('hidden');
       this.$('modal-login').classList.add('hidden');
+      this.$('modal-act-complete').classList.add('hidden');
       this.$('modal-settings').classList.remove('hidden');
       const s = (this.app.save && this.app.save.settings) || {};
       this.$('set-sound').checked = !!s.sound;
@@ -584,8 +793,12 @@ DDI.UI = (function () {
     }
     closeSettings() {
       this.$('modal-settings').classList.add('hidden');
-      // Routing: pause-flow → pause modal, login-flow → login modal, otherwise → title
-      if (this.pauseOpen || this.app.game.running) {
+      // Routing in priority order: act-complete → ACT modal, login → login modal,
+      // pause/in-run → pause modal, otherwise → title
+      if (this._settingsFromActComplete) {
+        this._settingsFromActComplete = false;
+        this.showActComplete(this.app.game.act || 1);
+      } else if (this.pauseOpen || this.app.game.running) {
         this.$('modal-pause').classList.remove('hidden');
       } else if (this._settingsFromLogin) {
         this._settingsFromLogin = false;
@@ -680,16 +893,19 @@ DDI.UI = (function () {
         stEl.classList.toggle('empty', stPct <= 0.02);
       }
 
-      // Zone progress (only visible inside biome zones) — separate kill + shard bars
+      // Zone progress (only visible inside biome zones) — separate kill + shard bars.
+      // Once the boss is up, hide these so the boss HP bar isn't overlapped.
       const zoneWrap = this.$('zone-progress-wrap');
       if (zoneWrap) {
-        if (a.zone && a.zone.name !== 'main' && a.zone.killsNeeded > 0) {
+        const inZone = a.zone && a.zone.name !== 'main' && a.zone.killsNeeded > 0;
+        const bossUp = a.zone && (a.zone.finalEliteSpawned || a.zone.fadeOutBegan);
+        if (inZone && !bossUp) {
           zoneWrap.classList.remove('hidden');
           this.$('zone-progress-name').textContent = a.zone.displayName || 'ZONE';
-          const kCur = a.zone.killsInZone || 0;
           const kNeed = a.zone.killsNeeded;
-          const sCur = a.zone.itemsCollected || 0;
+          const kCur = Math.min(kNeed, a.zone.killsInZone || 0);
           const sNeed = a.zone.itemsTotal || 0;
+          const sCur = Math.min(sNeed, a.zone.itemsCollected || 0);
           const kPct = clamp(kCur / Math.max(1, kNeed), 0, 1);
           const sPct = clamp(sCur / Math.max(1, sNeed), 0, 1);
           const kFill = zoneWrap.querySelector('.zp-fill-kills');

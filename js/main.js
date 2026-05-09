@@ -56,14 +56,58 @@
       await preload();
       if (DDI.hudedit && DDI.hudedit.init) DDI.hudedit.init(this);
       if (DDI.minimap && DDI.minimap.init) DDI.minimap.init(this);
-      // If a profile is already active, go straight to title; otherwise show login.
-      if (this.save) {
+      // Bring up Supabase auth.  If we have a stored session, hydrate save from
+      // the server and show title; otherwise show the login/signup modal.
+      if (DDI.auth && DDI.auth.init) DDI.auth.init();
+      if (DDI.auth && DDI.auth.getSession) {
+        const session = await DDI.auth.getSession();
+        if (session) {
+          await this.onAuthChanged();
+          this.ui.showTitle();
+        } else {
+          this.ui.showAuth();
+        }
+      } else if (this.save) {
         this.ui.showTitle();
       } else {
-        this.ui.showLogin();
+        this.ui.showAuth();
       }
       const self = this;
       requestAnimationFrame(function (t) { self.loop(t); });
+    }
+
+    // Local-only play — no Supabase calls, no leaderboard, save lives in localStorage.
+    playAsGuest() {
+      this.isGuest = true;
+      this.save = (DDI.save && DDI.save.load) ? DDI.save.load() : null;
+      if (!this.save) {
+        // Bootstrap a default profile so the rest of the code that expects save fields works.
+        if (DDI.save && DDI.save.createProfile) {
+          DDI.save.createProfile('Guest');
+          this.save = DDI.save.load();
+        }
+      }
+      if (this.ui && this.ui.hideAuth) this.ui.hideAuth();
+      if (this.ui && this.ui.showTitle) this.ui.showTitle();
+    }
+
+    // Called after sign-in/sign-up — pulls server save (if any) into this.save
+    // and starts mirroring local writes to Supabase.
+    async onAuthChanged() {
+      this.isGuest = false;
+      if (!DDI.auth) return;
+      await DDI.auth.ensureProfile();
+      const remote = await DDI.auth.loadSave();
+      if (remote && remote.save_data && Object.keys(remote.save_data).length > 0) {
+        // Merge over defaults so newly added fields don't break old saves
+        const defaults = (DDI.save && DDI.save.load) ? DDI.save.load() : {};
+        this.save = Object.assign({}, defaults || {}, remote.save_data);
+      } else {
+        // First login on this account → use local default save
+        this.save = (DDI.save && DDI.save.load) ? DDI.save.load() : null;
+        if (!this.save) this.save = {};
+      }
+      this.persist();
     }
 
     startRun() {
@@ -137,6 +181,7 @@
       if (this.game.level > this.save.bestLevel) this.save.bestLevel = this.game.level;
       if (this.game.floor > this.save.bestFloor) this.save.bestFloor = this.game.floor;
       this.persist();
+      this.submitLeaderboard({});
       const self = this;
       setTimeout(function () {
         self.ui.showDeath({
@@ -153,7 +198,26 @@
       }, 500);
     }
 
-    persist() { if (this.save) DDI.save.write(this.save); }
+    persist() {
+      if (!this.save) return;
+      if (DDI.save && DDI.save.write) DDI.save.write(this.save);    // local cache
+      if (this.isGuest) return;                                       // guests don't sync
+      if (DDI.auth && DDI.auth.saveSave) DDI.auth.saveSave(this.save); // throttled remote sync
+    }
+
+    // Push the player's best stats to the leaderboard (idempotent — server keeps
+    // the higher value).  Called at end of run and when a new act is reached.
+    submitLeaderboard(extras) {
+      if (this.isGuest) return;
+      if (!DDI.auth || !DDI.auth.submitScore) return;
+      const stats = {
+        bestFloor:         (this.save && this.save.bestFloor) || 1,
+        bestAct:           (this.save && this.save.bestAct)   || 1,
+        totalDust:         (this.save && this.save.dust)      || 0,
+        act1ClearSeconds:  (extras && extras.act1ClearSeconds) || (this.save && this.save.act1ClearSeconds) || null,
+      };
+      DDI.auth.submitScore(stats);
+    }
 
     // Spend 1,000 dust to come back from death — one revive per run.
     revive() {
@@ -1109,7 +1173,26 @@
     }
 
     // Called when the act boss is killed — bumps the act, resets seal-state, ramps difficulty.
+    // Called from Combat after the act boss dies.  Pauses the run and surfaces
+    // the ACT COMPLETE intermission menu (Continue / Forge / Settings / Main Menu).
     advanceAct() {
+      this.game.actBossActive = null;
+      this.game.pendingActBoss = false;
+      this.ui.hideBoss();
+      this.fx.flash('#ffe14d', 0.85);
+      this.fx.shake(34);
+      const cx = this.hero.x, cy = this.hero.y;
+      this.particles.spawn({ x: cx, y: cy, life: 0.6, size: 320, color: '#ffe14d', kind: 'ring', fade: 1 });
+      this.particles.spawn({ x: cx, y: cy, life: 1.0, size: 540, color: '#ff7b1f', kind: 'ring', fade: 1 });
+      this.game.paused = true;
+      const self = this;
+      setTimeout(function () {
+        if (self.ui && self.ui.showActComplete) self.ui.showActComplete(self.game.act || 1);
+      }, 700);
+    }
+
+    // Called from the ACT COMPLETE menu's CONTINUE button — actually advance the act.
+    continueToNextAct() {
       const prev = this.game.act || 1;
       this.game.act = prev + 1;
       this.game.zonesCleared = {};
@@ -1117,21 +1200,21 @@
       this.game.pendingActBoss = false;
       // Big difficulty jump for the new act
       this.runDifficulty = (this.runDifficulty || 1) + 1.0;
-      // Persist best-act for forge unlock gates later
+      // Persist best-act + first-act-1-clear time for the leaderboard
       if (this.save) {
         if ((this.save.bestAct || 1) < this.game.act) this.save.bestAct = this.game.act;
+        // Record act-1 clear time once (the very first time the player reaches act 2+)
+        if (prev === 1 && (this.save.act1ClearSeconds == null || this.game.time < this.save.act1ClearSeconds)) {
+          this.save.act1ClearSeconds = Math.floor(this.game.time);
+        }
         this.persist();
+        this.submitLeaderboard({});
       }
       // Regenerate main features so the now-unsealed portals reset
       if (this.zone && this.zone.name === 'main') this.generateFeatures('main');
       this.fx.toast('★  ACT ' + this.game.act + ' BEGINS  ★');
-      this.fx.flash('#ffe14d', 0.85);
-      this.fx.shake(34);
-      // Sky-burst rings
-      const cx = this.hero.x, cy = this.hero.y;
-      this.particles.spawn({ x: cx, y: cy, life: 0.6, size: 320, color: '#ffe14d', kind: 'ring', fade: 1 });
-      this.particles.spawn({ x: cx, y: cy, life: 1.0, size: 540, color: '#ff7b1f', kind: 'ring', fade: 1 });
-      this.ui.hideBoss();
+      this.fx.flash('#ffe14d', 0.6);
+      this.game.paused = false;
     }
 
     getDifficultyMult() {

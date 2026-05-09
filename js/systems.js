@@ -77,8 +77,9 @@ DDI.systems = (function () {
     },
 
     spawnOne: function (app, diff) {
-      // No spawn cap — mobs keep coming inside tele zones. Stop once the boss transition begins.
+      // Stop spawning once the boss transition has begun, OR once the zone's kill quota is met
       if (app.zone && app.zone.fadeOutBegan) return;
+      if (app.zone && app.zone.name !== 'main' && (app.zone.killsInZone || 0) >= (app.zone.killsNeeded || 0)) return;
       let pool;
       if (app.zoneTheme && app.zoneTheme.enemyPool) {
         pool = app.zoneTheme.enemyPool;
@@ -558,7 +559,7 @@ DDI.systems = (function () {
   // ---------- LEVELING ----------
   const Leveling = {
     xpForLevel: function (level) {
-      return Math.floor(10 + level * 6.5 + Math.pow(level, 1.5) * 1.4);
+      return Math.floor(11 + level * 7 + Math.pow(level, 1.5) * 1.5);
     },
     gainXp: function (app, amount) {
       const adj = amount * app.hero.xpMult;
