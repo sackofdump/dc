@@ -484,6 +484,42 @@ DDI.data = (function () {
          cursed: ['boss_archmage','boss_voidweaver'], cosmic: ['boss_voidweaver','boss_lich'] },
   };
 
+  // ============================================================
+  // TELE-ZONE OBJECTIVES — random per portal entry, gates the boss spawn.
+  // Each objective has its own progress + win-check + UI label.
+  // ============================================================
+  const OBJECTIVES = {
+    standard: {
+      id: 'standard', name: 'PURGE THE ZONE',
+      desc: 'Slay 75 mobs and gather 10 cursed shards.',
+    },
+    survival: {
+      id: 'survival', name: 'SURVIVE THE ONSLAUGHT',
+      desc: 'Endure 60 seconds against escalating waves.',
+      durationSeconds: 60,
+    },
+    bounty: {
+      id: 'bounty', name: 'BOUNTY HUNT',
+      desc: 'Three named elites are hiding in this zone — kill them all.',
+      targets: 3,
+    },
+    defend: {
+      id: 'defend', name: 'DEFEND THE TOTEM',
+      desc: 'Protect the totem at the heart of the zone — it cannot move.',
+      totemHp: 1000,
+    },
+    ritual: {
+      id: 'ritual', name: 'BREAK THE RITUAL',
+      desc: 'Stand in each ritual circle to cleanse it. Three to break.',
+      circles: 3,
+      chargePerSecond: 12,    // % charge gained per second standing inside
+    },
+  };
+  const OBJECTIVE_KEYS = ['standard', 'survival', 'bounty', 'defend', 'ritual'];
+  function pickObjective() {
+    return OBJECTIVE_KEYS[Math.floor(Math.random() * OBJECTIVE_KEYS.length)];
+  }
+
   // Per-act final act-boss (the one in main zone after all 4 portals cleared)
   const ACT_BOSS_FINAL = {
     1: 'boss_warden',
@@ -904,8 +940,8 @@ DDI.data = (function () {
   ABILITIES.leapSlam = {
     id: 'leapSlam', name: 'Leap Slam', icon: '⬇️', element: 'physical', color: '#ff7b1f',
     desc: 'Hurls yourself at a foe — bone-shattering crash on landing.',
-    type: 'meteor', maxLevel: 8,
-    base: { cooldown: 3.5, damage: 70, count: 1, area: 90 },
+    type: 'leap', maxLevel: 8,
+    base: { cooldown: 3.5, damage: 70, count: 1, area: 90, range: 480 },
     scale: function (lvl, b) {
       return Object.assign({}, b, {
         damage: b.damage * (1 + 0.22 * lvl),
@@ -1252,5 +1288,6 @@ DDI.data = (function () {
   return { RARITY, HERO_BASE, ABILITIES, UPGRADES, ENEMIES, BIOMES, STARTER_ABILITY,
            CLASSES, META_UPGRADES, metaUpgradeCost, applyMetaUpgrades, ULTS, ZONE_THEMES,
            ACT_THEMES, ACT_ZONE_BOSSES, ACT_BOSS_FINAL, actTheme, actZoneBoss, actFinalBoss,
+           OBJECTIVES, OBJECTIVE_KEYS, pickObjective,
            accountXpForRank, accountRankFromXp, accountXpForRunStats };
 })();

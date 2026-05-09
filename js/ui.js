@@ -693,6 +693,16 @@ DDI.UI = (function () {
       this.modalOpen = false;
     }
 
+    // ---- Objective banner — quick FX toast pair on zone entry ----
+    showObjectiveBanner(name, desc) {
+      // Re-uses fx.toast for now — short lived, low-friction.  Could be promoted
+      // to a proper centered banner element later.
+      if (this.app && this.app.fx && desc) {
+        const self = this;
+        setTimeout(function () { self.app.fx.toast(desc); }, 350);
+      }
+    }
+
     // ---- Act Proceed button (after act boss slain — let player loot first) ----
     showActProceedButton() {
       const btn = this.$('btn-act-proceed');
@@ -983,7 +993,11 @@ DDI.UI = (function () {
       const c = this.$('modal-character');     if (c) c.classList.add('hidden');
       const ac = this.$('modal-act-complete'); if (ac) ac.classList.add('hidden');
       // Settings opened mid-run pauses the simulation so enemies/spawns freeze.
-      if (this.app && this.app.game && this.app.game.running) this.app.game.paused = true;
+      const inRun = !!(this.app && this.app.game && this.app.game.running);
+      if (inRun) this.app.game.paused = true;
+      // Customize HUD only makes sense while a run is live (you need to see your HUD).
+      const customBtn = this.$('btn-customize-hud');
+      if (customBtn) customBtn.style.display = inRun ? '' : 'none';
       this.$('modal-settings').classList.remove('hidden');
       const s = (this.app.save && this.app.save.settings) || {};
       this.$('set-sound').checked = !!s.sound;
@@ -1104,8 +1118,8 @@ DDI.UI = (function () {
         stEl.classList.toggle('empty', stPct <= 0.02);
       }
 
-      // Zone progress (only visible inside biome zones) — separate kill + shard bars.
-      // Once the boss is up, hide these so the boss HP bar isn't overlapped.
+      // Zone progress (only visible inside biome zones) — bars adapt to the
+      // randomized zone objective (standard, survival, bounty, defend, ritual).
       const zoneWrap = this.$('zone-progress-wrap');
       if (zoneWrap) {
         const inZone = a.zone && a.zone.name !== 'main' && a.zone.killsNeeded > 0;
@@ -1113,20 +1127,66 @@ DDI.UI = (function () {
         if (inZone && !bossUp) {
           zoneWrap.classList.remove('hidden');
           this.$('zone-progress-name').textContent = a.zone.displayName || 'ZONE';
-          const kNeed = a.zone.killsNeeded;
-          const kCur = Math.min(kNeed, a.zone.killsInZone || 0);
-          const sNeed = a.zone.itemsTotal || 0;
-          const sCur = Math.min(sNeed, a.zone.itemsCollected || 0);
-          const kPct = clamp(kCur / Math.max(1, kNeed), 0, 1);
-          const sPct = clamp(sCur / Math.max(1, sNeed), 0, 1);
           const kFill = zoneWrap.querySelector('.zp-fill-kills');
           const sFill = zoneWrap.querySelector('.zp-fill-shards');
           const kText = zoneWrap.querySelector('.zp-text-kills');
           const sText = zoneWrap.querySelector('.zp-text-shards');
-          if (kFill) kFill.style.width = (kPct * 100).toFixed(1) + '%';
-          if (sFill) sFill.style.width = (sPct * 100).toFixed(1) + '%';
-          if (kText) kText.textContent = kCur + ' / ' + kNeed;
-          if (sText) sText.textContent = sCur + ' / ' + sNeed;
+          const kIcon = zoneWrap.querySelector('.zp-icon.zp-kills');
+          const sIcon = zoneWrap.querySelector('.zp-icon.zp-shards');
+          const sRow  = sIcon && sIcon.parentElement;
+          const obj = a.zone.objective || 'standard';
+          // Default visibility for the second row — most objectives use both rows
+          if (sRow) sRow.style.display = '';
+          if (obj === 'survival' || obj === 'defend') {
+            // Single TIME bar; hide the second row
+            if (sRow) sRow.style.display = 'none';
+            if (kIcon) kIcon.textContent = '⏱';
+            const total = (a.zone.objectiveDef && a.zone.objectiveDef.durationSeconds) || 60;
+            const left = Math.max(0, Math.ceil(a.zone.survivalT || 0));
+            const pct = clamp(1 - left / Math.max(1, total), 0, 1);
+            if (kFill) kFill.style.width = (pct * 100).toFixed(1) + '%';
+            if (kText) kText.textContent = (obj === 'defend' ? 'DEFEND ' : 'SURVIVE ') +
+              (Math.floor(left / 60)) + ':' + String(left % 60).padStart(2, '0');
+          } else if (obj === 'bounty') {
+            if (kIcon) kIcon.textContent = '⚔';
+            if (sIcon) sIcon.textContent = '☠';
+            const need = a.zone.bountyTotal || 3;
+            const cur  = Math.min(need, a.zone.bountyKilled || 0);
+            if (kFill) kFill.style.width = ((cur / Math.max(1, need)) * 100).toFixed(1) + '%';
+            if (kText) kText.textContent = 'BOUNTIES ' + cur + ' / ' + need;
+            // Second row stays as kills counter (decorative, no win-gate)
+            const kn = (a.zone.killsInZone || 0);
+            if (sFill) sFill.style.width = Math.min(100, (kn / 100) * 100).toFixed(1) + '%';
+            if (sText) sText.textContent = kn + ' kills';
+          } else if (obj === 'ritual') {
+            if (kIcon) kIcon.textContent = '◯';
+            if (sIcon) sIcon.textContent = '☠';
+            const need = (a.zone.ritualCircles && a.zone.ritualCircles.length) || 3;
+            const cur  = a.zone.ritualDone || 0;
+            // Sum partial charges into the bar so it grows continuously
+            let partial = 0;
+            if (a.zone.ritualCircles) {
+              a.zone.ritualCircles.forEach(function (c) { partial += (c.charge || 0); });
+              partial = partial / (need * 100);
+            }
+            if (kFill) kFill.style.width = ((partial) * 100).toFixed(1) + '%';
+            if (kText) kText.textContent = 'CIRCLES ' + cur + ' / ' + need;
+            const kn = (a.zone.killsInZone || 0);
+            if (sFill) sFill.style.width = Math.min(100, (kn / 100) * 100).toFixed(1) + '%';
+            if (sText) sText.textContent = kn + ' kills';
+          } else {
+            // standard: kills + shards (existing)
+            if (kIcon) kIcon.textContent = '☠';
+            if (sIcon) sIcon.textContent = '◆';
+            const kNeed = a.zone.killsNeeded;
+            const kCur = Math.min(kNeed, a.zone.killsInZone || 0);
+            const sNeed = a.zone.itemsTotal || 0;
+            const sCur = Math.min(sNeed, a.zone.itemsCollected || 0);
+            if (kFill) kFill.style.width = ((kCur / Math.max(1, kNeed)) * 100).toFixed(1) + '%';
+            if (sFill) sFill.style.width = ((sCur / Math.max(1, sNeed)) * 100).toFixed(1) + '%';
+            if (kText) kText.textContent = kCur + ' / ' + kNeed;
+            if (sText) sText.textContent = sCur + ' / ' + sNeed;
+          }
           const status = this.$('zone-progress-status');
           if (status) status.textContent = a.zone.finalEliteSpawned ? '★ SLAY THE BOSS ★' : '';
         } else {

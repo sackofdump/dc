@@ -232,8 +232,103 @@ DDI.Renderer = (function () {
           this.drawSprintJuice(ctx, f, t);
         } else if (f.type === 'shard') {
           this.drawShardFeature(ctx, f, t);
+        } else if (f.type === 'totem') {
+          this.drawTotemFeature(ctx, f, t);
+        } else if (f.type === 'ritual_circle') {
+          this.drawRitualCircle(ctx, f, t);
         }
       }
+    }
+
+    drawTotemFeature(ctx, f, t) {
+      const pulse = 0.6 + Math.sin(t * 2.4) * 0.30;
+      // Aura
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const aura = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, 110);
+      aura.addColorStop(0, 'rgba(255,217,102,' + (0.45 * pulse) + ')');
+      aura.addColorStop(1, 'rgba(255,217,102,0)');
+      ctx.fillStyle = aura;
+      ctx.beginPath(); ctx.arc(f.x, f.y, 110, 0, TAU); ctx.fill();
+      ctx.restore();
+      // Pillar shadow
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.beginPath(); ctx.ellipse(f.x, f.y + 28, 28, 8, 0, 0, TAU); ctx.fill();
+      ctx.restore();
+      // Stone column
+      const w = 28, h = 60;
+      const x = f.x - w / 2, y = f.y - h * 0.8;
+      const grd = ctx.createLinearGradient(x, y, x, y + h);
+      grd.addColorStop(0, '#c9b8da');
+      grd.addColorStop(1, '#5a4670');
+      ctx.fillStyle = grd;
+      ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = '#1a0e2a'; ctx.lineWidth = 2;
+      ctx.strokeRect(x, y, w, h);
+      // Top cap
+      ctx.fillStyle = '#ffd966';
+      ctx.fillRect(x - 4, y - 8, w + 8, 8);
+      ctx.strokeStyle = '#7a5400'; ctx.lineWidth = 1;
+      ctx.strokeRect(x - 4, y - 8, w + 8, 8);
+      // Glowing rune
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.fillStyle = 'rgba(255,217,102,' + (0.85 * pulse) + ')';
+      ctx.font = 'bold 18px Cinzel, serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('ᛟ', f.x, y + h * 0.6);
+      ctx.restore();
+    }
+
+    drawRitualCircle(ctx, f, t) {
+      const c = f._data || { charge: 0, done: false };
+      const baseR = 90;
+      const pulse = 0.6 + Math.sin(t * 2.2) * 0.25;
+      // Floor sigil
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const aura = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, baseR);
+      const col = c.done ? 'rgba(109,255,155,' : 'rgba(178,102,255,';
+      aura.addColorStop(0, col + (0.40 * pulse) + ')');
+      aura.addColorStop(1, col + '0)');
+      ctx.fillStyle = aura;
+      ctx.beginPath(); ctx.arc(f.x, f.y, baseR, 0, TAU); ctx.fill();
+      ctx.restore();
+      // Outer ring
+      ctx.save();
+      ctx.strokeStyle = c.done ? '#6dff9b' : '#b266ff';
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(f.x, f.y, baseR, 0, TAU); ctx.stroke();
+      // Inner runes (rotating dashes)
+      ctx.strokeStyle = c.done ? 'rgba(109,255,155,0.8)' : 'rgba(178,102,255,0.8)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([12, 8]);
+      ctx.lineDashOffset = -t * 30;
+      ctx.beginPath(); ctx.arc(f.x, f.y, baseR - 12, 0, TAU); ctx.stroke();
+      ctx.lineDashOffset = t * 22;
+      ctx.beginPath(); ctx.arc(f.x, f.y, baseR - 28, 0, TAU); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+      // Charge pie — fills clockwise from top as the player channels
+      if (!c.done && c.charge > 0) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(178,102,255,0.30)';
+        ctx.beginPath();
+        ctx.moveTo(f.x, f.y);
+        const ang = -Math.PI / 2 + (c.charge / 100) * TAU;
+        ctx.arc(f.x, f.y, baseR - 6, -Math.PI / 2, ang);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+      // Charge text
+      ctx.save();
+      ctx.font = 'bold 12px monospace';
+      ctx.fillStyle = c.done ? '#6dff9b' : '#fff';
+      ctx.textAlign = 'center';
+      ctx.fillText(c.done ? 'CLEANSED' : Math.floor(c.charge || 0) + '%', f.x, f.y - baseR - 6);
+      ctx.restore();
     }
 
     drawShardFeature(ctx, f, t) {

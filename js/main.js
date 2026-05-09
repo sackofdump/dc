@@ -361,8 +361,9 @@
         return { type: 'trap', x, y, triggered: false, kind: 'trap' };
       });
 
-      // Tele-zone collectible shards — must collect ALL to complete the zone
-      if (!isMain) {
+      // Tele-zone collectible shards — only on the standard objective.
+      // Other objectives use timers, bounty kills, or ritual circles instead.
+      if (!isMain && (!this.zone || this.zone.objective === 'standard' || !this.zone.objective)) {
         const need = (this.zone && this.zone.itemsTotal) || 10;
         placeRandom(need, 260, function (x, y) {
           return { type: 'shard', x, y, used: false, kind: 'shard' };
@@ -462,6 +463,7 @@
         Combat.handleHeroContact(this, dt);
         this.updateLoot(dt);
         this.updateFeatures(dt);
+        this.updateZoneObjective(dt);
         Slaughter.tick(this, dt);
 
         // HP regen — discrete tick every 3s with a floating "+X HP" popup
@@ -510,6 +512,22 @@
 
     updateHero(dt) {
       const h = this.hero;
+      // Leap-Slam in progress: hero is airborne; arc to target and slam on landing.
+      if (h._leapT != null) {
+        h._leapT = Math.max(0, h._leapT - dt);
+        const total = h._leapDur || 0.45;
+        const t = 1 - h._leapT / total;        // 0 → 1
+        h.x = h._leapFromX + (h._leapToX - h._leapFromX) * t;
+        h.y = h._leapFromY + (h._leapToY - h._leapFromY) * t;
+        h.moving = false;
+        h.iframes = Math.max(h.iframes || 0, 0.05);
+        if (h._leapT <= 0) {
+          h.x = h._leapToX; h.y = h._leapToY;
+          h._leapT = null;
+          if (this._onLeapLand) { this._onLeapLand(); this._onLeapLand = null; }
+        }
+        return;
+      }
       const dx = this.input.dx, dy = this.input.dy;
       const mag = Math.hypot(dx, dy);
       h.moving = mag > 0.05;
@@ -1070,23 +1088,34 @@
 
     // Enter a biome zone — clear enemies, regen features without portals, set kill goal.
     enterZone(biome, displayName, color, requiredLevel) {
+      const D = DDI.data;
+      const objId = (D.pickObjective ? D.pickObjective() : 'standard');
+      const obj   = (D.OBJECTIVES && D.OBJECTIVES[objId]) || null;
       this.zone = {
         name: biome,
         displayName: displayName,
         color: color || '#b266ff',
         killsInZone: 0,
-        killsNeeded: 75,           // mob clear goal
-        totalSpawned: 0,           // hard cap on mobs spawned (matches killsNeeded)
+        killsNeeded: 75,
+        totalSpawned: 0,
         itemsCollected: 0,
-        itemsTotal: 10,            // shards scattered in the zone
+        itemsTotal: 10,
         finalElite: null,
         finalEliteSpawned: false,
+        // Objective-specific state
+        objective: objId,
+        objectiveDef: obj,
+        survivalT: (obj && obj.durationSeconds) ? obj.durationSeconds : 0,
+        bountyKilled: 0,
+        bountyTotal: (obj && obj.targets) || 0,
+        totemHp: (obj && obj.totemHp) || 0,
+        totemHpMax: (obj && obj.totemHp) || 0,
+        ritualCircles: [],     // [{x,y,charge:0..100,done}]
+        ritualDone: 0,
       };
       // Zone-difficulty scales with the portal's required level.
-      // Lv5 portal = 1.5x · Lv12 = 2.2x · Lv20 = 3.0x · Lv30 = 4.0x
       this.zoneDifficulty = 1 + ((requiredLevel || 5) * 0.10);
       this.zoneRequiredLevel = requiredLevel || 5;
-      // Apply biome theme (palette + enemy pool)
       this.zoneTheme = (DDI.data.ZONE_THEMES && DDI.data.ZONE_THEMES[biome]) || null;
       this.generateFeatures(biome);
       this.enemies.live.forEach(function (e) { e._alive = false; });
@@ -1094,10 +1123,62 @@
       Spawner.reset();
       this.hero.x = this.world.width / 2;
       this.hero.y = this.world.height / 2;
+      // Objective-specific setup (totem, bounty markers, etc.)
+      this.setupObjective();
       this.fx.toast('ENTER ' + displayName);
       this.fx.flash(color || '#b266ff', 0.5);
       this.fx.shake(10);
       this.particles.spawn({ x: this.hero.x, y: this.hero.y, life: 0.6, size: 220, color: color || '#b266ff', kind: 'ring', fade: 1 });
+      // Headline the objective so the player knows what's expected
+      const self = this;
+      setTimeout(function () {
+        const name = (obj && obj.name) || 'PURGE THE ZONE';
+        const desc = (obj && obj.desc) || '';
+        self.fx.toast('★  ' + name + '  ★');
+        if (self.ui && self.ui.showObjectiveBanner) self.ui.showObjectiveBanner(name, desc);
+      }, 600);
+    }
+
+    setupObjective() {
+      const z = this.zone;
+      const W = this.world.width, H = this.world.height;
+      const cx = W / 2, cy = H / 2;
+      if (!z) return;
+      if (z.objective === 'bounty') {
+        // Pre-spawn 3 named elite bounties scattered around the map
+        const ENEMIES = DDI.data.ENEMIES;
+        const elitePool = (this.zoneTheme && this.zoneTheme.elitePool) || ['elite_skel','elite_zombie','elite_slime'];
+        const names = ['THE WANDERING DREAD', 'OBSIDIAN MARAUDER', 'SHRIEKING REVENANT'];
+        const dm = this.getDifficultyMult();
+        for (let i = 0; i < z.bountyTotal; i++) {
+          const ang = (i / z.bountyTotal) * Math.PI * 2 + Math.random() * 0.6;
+          const dist = Math.min(W, H) * 0.32;
+          const x = Math.max(200, Math.min(W - 200, cx + Math.cos(ang) * dist + (Math.random() - 0.5) * 200));
+          const y = Math.max(200, Math.min(H - 200, cy + Math.sin(ang) * dist + (Math.random() - 0.5) * 200));
+          const id = elitePool[Math.floor(Math.random() * elitePool.length)];
+          const def = ENEMIES[id];
+          if (!def) continue;
+          const e = this.enemies.spawn(def, x, y, 2.0 * dm, 1.4 * dm);
+          e.level = (this.zoneRequiredLevel || 5) + 4;
+          e._bounty = true;
+          e._bountyName = names[i] || ('BOUNTY ' + (i + 1));
+        }
+      } else if (z.objective === 'defend') {
+        // Place a totem at zone center as a feature (renderer + collision will read this).
+        this.features.push({ type: 'totem', x: cx, y: cy, kind: 'totem' });
+      } else if (z.objective === 'ritual') {
+        // Place 3 ritual circles equidistant around the zone
+        const total = (z.objectiveDef && z.objectiveDef.circles) || 3;
+        for (let i = 0; i < total; i++) {
+          const ang = (i / total) * Math.PI * 2 + 0.2;
+          const dist = Math.min(W, H) * 0.30;
+          const x = cx + Math.cos(ang) * dist;
+          const y = cy + Math.sin(ang) * dist;
+          const c = { charge: 0, done: false, x, y };
+          z.ritualCircles.push(c);
+          this.features.push({ type: 'ritual_circle', x, y, kind: 'ritual_circle', _data: c });
+        }
+      }
     }
 
     // Called from Combat.killEnemy after each kill — checks zone progress.
@@ -1110,19 +1191,73 @@
         this.completeZone();
         return;
       }
+      // Bounty target kill counts separately
+      if (enemy && enemy._bounty) {
+        this.zone.bountyKilled = (this.zone.bountyKilled || 0) + 1;
+        this.fx.toast('★  ' + (enemy._bountyName || 'BOUNTY') + ' SLAIN  ★');
+        this.fx.flash('#ffd966', 0.4);
+      }
       this.zone.killsInZone = (this.zone.killsInZone || 0) + 1;
       this.checkZoneComplete();
     }
 
-    // Gate the zone: 75 kills + 10 shards collected → fade out remaining mobs, fade in the boss.
-    // The boss must then be defeated to complete the zone (handled in onZoneKill).
+    // Per-frame objective tick — handles timed objectives (survival/defend) and
+    // ritual circle channeling (which depends on hero position).
+    updateZoneObjective(dt) {
+      const z = this.zone;
+      if (!z || z.name === 'main' || z.finalEliteSpawned) return;
+      if (z.objective === 'survival' || z.objective === 'defend') {
+        z.survivalT = Math.max(0, (z.survivalT || 0) - dt);
+        if (z.survivalT <= 0) this.checkZoneComplete();
+      } else if (z.objective === 'ritual' && z.ritualCircles && z.ritualCircles.length) {
+        const cps = (z.objectiveDef && z.objectiveDef.chargePerSecond) || 12;
+        const r2 = 90 * 90;
+        const h = this.hero;
+        for (let i = 0; i < z.ritualCircles.length; i++) {
+          const c = z.ritualCircles[i];
+          if (c.done) continue;
+          if (dist2(h.x, h.y, c.x, c.y) <= r2) {
+            c.charge = Math.min(100, (c.charge || 0) + cps * dt);
+            if (c.charge >= 100) {
+              c.done = true;
+              z.ritualDone = (z.ritualDone || 0) + 1;
+              this.fx.toast('★  CIRCLE CLEANSED  ★');
+              this.fx.flash('#b266ff', 0.4);
+              this.particles.spawn({ x: c.x, y: c.y, life: 0.6, size: 220, color: '#b266ff', kind: 'ring', fade: 1 });
+              this.checkZoneComplete();
+            }
+          }
+        }
+      }
+    }
+
+    // Gate the zone: each objective has its own win check.  When met, fade out
+    // remaining mobs and fade in the zone boss.
     checkZoneComplete() {
       const z = this.zone;
       if (!z || z.name === 'main') return;
       if (z.finalEliteSpawned) return;
-      const killsDone = (z.killsInZone || 0) >= (z.killsNeeded || 0);
-      const itemsDone = (z.itemsCollected || 0) >= (z.itemsTotal || 0);
-      if (killsDone && itemsDone) this.beginBossTransition();
+      let met = false;
+      switch (z.objective) {
+        case 'survival':
+        case 'defend':
+          met = (z.survivalT || 0) <= 0;
+          break;
+        case 'bounty':
+          met = (z.bountyKilled || 0) >= (z.bountyTotal || 0);
+          break;
+        case 'ritual':
+          met = (z.ritualDone || 0) >= (z.ritualCircles ? z.ritualCircles.length : 3);
+          break;
+        case 'standard':
+        default: {
+          const killsDone = (z.killsInZone || 0) >= (z.killsNeeded || 0);
+          const itemsDone = (z.itemsCollected || 0) >= (z.itemsTotal || 0);
+          met = killsDone && itemsDone;
+          break;
+        }
+      }
+      if (met) this.beginBossTransition();
     }
 
     // Cinematic transition: fade out every alive mob, then fade the boss in.

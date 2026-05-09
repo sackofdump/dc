@@ -242,7 +242,83 @@ DDI.systems = (function () {
         case 'nova':       return this.fireNova(app, def, stats);
         case 'meteor':     return this.fireMeteor(app, def, stats);
         case 'homing':     return this.fireHoming(app, def, stats);
+        case 'leap':       return this.fireLeap(app, def, stats);
       }
+    },
+
+    fireLeap: function (app, def, stats) {
+      const hero = app.hero;
+      // Already airborne? Skip — slot will retry next tick.
+      if (hero._leapT != null) return;
+      // Pick the closest enemy within range; fall back to leaping forward in facing dir.
+      const range = stats.range || 480;
+      let target = null, bestD = range * range;
+      app.enemies.forEach(function (e) {
+        if (!e._alive) return;
+        const d = dist2(hero.x, hero.y, e.x, e.y);
+        if (d < bestD) { bestD = d; target = e; }
+      });
+      let tx, ty;
+      if (target) {
+        tx = target.x; ty = target.y;
+      } else {
+        const fx = Math.cos(hero.facing || 0), fy = Math.sin(hero.facing || 0);
+        tx = hero.x + fx * 320;
+        ty = hero.y + fy * 320;
+      }
+      // Lock hero into a leap arc — updateHero will tween position; on landing, slam.
+      hero._leapFromX = hero.x;
+      hero._leapFromY = hero.y;
+      hero._leapToX   = tx;
+      hero._leapToY   = ty;
+      hero._leapDur   = 0.40;
+      hero._leapT     = 0.40;
+      hero.iframes    = Math.max(hero.iframes || 0, 0.5);
+      // Trail of orange embers as the hero arcs through the air
+      for (let i = 0; i < 12; i++) {
+        app.particles.spawn({
+          x: hero.x + rand(-8, 8), y: hero.y + rand(-8, 8),
+          vx: rand(-40, 40), vy: rand(-200, -80),
+          life: rand(0.4, 0.7),
+          color: i % 2 === 0 ? '#ff7b1f' : '#ffd966',
+          size: 4, kind: 'streak',
+        });
+      }
+      // On landing: slam damage + visuals
+      const radius = (stats.area || 90) * (hero.areaMult || 1);
+      const dmgBase = stats.damage * hero.damageMult;
+      const r2 = radius * radius;
+      app._onLeapLand = function () {
+        const ax = hero.x, ay = hero.y;
+        // AoE damage (with knockback)
+        app.enemies.forEach(function (e) {
+          if (!e._alive) return;
+          if (dist2(ax, ay, e.x, e.y) > r2) return;
+          const isCrit = hero.rollCrit();
+          const dmg = dmgBase * (isCrit ? hero.critMult : 1);
+          Combat.dealDamage(e, dmg, def.color, isCrit);
+          const dx = e.x - ax, dy = e.y - ay;
+          const len = Math.hypot(dx, dy) || 1;
+          e.knockX = (dx / len) * 700;
+          e.knockY = (dy / len) * 700;
+          if (e.applySlow) e.applySlow(0.5, 0.8);
+        });
+        // Slam visuals — shake + double-ring shockwave + dust kick
+        app.fx.shake(22);
+        app.fx.flash('#ff7b1f', 0.45);
+        app.particles.spawn({ x: ax, y: ay, life: 0.55, size: radius, color: '#ff7b1f', kind: 'ring', fade: 1 });
+        app.particles.spawn({ x: ax, y: ay, life: 0.85, size: radius * 1.4, color: '#ffe14d', kind: 'ring', fade: 1 });
+        for (let i = 0; i < 22; i++) {
+          const a = (i / 22) * Math.PI * 2;
+          app.particles.spawn({
+            x: ax, y: ay,
+            vx: Math.cos(a) * rand(160, 320), vy: Math.sin(a) * rand(160, 320) - 80,
+            life: rand(0.4, 0.7),
+            color: i % 3 === 0 ? '#ff7b1f' : (i % 3 === 1 ? '#a86a2a' : '#ffd966'),
+            size: 4, kind: 'streak',
+          });
+        }
+      };
     },
 
     fireProjectiles: function (app, def, stats) {
