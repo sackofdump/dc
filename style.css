@@ -210,8 +210,33 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
 }
 
 @media (max-width: 480px) {
-  #hud-top { bottom: calc(env(safe-area-inset-bottom, 16px) + 92px); }
-  #xp-wrap { bottom: calc(env(safe-area-inset-bottom, 16px) + 158px); }
+  #hud-top {
+    bottom: calc(env(safe-area-inset-bottom, 8px) + 70px);
+    width: calc(100vw - 12px);
+    padding: 5px 8px;
+    gap: 6px;
+    border-radius: 8px;
+  }
+  #xp-wrap {
+    bottom: calc(env(safe-area-inset-bottom, 8px) + 124px);
+    width: calc(100vw - 12px);
+  }
+  #xp-bar { height: 12px; }
+  #xp-text { font-size: 9px; }
+  #hp-wrap { width: 110px; min-width: 90px; }
+  #hp-bar { height: 10px; }
+  #hp-text { font-size: 9px; }
+  #stamina-bar { height: 4px; margin-top: 2px; }
+  #cata-combo-stack { min-width: 130px; gap: 2px; }
+  #cata-combo-stack #ult-bar { height: 16px; }
+  #cata-combo-stack #slaughter-bar { height: 10px; }
+  #floor-num { font-size: 10px; letter-spacing: 0.10em; }
+  #time { font-size: 9px; }
+  #currency-bar { top: 8px; right: 8px; padding: 4px 8px; gap: 8px; font-size: 11px; }
+  .currency .ico { font-size: 11px; }
+  #boss-wrap { top: 60px; width: min(90vw, 360px); }
+  #boss-name { font-size: 11px; }
+  #boss-bar { height: 9px; }
 }
 
 /* ===== Boss HP ===== */
@@ -429,10 +454,10 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
 #ult-bar.ready .ult-bar-status { color: #fff; text-shadow: 0 0 8px var(--accent-gold); }
 
 @media (max-width: 480px) {
-  #ult-bar-wrap { width: calc(100vw - 32px); bottom: calc(env(safe-area-inset-bottom, 16px) + 80px); }
-  #ult-bar { height: 24px; }
-  .ult-bar-name { font-size: 12px; }
-  .ult-bar-status { font-size: 11px; }
+  #ult-bar-wrap { width: calc(100vw - 16px); bottom: calc(env(safe-area-inset-bottom, 8px) + 60px); }
+  #ult-bar { height: 18px; }
+  .ult-bar-name { font-size: 10px; }
+  .ult-bar-status { font-size: 9px; }
 }
 
 /* ===== Ability toolbar (bottom-center, tappable) ===== */
@@ -502,8 +527,25 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
 }
 
 @media (max-width: 480px) {
-  #ability-bar { max-width: calc(100vw - 160px); }
-  .ability-slot { width: 46px; height: 46px; font-size: 22px; }
+  #ability-bar {
+    max-width: calc(100vw - 130px);
+    padding: 5px 6px;
+    gap: 5px;
+    bottom: calc(env(safe-area-inset-bottom, 8px) + 8px);
+    border-radius: 10px;
+  }
+  .ability-slot { width: 38px; height: 38px; font-size: 18px; border-radius: 8px; }
+  .ability-slot .lvl { font-size: 9px; }
+  /* Smaller action buttons + ULT on phone */
+  #action-buttons { right: 8px; bottom: env(safe-area-inset-bottom, 8px); gap: 6px; }
+  .action-btn { width: 44px; height: 44px; font-size: 20px; border-width: 2px; }
+  #ult-stack { gap: 2px; margin-top: 2px; }
+  #ult-name { font-size: 9px; letter-spacing: 0.14em; }
+  #btn-overdrive { width: 76px; height: 76px; font-size: 36px; border-width: 3px; }
+  #ult-cd-text { font-size: 26px; }
+  /* Smaller joystick */
+  #joystick { width: 96px; height: 96px; left: 10px; bottom: env(safe-area-inset-bottom, 8px); }
+  #joystick-knob { width: 42px; height: 42px; }
 }
 
 /* ===== Action buttons (bottom right) ===== */
@@ -1241,7 +1283,18 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
 }
 
 @media (max-width: 480px) {
-  #modal-levelup { bottom: calc(env(safe-area-inset-bottom, 16px) + 226px); width: calc(100vw - 16px); }
+  #modal-levelup {
+    bottom: calc(env(safe-area-inset-bottom, 8px) + 160px);
+    width: calc(100vw - 8px);
+  }
+  .lvl-card { padding: 6px 8px; border-radius: 8px; }
+  .lvl-head { margin-bottom: 3px; }
+  .lvl-foot { margin-top: 3px; }
+  .lvl-mini-btn { font-size: 9px; padding: 3px 7px; }
+  #levelup-choices {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
 }
 .choice {
   position: relative;
@@ -1295,9 +1348,27 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
 .choice .lvl-tag { font-size: 10px; color: var(--accent-gold); letter-spacing: 0.12em; margin-top: 2px; }
 .choice.new .lvl-tag { color: var(--accent-cyan); }
 @media (max-width: 480px) {
-  .choice { min-height: 124px; }
-  .choice .desc { -webkit-line-clamp: 5; font-size: 11px; }
-  .lvl-title { font-size: 12px; }
+  .choice {
+    min-height: 0;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px 6px 26px;
+    text-align: left;
+    border-radius: 6px;
+  }
+  .choice .icon {
+    flex: 0 0 auto;
+    width: 32px; height: 32px;
+    font-size: 18px;
+    border-radius: 5px;
+  }
+  .choice .body { text-align: left; }
+  .choice .name { font-size: 12px; line-height: 1.15; }
+  .choice .desc { -webkit-line-clamp: 2; font-size: 10px; line-height: 1.25; margin-top: 1px; }
+  .choice .lvl-tag { font-size: 9px; margin-top: 0; }
+  .choice .key-num { top: 50%; left: 5px; transform: translateY(-50%); font-size: 9px; }
+  .lvl-title { font-size: 11px; }
   .lvl-hint { display: none; }
 }
 
