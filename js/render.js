@@ -377,99 +377,212 @@ DDI.Renderer = (function () {
     drawChestFeature(ctx, f, t) {
       const RARITY = (DDI.data && DDI.data.RARITY) || {};
       const rDef = RARITY[f.rarity] || { color: '#ffd966', beam: 0.3 };
+      const pulse = 0.55 + Math.sin(t * 3) * 0.30;
 
-      // Beam of light + aura — only on unopened
+      // ----- Beam of light + aura -----
       ctx.save();
       ctx.globalCompositeOperation = 'screen';
-      const beamH = 60 + 80 * (rDef.beam || 0.3);
+      const beamH = 70 + 90 * (rDef.beam || 0.3);
+      const beamW = 22;
       const grd = ctx.createLinearGradient(f.x, f.y - beamH, f.x, f.y - 5);
       grd.addColorStop(0, hexA(rDef.color, 0));
-      grd.addColorStop(1, hexA(rDef.color, 0.55));
+      grd.addColorStop(0.5, hexA(rDef.color, 0.25));
+      grd.addColorStop(1, hexA(rDef.color, 0.65));
       ctx.fillStyle = grd;
-      ctx.fillRect(f.x - 16, f.y - beamH, 32, beamH);
-      const pulse = 0.55 + Math.sin(t * 3) * 0.30;
-      const aura = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, 64);
-      aura.addColorStop(0, hexA(rDef.color, 0.45 * pulse));
+      ctx.fillRect(f.x - beamW, f.y - beamH, beamW * 2, beamH);
+      const aura = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, 80);
+      aura.addColorStop(0, hexA(rDef.color, 0.55 * pulse));
       aura.addColorStop(1, hexA(rDef.color, 0));
       ctx.fillStyle = aura;
-      ctx.beginPath(); ctx.arc(f.x, f.y, 64, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(f.x, f.y, 80, 0, TAU); ctx.fill();
       ctx.restore();
 
-      // ----- Procedural chest -----
-      const w = 56, h = 40;
-      const x = f.x - w / 2, y = f.y - h / 2;
-      // Drop shadow under chest
+      // ----- New procedural chest (wider, ornate gold trim, gem lock) -----
+      const W = 70, H = 50;
+      const x = f.x - W / 2;
+      const yBase = f.y + H / 2;     // bottom of chest sits at f.y + H/2
+      const yTop  = f.y - H / 2;     // top edge of arched lid
+
+      // Drop shadow oval
       ctx.save();
-      ctx.fillStyle = 'rgba(0,0,0,0.45)';
-      ctx.beginPath(); ctx.ellipse(f.x, f.y + h * 0.55, w * 0.50, h * 0.16, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.beginPath(); ctx.ellipse(f.x, yBase + 2, W * 0.52, H * 0.16, 0, 0, TAU); ctx.fill();
       ctx.restore();
 
-      // Wood body — base box
-      const wood = '#7a4820';
-      const woodHi = '#a8693a';
-      const woodLo = '#3a1c0a';
-      ctx.fillStyle = wood;
-      ctx.fillRect(x, y + 6, w, h - 6);
-      // Top arched lid (a curved top)
-      ctx.beginPath();
-      ctx.moveTo(x, y + 12);
-      ctx.quadraticCurveTo(x + w * 0.5, y - 8, x + w, y + 12);
-      ctx.lineTo(x + w, y + 16);
-      ctx.lineTo(x, y + 16);
-      ctx.closePath();
-      ctx.fillStyle = woodHi;
-      ctx.fill();
-      ctx.strokeStyle = woodLo; ctx.lineWidth = 2;
-      ctx.stroke();
-      // Body outline
-      ctx.strokeRect(x, y + 6, w, h - 6);
-      // Wood plank lines on the body
-      ctx.strokeStyle = 'rgba(40,18,4,0.45)';
+      const lidSplit = f.y - 3;     // where lid meets body
+      const lidPeak  = yTop - 6;    // arch peaks above top edge
+
+      // ===== BODY =====
+      const bodyGrd = ctx.createLinearGradient(x, lidSplit, x, yBase);
+      bodyGrd.addColorStop(0, '#8a4f24');
+      bodyGrd.addColorStop(0.5, '#6e3a18');
+      bodyGrd.addColorStop(1, '#3e1f08');
+      ctx.fillStyle = bodyGrd;
+      ctx.fillRect(x, lidSplit, W, yBase - lidSplit);
+
+      // wood plank seams
+      ctx.strokeStyle = 'rgba(30,14,4,0.55)';
       ctx.lineWidth = 1;
-      for (let i = 1; i < 3; i++) {
+      for (let i = 1; i < 4; i++) {
+        const px = x + (W / 4) * i;
+        ctx.beginPath(); ctx.moveTo(px, lidSplit + 2); ctx.lineTo(px, yBase - 2); ctx.stroke();
+      }
+
+      // ===== LID (arched) =====
+      ctx.beginPath();
+      ctx.moveTo(x, lidSplit);
+      ctx.quadraticCurveTo(f.x, lidPeak, x + W, lidSplit);
+      ctx.closePath();
+      const lidGrd = ctx.createLinearGradient(x, lidPeak, x, lidSplit);
+      lidGrd.addColorStop(0, '#a8693a');
+      lidGrd.addColorStop(1, '#5a2c0e');
+      ctx.fillStyle = lidGrd;
+      ctx.fill();
+      ctx.strokeStyle = '#1a0d04'; ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Lid plank seams (radial-ish)
+      ctx.strokeStyle = 'rgba(30,14,4,0.50)';
+      ctx.lineWidth = 1;
+      for (let i = 1; i < 4; i++) {
+        const sx = x + (W / 4) * i;
         ctx.beginPath();
-        ctx.moveTo(x + (w / 3) * i, y + 16);
-        ctx.lineTo(x + (w / 3) * i, y + h);
+        ctx.moveTo(sx, lidSplit);
+        ctx.quadraticCurveTo(f.x * 0.5 + sx * 0.5, (lidPeak + lidSplit) / 2, sx, lidPeak + 4);
         ctx.stroke();
       }
 
-      // Iron bands across the lid + body
-      ctx.fillStyle = '#3a3a44';
-      ctx.fillRect(x - 1, y + 14, w + 2, 4);     // top band
-      ctx.fillRect(x - 1, y + h - 10, w + 2, 4); // bottom band
-      // Iron corners
-      ctx.fillRect(x - 2, y + 12, 5, h - 12);
-      ctx.fillRect(x + w - 3, y + 12, 5, h - 12);
-      // Rivets
-      ctx.fillStyle = '#cdd5e0';
-      for (let i = 0; i < 4; i++) {
-        const rx = x + 4 + i * (w / 4);
-        ctx.beginPath(); ctx.arc(rx, y + 16, 1.4, 0, TAU); ctx.fill();
-        ctx.beginPath(); ctx.arc(rx, y + h - 8, 1.4, 0, TAU); ctx.fill();
+      // ===== GOLD TRIM (top, bottom, edges) =====
+      const goldHi = '#ffe89a';
+      const goldMid = '#f0c850';
+      const goldLo = '#a07820';
+
+      // Bottom rail
+      const bRail = ctx.createLinearGradient(x, yBase - 6, x, yBase);
+      bRail.addColorStop(0, goldHi);
+      bRail.addColorStop(0.5, goldMid);
+      bRail.addColorStop(1, goldLo);
+      ctx.fillStyle = bRail;
+      ctx.fillRect(x - 2, yBase - 6, W + 4, 6);
+      ctx.strokeStyle = '#1a0d04'; ctx.lineWidth = 1;
+      ctx.strokeRect(x - 2, yBase - 6, W + 4, 6);
+
+      // Lid bottom rail (where lid meets body)
+      const tRail = ctx.createLinearGradient(x, lidSplit - 4, x, lidSplit + 2);
+      tRail.addColorStop(0, goldHi);
+      tRail.addColorStop(1, goldLo);
+      ctx.fillStyle = tRail;
+      ctx.fillRect(x - 2, lidSplit - 3, W + 4, 6);
+      ctx.strokeStyle = '#1a0d04'; ctx.lineWidth = 1;
+      ctx.strokeRect(x - 2, lidSplit - 3, W + 4, 6);
+
+      // Side corner braces (vertical) — one on each side of body
+      ctx.fillStyle = goldMid;
+      ctx.fillRect(x - 3, lidSplit - 1, 5, yBase - lidSplit + 2);
+      ctx.fillRect(x + W - 2, lidSplit - 1, 5, yBase - lidSplit + 2);
+      ctx.strokeStyle = '#1a0d04'; ctx.lineWidth = 1;
+      ctx.strokeRect(x - 3, lidSplit - 1, 5, yBase - lidSplit + 2);
+      ctx.strokeRect(x + W - 2, lidSplit - 1, 5, yBase - lidSplit + 2);
+      // Highlight strip on each brace
+      ctx.fillStyle = goldHi;
+      ctx.fillRect(x - 3, lidSplit + 1, 1, yBase - lidSplit - 2);
+      ctx.fillRect(x + W - 2, lidSplit + 1, 1, yBase - lidSplit - 2);
+
+      // Decorative gold scrollwork — diamond studs along the bottom rail
+      ctx.fillStyle = goldHi;
+      for (let i = 0; i < 5; i++) {
+        const dx = x + 8 + i * ((W - 16) / 4);
+        ctx.beginPath();
+        ctx.moveTo(dx, yBase - 5);
+        ctx.lineTo(dx + 2, yBase - 3);
+        ctx.lineTo(dx, yBase - 1);
+        ctx.lineTo(dx - 2, yBase - 3);
+        ctx.closePath();
+        ctx.fill();
       }
 
-      // Lock plate + keyhole
-      ctx.fillStyle = rDef.color;
-      ctx.fillRect(f.x - 5, y + h * 0.40, 10, 12);
-      ctx.strokeStyle = '#2a1a08'; ctx.lineWidth = 1;
-      ctx.strokeRect(f.x - 5, y + h * 0.40, 10, 12);
-      // Keyhole (dark hole with stem)
-      ctx.fillStyle = '#000';
-      ctx.beginPath(); ctx.arc(f.x, y + h * 0.40 + 4, 1.6, 0, TAU); ctx.fill();
-      ctx.fillRect(f.x - 0.6, y + h * 0.40 + 4, 1.2, 5);
+      // Lid arch trim — thin gold strip following the curve
+      ctx.beginPath();
+      ctx.moveTo(x, lidSplit - 1);
+      ctx.quadraticCurveTo(f.x, lidPeak - 2, x + W, lidSplit - 1);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = goldMid;
+      ctx.stroke();
+      ctx.lineWidth = 0.8;
+      ctx.strokeStyle = goldHi;
+      ctx.beginPath();
+      ctx.moveTo(x + 2, lidSplit - 2);
+      ctx.quadraticCurveTo(f.x, lidPeak - 3, x + W - 2, lidSplit - 2);
+      ctx.stroke();
 
-      // Glow seam under the lid (rarity-tinted hint of treasure inside)
+      // Hinges (small gold studs on the lid-split rail)
+      ctx.fillStyle = goldHi;
+      ctx.beginPath(); ctx.arc(x + 8, lidSplit, 1.6, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + W - 8, lidSplit, 1.6, 0, TAU); ctx.fill();
+
+      // ===== LOCK PLATE WITH GLOWING GEM =====
+      const lpW = 18, lpH = 22;
+      const lpX = f.x - lpW / 2;
+      const lpY = lidSplit - 6;
+      // Plate (gold, ornate)
+      const lpGrd = ctx.createLinearGradient(lpX, lpY, lpX, lpY + lpH);
+      lpGrd.addColorStop(0, goldHi);
+      lpGrd.addColorStop(0.5, goldMid);
+      lpGrd.addColorStop(1, goldLo);
+      ctx.fillStyle = lpGrd;
+      ctx.beginPath();
+      ctx.moveTo(lpX, lpY + 4);
+      ctx.quadraticCurveTo(lpX, lpY, lpX + 4, lpY);
+      ctx.lineTo(lpX + lpW - 4, lpY);
+      ctx.quadraticCurveTo(lpX + lpW, lpY, lpX + lpW, lpY + 4);
+      ctx.lineTo(lpX + lpW, lpY + lpH - 4);
+      ctx.quadraticCurveTo(lpX + lpW, lpY + lpH, lpX + lpW - 4, lpY + lpH);
+      ctx.lineTo(lpX + 4, lpY + lpH);
+      ctx.quadraticCurveTo(lpX, lpY + lpH, lpX, lpY + lpH - 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#1a0d04'; ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      // Gem socket (rarity-tinted, glowing)
+      const gemR = 4.5;
+      const gemY = lpY + 7;
+      // Outer glow
       ctx.save();
       ctx.globalCompositeOperation = 'screen';
-      const seam = ctx.createLinearGradient(0, y + 16, 0, y + 26);
-      seam.addColorStop(0, hexA(rDef.color, 0.7));
+      const gemGlow = ctx.createRadialGradient(f.x, gemY, 0, f.x, gemY, 14);
+      gemGlow.addColorStop(0, hexA(rDef.color, 0.85 * pulse));
+      gemGlow.addColorStop(1, hexA(rDef.color, 0));
+      ctx.fillStyle = gemGlow;
+      ctx.beginPath(); ctx.arc(f.x, gemY, 14, 0, TAU); ctx.fill();
+      ctx.restore();
+      // Gem body — radial
+      const gemBody = ctx.createRadialGradient(f.x - 1, gemY - 1, 0, f.x, gemY, gemR);
+      gemBody.addColorStop(0, '#ffffff');
+      gemBody.addColorStop(0.4, rDef.color);
+      gemBody.addColorStop(1, hexA(rDef.color, 0.6));
+      ctx.fillStyle = gemBody;
+      ctx.beginPath(); ctx.arc(f.x, gemY, gemR, 0, TAU); ctx.fill();
+      ctx.strokeStyle = '#2a1a08'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(f.x, gemY, gemR, 0, TAU); ctx.stroke();
+      // Sparkle highlight
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.beginPath(); ctx.arc(f.x - 1.4, gemY - 1.4, 1.1, 0, TAU); ctx.fill();
+
+      // Keyhole below the gem
+      ctx.fillStyle = '#0a0500';
+      ctx.beginPath(); ctx.arc(f.x, lpY + lpH - 7, 1.7, 0, TAU); ctx.fill();
+      ctx.fillRect(f.x - 0.7, lpY + lpH - 7, 1.4, 5);
+
+      // ===== Glow seam under the lid =====
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const seam = ctx.createLinearGradient(0, lidSplit - 1, 0, lidSplit + 6);
+      seam.addColorStop(0, hexA(rDef.color, 0.85 * pulse));
       seam.addColorStop(1, hexA(rDef.color, 0));
       ctx.fillStyle = seam;
-      ctx.fillRect(x + 3, y + 16, w - 6, 8);
+      ctx.fillRect(x + 4, lidSplit - 1, W - 8, 7);
       ctx.restore();
-
-      // Subtle bob — chest gently lifts/lowers when unopened
-      // (we draw at f.x/f.y so bob would shift everything; skip for now)
     }
 
     drawTrapFeature(ctx, f, t) {
