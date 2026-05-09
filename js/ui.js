@@ -367,21 +367,11 @@ DDI.UI = (function () {
           el._wired = true;
           el.addEventListener('click', function () {
             if (el.classList.contains('locked')) return;
-            // One-tap to commit — no separate CONFIRM step. Pick a card → run with it.
-            const choice = el.getAttribute('data-char');
-            if (!choice || !self.app.save) return;
             picks.forEach(function (p) { p.classList.remove('selected'); });
             el.classList.add('selected');
-            self._chosenChar = choice;
-            self.app.save.character = choice;
-            self.app.persist();
-            modal.classList.add('hidden');
-            self.modalOpen = false;
-            self._charFromTitle = false;
-            self.showTitle();
-            if (self.app.fx && self.app.fx.toast) {
-              self.app.fx.toast('CHARACTER: ' + choice.toUpperCase());
-            }
+            self._chosenChar = el.getAttribute('data-char');
+            const btn = self.$('btn-char-confirm');
+            if (btn) btn.disabled = false;
           });
         }
       });
