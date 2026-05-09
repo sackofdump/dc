@@ -588,24 +588,107 @@ DDI.Renderer = (function () {
 
     drawAuras(ctx) {
       const hero = this.app.hero;
+      const t = performance.now() / 1000;
       for (let i = 0; i < hero.abilities.length; i++) {
         const a = hero.abilities[i];
         const def = ABILITIES[a.id];
-        if (def.type !== 'aura') continue;
-        const stats = def.scale(a.level - 1, def.base);
-        const r = stats.area * hero.areaMult;
-        ctx.save();
-        ctx.globalCompositeOperation = 'screen';
-        const g = ctx.createRadialGradient(hero.x, hero.y, r * 0.35, hero.x, hero.y, r);
-        g.addColorStop(0, 'rgba(0,0,0,0)');
-        g.addColorStop(0.7, hexA(def.color, 0.18));
-        g.addColorStop(1, hexA(def.color, 0.0));
-        ctx.fillStyle = g;
-        ctx.beginPath(); ctx.arc(hero.x, hero.y, r, 0, TAU); ctx.fill();
-        ctx.strokeStyle = hexA(def.color, 0.6);
-        ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(hero.x, hero.y, r, 0, TAU); ctx.stroke();
-        ctx.restore();
+
+        // ----- AURA — radial damage zones (FrostAura, Whirlwind, etc.) -----
+        if (def.type === 'aura') {
+          const stats = def.scale(a.level - 1, def.base);
+          const r = stats.area * hero.areaMult;
+
+          if (def.id === 'whirlwind') {
+            // Spinning steel ring — multiple short blade arcs orbiting + dust trail
+            ctx.save();
+            ctx.translate(hero.x, hero.y);
+            ctx.rotate(t * 6);    // fast spin
+            const bladeCount = 6;
+            for (let k = 0; k < bladeCount; k++) {
+              const ang = (k / bladeCount) * TAU;
+              const x = Math.cos(ang) * r;
+              const y = Math.sin(ang) * r;
+              ctx.save();
+              ctx.translate(x, y);
+              ctx.rotate(ang + Math.PI / 2);
+              ctx.fillStyle = '#dde3eb';
+              ctx.beginPath();
+              ctx.moveTo(-2, -10); ctx.lineTo(2, -10); ctx.lineTo(2, 10); ctx.lineTo(-2, 10);
+              ctx.closePath(); ctx.fill();
+              // blade tip glint
+              ctx.fillStyle = 'rgba(255,255,255,0.8)';
+              ctx.fillRect(-1, -10, 2, 4);
+              ctx.restore();
+            }
+            // Faint motion trail ring
+            ctx.globalCompositeOperation = 'screen';
+            ctx.strokeStyle = 'rgba(255,240,200,0.35)';
+            ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.stroke();
+            ctx.strokeStyle = 'rgba(255,240,102,0.45)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.arc(0, 0, r * 0.85, 0, TAU); ctx.stroke();
+            ctx.restore();
+          } else {
+            // Default radial gradient + ring
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen';
+            const g = ctx.createRadialGradient(hero.x, hero.y, r * 0.35, hero.x, hero.y, r);
+            g.addColorStop(0, 'rgba(0,0,0,0)');
+            g.addColorStop(0.7, hexA(def.color, 0.18));
+            g.addColorStop(1, hexA(def.color, 0.0));
+            ctx.fillStyle = g;
+            ctx.beginPath(); ctx.arc(hero.x, hero.y, r, 0, TAU); ctx.fill();
+            ctx.strokeStyle = hexA(def.color, 0.6);
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(hero.x, hero.y, r, 0, TAU); ctx.stroke();
+            ctx.restore();
+          }
+          continue;
+        }
+
+        // ----- BUFF — passive effects on the hero (Cruelty, Endurance) -----
+        if (def.type === 'buff') {
+          ctx.save();
+          ctx.globalCompositeOperation = 'screen';
+          if (def.id === 'cruelty') {
+            // Crimson rage halo — pulses rapidly, with red embers spiraling
+            const pulse = 0.65 + Math.sin(t * 4) * 0.25;
+            const r = hero.radius * 1.6;
+            const g = ctx.createRadialGradient(hero.x, hero.y, hero.radius * 0.6, hero.x, hero.y, r);
+            g.addColorStop(0, 'rgba(255,61,82,' + (0.45 * pulse).toFixed(2) + ')');
+            g.addColorStop(1, 'rgba(255,61,82,0)');
+            ctx.fillStyle = g;
+            ctx.beginPath(); ctx.arc(hero.x, hero.y, r, 0, TAU); ctx.fill();
+            // 3 small ember dots orbiting
+            for (let k = 0; k < 3; k++) {
+              const ang = t * 3 + (k / 3) * TAU;
+              const ex = hero.x + Math.cos(ang) * hero.radius * 1.3;
+              const ey = hero.y + Math.sin(ang) * hero.radius * 1.3;
+              ctx.fillStyle = 'rgba(255,80,90,' + (0.7 + Math.sin(t * 6 + k) * 0.3).toFixed(2) + ')';
+              ctx.beginPath(); ctx.arc(ex, ey, 3, 0, TAU); ctx.fill();
+            }
+          } else if (def.id === 'endurance') {
+            // Verdant heal aura — slow pulse green glow with leaf motes
+            const pulse = 0.55 + Math.sin(t * 1.6) * 0.20;
+            const r = hero.radius * 1.7;
+            const g = ctx.createRadialGradient(hero.x, hero.y, hero.radius * 0.4, hero.x, hero.y, r);
+            g.addColorStop(0, 'rgba(109,255,155,' + (0.35 * pulse).toFixed(2) + ')');
+            g.addColorStop(1, 'rgba(109,255,155,0)');
+            ctx.fillStyle = g;
+            ctx.beginPath(); ctx.arc(hero.x, hero.y, r, 0, TAU); ctx.fill();
+            // 4 slow-orbiting leaf motes
+            for (let k = 0; k < 4; k++) {
+              const ang = t * 0.8 + (k / 4) * TAU;
+              const ex = hero.x + Math.cos(ang) * hero.radius * 1.2;
+              const ey = hero.y + Math.sin(ang) * hero.radius * 1.2 - 2;
+              ctx.fillStyle = 'rgba(168,255,102,0.8)';
+              ctx.beginPath(); ctx.arc(ex, ey, 2.5, 0, TAU); ctx.fill();
+            }
+          }
+          ctx.restore();
+          continue;
+        }
       }
     }
 
@@ -2159,15 +2242,47 @@ DDI.Renderer = (function () {
           const x = hero.x + Math.cos(ang) * r;
           const y = hero.y + Math.sin(ang) * r;
           ctx.save();
-          ctx.translate(x, y); ctx.rotate(ang + Math.PI/2);
-          ctx.fillStyle = '#cdd5e0';
-          ctx.beginPath();
-          ctx.moveTo(0, -16); ctx.lineTo(6, 0); ctx.lineTo(0, 16); ctx.lineTo(-6, 0); ctx.closePath();
-          ctx.fill();
-          ctx.strokeStyle = '#0a0612'; ctx.lineWidth = 1.5; ctx.stroke();
-          ctx.globalCompositeOperation = 'screen';
-          ctx.fillStyle = 'rgba(255,255,255,0.4)';
-          ctx.fillRect(-1.5, -16, 3, 32);
+          ctx.translate(x, y);
+          ctx.rotate(ang + Math.PI / 2);
+
+          if (def.id === 'kunaiFan') {
+            // Kunai — triangular blade + handle wrap + finger ring at the base
+            ctx.globalCompositeOperation = 'screen';
+            const aura = ctx.createRadialGradient(0, 0, 0, 0, 0, 18);
+            aura.addColorStop(0, 'rgba(205,213,224,0.35)'); aura.addColorStop(1, 'rgba(205,213,224,0)');
+            ctx.fillStyle = aura;
+            ctx.beginPath(); ctx.arc(0, 0, 18, 0, TAU); ctx.fill();
+            ctx.globalCompositeOperation = 'source-over';
+            // Blade — narrow triangle
+            ctx.fillStyle = '#dde3eb';
+            ctx.beginPath();
+            ctx.moveTo(0, -18);
+            ctx.lineTo(4, -2);
+            ctx.lineTo(-4, -2);
+            ctx.closePath(); ctx.fill();
+            ctx.strokeStyle = '#5a6a78'; ctx.lineWidth = 1; ctx.stroke();
+            // Center fuller
+            ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+            ctx.beginPath(); ctx.moveTo(0, -16); ctx.lineTo(0, -3); ctx.stroke();
+            // Handle wrap
+            ctx.fillStyle = '#1a0f08';
+            ctx.fillRect(-2, -2, 4, 9);
+            ctx.fillStyle = 'rgba(120,80,40,0.7)';
+            for (let k = 0; k < 3; k++) ctx.fillRect(-3, -1 + k * 3, 6, 1);
+            // Finger ring at the bottom
+            ctx.strokeStyle = '#3a2a18'; ctx.lineWidth = 1.4;
+            ctx.beginPath(); ctx.arc(0, 10, 3.2, 0, TAU); ctx.stroke();
+          } else {
+            // Default — Spinning Blades (warrior): leaf-shaped diamond
+            ctx.fillStyle = '#cdd5e0';
+            ctx.beginPath();
+            ctx.moveTo(0, -16); ctx.lineTo(6, 0); ctx.lineTo(0, 16); ctx.lineTo(-6, 0); ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = '#0a0612'; ctx.lineWidth = 1.5; ctx.stroke();
+            ctx.globalCompositeOperation = 'screen';
+            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.fillRect(-1.5, -16, 3, 32);
+          }
           ctx.restore();
         }
       }
