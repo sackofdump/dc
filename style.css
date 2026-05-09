@@ -694,13 +694,13 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
   color: var(--accent-gold); text-shadow: 0 4px 0 #2a1a00, 0 0 16px rgba(255,217,102,0.4);
 }
 .modal-card h1 .sub { font-size: 16px; color: var(--accent-violet); letter-spacing: 0.4em; }
-/* Game logo above the gamertag title */
+/* Game logo — replaces the gamertag title text on title + auth screens */
 .game-logo {
   display: block;
-  margin: 0 auto 10px;
-  width: min(320px, 80vw);
+  margin: 0 auto 14px;
+  width: min(440px, 88vw);
   height: auto;
-  filter: drop-shadow(0 0 22px rgba(178,102,255,0.55));
+  filter: drop-shadow(0 0 28px rgba(178,102,255,0.6));
 }
 
 /* Gamertag-style title — XxDungeonSlayerxX with violet x's flanking the gold middle */

@@ -77,6 +77,8 @@
     }
 
     // Local-only play — no Supabase calls, no leaderboard, save lives in localStorage.
+    // Guests always get the character-select right away, even if a previous guest
+    // session left a character pinned — the user explicitly wants to re-pick.
     playAsGuest() {
       this.isGuest = true;
       this.save = (DDI.save && DDI.save.load) ? DDI.save.load() : null;
@@ -87,12 +89,11 @@
           this.save = DDI.save.load();
         }
       }
+      // Force guests through character select on every entry
+      if (this.save) this.save.character = null;
       if (this.ui && this.ui.hideAuth) this.ui.hideAuth();
-      if (!this.save || !this.save.character) {
-        if (this.ui && this.ui.showCharacterSelect) this.ui.showCharacterSelect();
-      } else {
-        if (this.ui && this.ui.showTitle) this.ui.showTitle();
-      }
+      if (this.ui && this.ui.showCharacterSelect) this.ui.showCharacterSelect();
+      else if (this.ui && this.ui.showTitle) this.ui.showTitle();
     }
 
     // Called after sign-in/sign-up — pulls server save (if any) into this.save
