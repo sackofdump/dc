@@ -329,6 +329,19 @@ DDI.UI = (function () {
       const ABILITIES = (DDI.data && DDI.data.ABILITIES) || {};
       const accountRank = (this.app.save && this.app.save.accountRank) || 1;
       const picks = modal.querySelectorAll('.char-pick');
+      // Helper: commit the chosen character + close modal + go to title
+      const commit = function (choice) {
+        if (!choice || !self.app.save) return;
+        self.app.save.character = choice;
+        self.app.persist();
+        modal.classList.add('hidden');
+        self.modalOpen = false;
+        self._charFromTitle = false;
+        self.showTitle();
+        if (self.app.fx && self.app.fx.toast) {
+          self.app.fx.toast('CHARACTER: ' + choice.toUpperCase());
+        }
+      };
       picks.forEach(function (el) {
         const myChar = el.getAttribute('data-char');
         const klass = CLASSES[myChar] || CLASSES.default;
@@ -363,17 +376,29 @@ DDI.UI = (function () {
             abilEl.appendChild(node);
           });
         }
+        // Inject a CONFIRM button inside this card (only shown when the card is .selected)
+        let confirmBtn = el.querySelector('.char-confirm');
+        if (!confirmBtn) {
+          confirmBtn = document.createElement('button');
+          confirmBtn.type = 'button';
+          confirmBtn.className = 'char-confirm';
+          confirmBtn.textContent = 'CONFIRM';
+          el.appendChild(confirmBtn);
+        }
+        confirmBtn.onclick = function (ev) {
+          ev.stopPropagation();    // don't bubble to the card's click handler
+          commit(myChar);
+        };
+
         if (!el._wired) {
           el._wired = true;
-          el.addEventListener('click', function () {
+          el.addEventListener('click', function (ev) {
             if (el.classList.contains('locked')) return;
+            // Ignore clicks on the inline CONFIRM button itself
+            if (ev.target.closest && ev.target.closest('.char-confirm')) return;
             picks.forEach(function (p) { p.classList.remove('selected'); });
             el.classList.add('selected');
             self._chosenChar = el.getAttribute('data-char');
-            const card = self.$('modal-character').querySelector('.char-card');
-            if (card) card.classList.add('has-pick');     // reveals the floating CONFIRM popup
-            const btn = self.$('btn-char-confirm');
-            if (btn) btn.disabled = false;
           });
         }
       });
