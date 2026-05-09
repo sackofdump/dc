@@ -59,7 +59,7 @@ DDI.entities = (function () {
       return reduced;
     }
     rollCrit(bonus) {
-      const c = clamp(this.critChance + (bonus||0), 0, 0.95);
+      const c = clamp(this.critChance + (this._buffCrit || 0) + (bonus||0), 0, 0.95);
       return chance(c);
     }
   }

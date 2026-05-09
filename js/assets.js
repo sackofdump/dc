@@ -5,9 +5,10 @@ window.DDI = window.DDI || {};
 DDI.assets = (function () {
 
   const IMAGES = {
-    // Hero portraits — 'hero' is the default warrior, 'hero_mage' is the mage variant
-    hero:      'Assets/Characters/Main_character.png',
-    hero_mage: 'Assets/Characters/Main_Mage.png',
+    // Hero portraits — 'hero' is warrior, 'hero_mage' is mage, 'hero_rogue' is rogue
+    hero:       'Assets/Characters/Main_character.png',
+    hero_mage:  'Assets/Characters/Main_Mage.png',
+    hero_rogue: 'Assets/Characters/Main_Rogue.png',
 
     // Enemy single-portrait sprites (used as fallback if sheet missing)
     slime:         'Assets/Characters/Slime.png',

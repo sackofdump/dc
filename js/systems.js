@@ -427,16 +427,18 @@ DDI.systems = (function () {
       }
     },
 
-    // Buff abilities: heal hero on tick + apply temporary damage reduction.
+    // Buff abilities: heal hero on tick + apply temporary damage reduction / crit boost.
+    // Stat fields:
+    //   stats.heal       — HP healed each tick
+    //   stats.dr         — flat damage reduction (added to base, capped 0.85)
+    //   stats.bonusCrit  — flat crit chance bonus (added to base, capped 0.95)
     tickBuff: function (app, slot, def, stats, dt) {
       slot.t = (slot.t || 0) - dt;
-      if (slot.t > 0) {
-        // Even between ticks, keep _buffDR applied so takeDamage stays consistent
-        if (stats.dr) app.hero._buffDR = stats.dr;
-        return;
-      }
+      // Re-assert passive bonuses every frame so they remain applied between ticks
+      if (stats.dr        != null) app.hero._buffDR    = stats.dr;
+      if (stats.bonusCrit != null) app.hero._buffCrit  = stats.bonusCrit;
+      if (slot.t > 0) return;
       slot.t = (stats.cooldown || 1.5) * (app.hero.cooldownMult || 1);
-      if (stats.dr) app.hero._buffDR = stats.dr;
       const hero = app.hero;
       if (stats.heal && hero.hp < hero.maxHp) {
         const heal = Math.max(1, Math.round(stats.heal));

@@ -640,7 +640,10 @@ DDI.Renderer = (function () {
       ctx.rotate(lean);
       ctx.scale((flipX ? -sxx : sxx), syy);
 
-      const heroKey = (this.app.save && this.app.save.character === 'mage') ? 'hero_mage' : 'hero';
+      const charPick = this.app.save && this.app.save.character;
+      const heroKey = charPick === 'mage'  ? 'hero_mage'
+                    : charPick === 'rogue' ? 'hero_rogue'
+                    : 'hero';
       const drewSprite = drawSpriteOrFallback(ctx, heroKey, 0, 0, d, function (c, x, y, dd) {
         c.save();
         c.fillStyle = '#3a2a55';

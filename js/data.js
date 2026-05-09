@@ -408,6 +408,35 @@ DDI.data = (function () {
     },
     desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg/tick · radius ' + Math.round(s.area); },
   };
+  // ---- Rogue extras ----
+  ABILITIES.shadowstep = {
+    id: 'shadowstep', name: 'Shadowstep', icon: '🗡️', element: 'physical', color: '#b266ff',
+    desc: 'Phantom strikes — daggers from the shadows on the nearest foes.',
+    type: 'homing', maxLevel: 8,
+    base: { cooldown: 1.6, damage: 28, count: 3, life: 0.4, pierce: 0 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage:   b.damage   * (1 + 0.20 * lvl),
+        count:    b.count    + Math.floor(lvl / 2),
+        cooldown: b.cooldown * (1 - 0.04 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · ' + s.count + ' targets · CD ' + s.cooldown.toFixed(2) + 's'; },
+  };
+  ABILITIES.cruelty = {
+    id: 'cruelty', name: 'Cruelty', icon: '💢', element: 'physical', color: '#ff3d52',
+    desc: 'Murderous focus — bonus crit chance and a small heal each tick.',
+    type: 'buff', maxLevel: 8,
+    base: { cooldown: 2.0, heal: 1, bonusCrit: 0.06 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        bonusCrit: Math.min(0.45, b.bonusCrit + 0.02 * lvl),
+        heal:      b.heal      * (1 + 0.20 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return '+' + Math.round(s.bonusCrit*100) + '% crit · +' + Math.round(s.heal) + ' HP/' + s.cooldown.toFixed(1) + 's'; },
+  };
+
   ABILITIES.endurance = {
     id: 'endurance', name: 'Endurance', icon: '🛡️', element: 'physical', color: '#6dff9b',
     desc: 'Iron vitality — passive HP regen and damage reduction.',
@@ -444,6 +473,12 @@ DDI.data = (function () {
       requiredRank: 3,
       starters: ['fireball', 'chain'],
       pool:     ['fireball', 'chain', 'frostAura', 'poisonNova', 'meteor', 'halo'],
+    },
+    rogue: {
+      name: 'Rogue',
+      requiredRank: 2,
+      starters: ['daggers', 'cruelty'],
+      pool:     ['daggers', 'cruelty', 'shadowstep', 'poisonNova', 'blades', 'bats'],
     },
   };
 
