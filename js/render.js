@@ -2663,6 +2663,81 @@ DDI.Renderer = (function () {
           return;
         }
 
+        // ----- ARROW RAIN — falling arrow with shaft, fletching, broadhead -----
+        if (p.shape === 'arrow_rain') {
+          // Falls vertically; angle is pure down with a tiny lean from vx
+          const lean = Math.atan2(p.vx, Math.max(40, p.vy)) * 0.6;
+          const len = 36;
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(lean);
+          // Whoosh trail (motion line above)
+          ctx.globalCompositeOperation = 'screen';
+          const trail = ctx.createLinearGradient(0, -len * 0.9, 0, 0);
+          trail.addColorStop(0, 'rgba(255,255,255,0)');
+          trail.addColorStop(1, 'rgba(220,200,160,0.7)');
+          ctx.strokeStyle = trail;
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(0, -len * 1.4); ctx.lineTo(0, -len * 0.5); ctx.stroke();
+          ctx.globalCompositeOperation = 'source-over';
+          // Shaft — wood
+          ctx.strokeStyle = '#7a4820';
+          ctx.lineWidth = 2.4;
+          ctx.beginPath(); ctx.moveTo(0, -len * 0.45); ctx.lineTo(0, len * 0.35); ctx.stroke();
+          // Shaft highlight
+          ctx.strokeStyle = '#a8693a';
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(-0.6, -len * 0.4); ctx.lineTo(-0.6, len * 0.30); ctx.stroke();
+          // Broadhead — pointed metal tip below
+          ctx.fillStyle = '#cdd5e0';
+          ctx.beginPath();
+          ctx.moveTo(0, len * 0.55);
+          ctx.lineTo(-3.6, len * 0.30);
+          ctx.lineTo(0, len * 0.36);
+          ctx.lineTo(3.6, len * 0.30);
+          ctx.closePath(); ctx.fill();
+          ctx.strokeStyle = '#5a6a78'; ctx.lineWidth = 0.8; ctx.stroke();
+          // Tip highlight
+          ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+          ctx.lineWidth = 0.8;
+          ctx.beginPath(); ctx.moveTo(0, len * 0.36); ctx.lineTo(0, len * 0.55); ctx.stroke();
+          // Fletching — three feathers at the top (red + white)
+          const fY = -len * 0.45;
+          // Left feather
+          ctx.fillStyle = '#c83a3a';
+          ctx.beginPath();
+          ctx.moveTo(-0.8, fY);
+          ctx.lineTo(-5.2, fY - 6);
+          ctx.lineTo(-1.2, fY - 8);
+          ctx.lineTo(-0.4, fY - 4);
+          ctx.closePath(); ctx.fill();
+          ctx.strokeStyle = '#5a1a1a'; ctx.lineWidth = 0.6; ctx.stroke();
+          // Right feather
+          ctx.fillStyle = '#e6e1d3';
+          ctx.beginPath();
+          ctx.moveTo(0.8, fY);
+          ctx.lineTo(5.2, fY - 6);
+          ctx.lineTo(1.2, fY - 8);
+          ctx.lineTo(0.4, fY - 4);
+          ctx.closePath(); ctx.fill();
+          ctx.strokeStyle = '#7a6a5a'; ctx.lineWidth = 0.6; ctx.stroke();
+          // Notch
+          ctx.strokeStyle = '#3a2a08'; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(-1, fY - 1); ctx.lineTo(0, fY + 1); ctx.lineTo(1, fY - 1); ctx.stroke();
+          ctx.restore();
+          // Ground shadow ring (target circle on the ground where the arrow lands)
+          if (p.y < p.gravityFall) {
+            ctx.save();
+            const t = Math.max(0, Math.min(1, (p.gravityFall - p.y) / 380));
+            ctx.strokeStyle = hexA('#cdd5e0', 0.55 * (1 - t));
+            ctx.lineWidth = 1.2;
+            ctx.setLineDash([4, 3]);
+            ctx.beginPath(); ctx.arc(p.x, p.gravityFall, Math.max(8, p.areaOnHit * 0.85), 0, TAU); ctx.stroke();
+            ctx.restore();
+          }
+          return;
+        }
+
         // Procedural poisoned dagger — short curved blade with green poison drip
         if (p.shape === 'dagger') {
           const ang = Math.atan2(p.vy, p.vx);

@@ -402,18 +402,26 @@ DDI.systems = (function () {
     fireMeteor: function (app, def, stats) {
       const hero = app.hero;
       const total = (stats.count || 1) + Math.floor(hero.projMult / 2);
+      const isArrows = def.id === 'arrowVolley';
       for (let i = 0; i < total; i++) {
         const t = randomEnemy(app) || { x: hero.x + rand(-200, 200), y: hero.y + rand(-200, 200) };
         const isCrit = hero.rollCrit();
         const dmg = stats.damage * hero.damageMult * (isCrit ? hero.critMult : 1);
+        // Stagger arrow drops so the volley reads like a sweeping rain of arrows
+        const stagger = isArrows ? i * 0.04 : 0;
         app.projectiles.spawn({
-          x: t.x, y: t.y - 380,
-          vx: 0, vy: 540,
+          x: t.x + (isArrows ? rand(-12, 12) : 0),
+          y: t.y - 380 - (isArrows ? i * 18 : 0),
+          vx: isArrows ? rand(-30, 30) : 0,
+          vy: isArrows ? 720 : 540,
           life: 1.2, damage: dmg, color: def.color,
           radius: stats.area * hero.areaMult, pierce: 999,
-          element: def.element, crit: isCrit, kind: 'meteor',
+          element: def.element, crit: isCrit,
+          kind: isArrows ? 'arrow_rain' : 'meteor',
+          shape: isArrows ? 'arrow_rain' : undefined,
           spawnY: t.y - 380, gravityFall: t.y,
           areaOnHit: stats.area * hero.areaMult,
+          delay: stagger,
         });
       }
     },
@@ -740,11 +748,28 @@ DDI.systems = (function () {
         app.fx.toast('BOSS SLAIN');
         app.fx.shake(18);
         app.loot.spawn('chest', enemy.x, enemy.y, 1, 'legendary');
-        // Act boss → advance the act
-        if (enemy._actBoss && app.advanceAct) {
-          app.loot.spawn('chest', enemy.x + 30, enemy.y, 1, 'legendary');
-          app.loot.spawn('chest', enemy.x - 30, enemy.y, 1, 'legendary');
-          setTimeout(function () { app.advanceAct(); }, 800);
+        // Act boss → drop fat loot pile + show PROCEED button (do NOT auto-advance).
+        // Player loots, presses PROCEED when ready (mirrors zone-clear flow).
+        if (enemy._actBoss && app.ui && app.ui.showActProceedButton) {
+          // Ring of legendary chests + a couple gold piles for the moment of triumph
+          const ring = 8;
+          for (let i = 0; i < ring; i++) {
+            const a = (i / ring) * Math.PI * 2;
+            const rad = 60 + Math.random() * 30;
+            app.loot.spawn('chest', enemy.x + Math.cos(a) * rad, enemy.y + Math.sin(a) * rad, 1,
+                            i % 3 === 0 ? 'legendary' : 'epic');
+          }
+          for (let i = 0; i < 12; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const rad = 30 + Math.random() * 90;
+            app.loot.spawn('gold', enemy.x + Math.cos(a) * rad, enemy.y + Math.sin(a) * rad, 250 + Math.floor(Math.random() * 250));
+          }
+          app.fx.toast('★  ACT BOSS SLAIN — LOOT THEN PROCEED  ★');
+          app.fx.flash('#ffe14d', 0.7);
+          // Mark as awaiting-advance so the regular-boss-kill path doesn't double-fire later
+          app.game.actBossActive = null;
+          app.game.pendingActAdvance = true;
+          app.ui.showActProceedButton();
         }
       } else if (def.isElite) {
         app.fx.shake(6);

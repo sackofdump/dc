@@ -351,6 +351,42 @@ DDI.data = (function () {
       radius: 75, hp: 6500, dmg: 38, speed: 70, xp: 650, gold: 320,
       color: '#ff5030', tier: 5, scale: 3.5, isBoss: true,
     },
+    // ===== Ranged + variety bosses (acts 2+) =====
+    boss_huntress: {
+      id: 'boss_huntress', name: 'Vesper, the Bone Huntress', kind: 'archer',
+      radius: 70, hp: 7200, dmg: 42, speed: 95, xp: 720, gold: 360,
+      color: '#cdd5e0', tier: 5, scale: 3.0, isBoss: true,
+      ranged: true, rangedDmg: 28,
+    },
+    boss_archmage: {
+      id: 'boss_archmage', name: 'Mortis, the Hex Archmage', kind: 'cultist',
+      radius: 75, hp: 8000, dmg: 45, speed: 60, xp: 800, gold: 400,
+      color: '#b266ff', tier: 5, scale: 3.3, isBoss: true,
+      ranged: true, rangedDmg: 34,
+    },
+    boss_pyromancer: {
+      id: 'boss_pyromancer', name: 'Ignis, the Flame-Caller', kind: 'cultist',
+      radius: 75, hp: 7800, dmg: 44, speed: 65, xp: 780, gold: 380,
+      color: '#ff7b1f', tier: 5, scale: 3.2, isBoss: true,
+      ranged: true, rangedDmg: 30,
+    },
+    boss_iceshade: {
+      id: 'boss_iceshade', name: 'Glacira, the Iceshade', kind: 'wraith',
+      radius: 72, hp: 7500, dmg: 40, speed: 75, xp: 740, gold: 370,
+      color: '#66d9ff', tier: 5, scale: 3.1, isBoss: true,
+      ranged: true, rangedDmg: 26,
+    },
+    boss_titan: {
+      id: 'boss_titan', name: 'Korvath, the Stone Titan', kind: 'brute',
+      radius: 100, hp: 12000, dmg: 60, speed: 50, xp: 900, gold: 450,
+      color: '#a8693a', tier: 5, scale: 4.0, isBoss: true,
+    },
+    boss_voidweaver: {
+      id: 'boss_voidweaver', name: 'Xathur, the Void-Weaver', kind: 'cultist',
+      radius: 80, hp: 9500, dmg: 50, speed: 55, xp: 850, gold: 425,
+      color: '#7a3aff', tier: 5, scale: 3.5, isBoss: true,
+      ranged: true, rangedDmg: 38,
+    },
   };
 
   const BIOMES = {
@@ -393,6 +429,84 @@ DDI.data = (function () {
       bossPool:  ['boss_lich'],
     },
   };
+
+  // Per-act overrides — make each act feel distinct (different portal layout,
+  // main-zone palette tint, level requirements, name decoration, and boss pools).
+  // Acts beyond what's defined fall back to the highest defined entry but with
+  // bumped level requirements (computed in main.js).
+  const ACT_THEMES = {
+    1: {
+      mainPalette: { ground: '#1c1426', edge: '#0c081a', accent: '#3a2a55', fog: 'rgba(60,30,90,0.18)' },
+      portalAngle: 0.40, portalRadius: 0.42, portalJitter: 200,
+      portalLevels: [5, 12, 20, 30],
+      nameSuffix: '',
+      mainName: 'WHISPERING CRYPTS',
+    },
+    2: {
+      mainPalette: { ground: '#26181a', edge: '#0c060a', accent: '#7a2a40', fog: 'rgba(120,30,40,0.20)' },
+      portalAngle: 1.20, portalRadius: 0.46, portalJitter: 240,
+      portalLevels: [40, 50, 60, 75],
+      nameSuffix: ' II',
+      mainName: 'SCARRED CATACOMBS',
+    },
+    3: {
+      mainPalette: { ground: '#0e1a26', edge: '#04101a', accent: '#3a5a7a', fog: 'rgba(40,80,140,0.22)' },
+      portalAngle: 2.10, portalRadius: 0.40, portalJitter: 180,
+      portalLevels: [85, 100, 115, 135],
+      nameSuffix: ' III',
+      mainName: 'DROWNED HALLS',
+    },
+    4: {
+      mainPalette: { ground: '#1c0e1a', edge: '#0c0410', accent: '#7a3aff', fog: 'rgba(80,30,140,0.24)' },
+      portalAngle: 3.00, portalRadius: 0.48, portalJitter: 260,
+      portalLevels: [145, 165, 185, 210],
+      nameSuffix: ' IV',
+      mainName: 'WARPED ABYSS',
+    },
+    5: {
+      mainPalette: { ground: '#0a1a14', edge: '#040c08', accent: '#3aff8a', fog: 'rgba(40,140,80,0.22)' },
+      portalAngle: 0.90, portalRadius: 0.44, portalJitter: 220,
+      portalLevels: [225, 250, 275, 305],
+      nameSuffix: ' V',
+      mainName: 'WITHERED HEART',
+    },
+  };
+
+  // Per-act boss pools for tele-zones — each act swaps in different boss varieties
+  // so the encounter feels fresh.  Falls back to ZONE_THEMES.bossPool if no entry.
+  const ACT_ZONE_BOSSES = {
+    1: { magma: ['boss_lava'],         frost: ['boss_warden'],   cursed: ['boss_mushroom'],   cosmic: ['boss_lich'] },
+    2: { magma: ['boss_pyromancer'],   frost: ['boss_iceshade'], cursed: ['boss_archmage'],   cosmic: ['boss_voidweaver'] },
+    3: { magma: ['boss_titan'],        frost: ['boss_huntress'], cursed: ['boss_voidweaver'], cosmic: ['boss_archmage'] },
+    4: { magma: ['boss_pyromancer','boss_titan'], frost: ['boss_iceshade','boss_huntress'],
+         cursed: ['boss_voidweaver','boss_archmage'], cosmic: ['boss_archmage','boss_lich'] },
+    5: { magma: ['boss_titan','boss_pyromancer'], frost: ['boss_huntress','boss_iceshade'],
+         cursed: ['boss_archmage','boss_voidweaver'], cosmic: ['boss_voidweaver','boss_lich'] },
+  };
+
+  // Per-act final act-boss (the one in main zone after all 4 portals cleared)
+  const ACT_BOSS_FINAL = {
+    1: 'boss_warden',
+    2: 'boss_archmage',
+    3: 'boss_titan',
+    4: 'boss_voidweaver',
+    5: 'boss_huntress',
+  };
+
+  // Pick the right theme/pool for any act number — clamps to the highest-defined entry.
+  function actTheme(act) {
+    const a = Math.max(1, Math.min(5, act | 0));
+    return ACT_THEMES[a];
+  }
+  function actZoneBoss(act, biome) {
+    const a = Math.max(1, Math.min(5, act | 0));
+    const map = ACT_ZONE_BOSSES[a] || ACT_ZONE_BOSSES[1];
+    return (map[biome] && map[biome].length) ? map[biome] : null;
+  }
+  function actFinalBoss(act) {
+    const a = Math.max(1, Math.min(5, act | 0));
+    return ACT_BOSS_FINAL[a] || ACT_BOSS_FINAL[1];
+  }
 
   // ---- Warrior physical extras ----
   ABILITIES.whirlwind = {
@@ -1137,5 +1251,6 @@ DDI.data = (function () {
 
   return { RARITY, HERO_BASE, ABILITIES, UPGRADES, ENEMIES, BIOMES, STARTER_ABILITY,
            CLASSES, META_UPGRADES, metaUpgradeCost, applyMetaUpgrades, ULTS, ZONE_THEMES,
+           ACT_THEMES, ACT_ZONE_BOSSES, ACT_BOSS_FINAL, actTheme, actZoneBoss, actFinalBoss,
            accountXpForRank, accountRankFromXp, accountXpForRunStats };
 })();

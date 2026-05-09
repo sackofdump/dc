@@ -119,6 +119,13 @@ DDI.UI = (function () {
       const btnAuthGuest = this.$('btn-auth-guest');
       if (btnAuthGuest) btnAuthGuest.addEventListener('click', function () { self.app.playAsGuest(); });
 
+      // Admin: skip to next act (testing aid — only meaningful while a run is live)
+      const btnAdminAct = this.$('btn-admin-act');
+      if (btnAdminAct) btnAdminAct.addEventListener('click', function () {
+        if (!self.app.game.running) { self.app.fx && self.app.fx.toast && self.app.fx.toast('NOT IN A RUN'); return; }
+        if (self.app.adminSkipAct) self.app.adminSkipAct();
+      });
+
       // Title leaderboard button
       const btnLb = this.$('btn-leaderboard');
       if (btnLb) btnLb.addEventListener('click', function () { self.showLeaderboard(); });
@@ -686,6 +693,27 @@ DDI.UI = (function () {
       this.modalOpen = false;
     }
 
+    // ---- Act Proceed button (after act boss slain — let player loot first) ----
+    showActProceedButton() {
+      const btn = this.$('btn-act-proceed');
+      if (!btn) return;
+      const next = (this.app.game.act || 1) + 1;
+      btn.textContent = 'PROCEED TO ACT ' + next + '  ★';
+      btn.classList.remove('hidden');
+      const self = this;
+      if (!btn._wired) {
+        btn._wired = true;
+        btn.addEventListener('click', function () {
+          btn.classList.add('hidden');
+          if (self.app && self.app.advanceAct) self.app.advanceAct();
+        });
+      }
+    }
+    hideActProceedButton() {
+      const btn = this.$('btn-act-proceed');
+      if (btn) btn.classList.add('hidden');
+    }
+
     // ---- Zone Exit button (non-blocking — appears after zone clear) ----
     showZoneExitButton() {
       const btn = this.$('btn-zone-exit');
@@ -954,6 +982,8 @@ DDI.UI = (function () {
       const a = this.$('modal-auth');          if (a) a.classList.add('hidden');
       const c = this.$('modal-character');     if (c) c.classList.add('hidden');
       const ac = this.$('modal-act-complete'); if (ac) ac.classList.add('hidden');
+      // Settings opened mid-run pauses the simulation so enemies/spawns freeze.
+      if (this.app && this.app.game && this.app.game.running) this.app.game.paused = true;
       this.$('modal-settings').classList.remove('hidden');
       const s = (this.app.save && this.app.save.settings) || {};
       this.$('set-sound').checked = !!s.sound;

@@ -166,6 +166,8 @@
       this.zone = { name: 'main', displayName: 'WHISPERING CRYPTS', color: '#b266ff', killsInZone: 0, killsNeeded: 0 };
       this.zoneDifficulty = 1;
       this.runDifficulty = 1;
+      this.zoneTheme = null;
+      this.applyMainActTheme();
       this.generateFeatures('main');
       // Apply Forge meta-upgrades (permanent, account-wide)
       DDI.data.applyMetaUpgrades(this.hero, this.save.permUpgrades);
@@ -369,18 +371,26 @@
 
       // Portals only exist in the main zone — biome zones are isolated.
       if (isMain) {
+        const D = DDI.data;
+        const act = (this.game && this.game.act) || 1;
+        const theme = (D && D.actTheme) ? D.actTheme(act) : null;
+        const baseAng = theme ? theme.portalAngle : 0.40;
+        const radPct  = theme ? theme.portalRadius : 0.42;
+        const jitter  = theme ? theme.portalJitter : 200;
+        const levels  = (theme && theme.portalLevels) || [5, 12, 20, 30];
+        const suffix  = (theme && theme.nameSuffix) || '';
         const portalDefs = [
-          { biome: 'magma',     name: 'MAGMA CAVES',   requiredLevel: 5,  color: '#ff5030' },
-          { biome: 'frost',     name: 'FROZEN RUINS',  requiredLevel: 12, color: '#66d9ff' },
-          { biome: 'cursed',    name: 'CURSED FOREST', requiredLevel: 20, color: '#b266ff' },
-          { biome: 'cosmic',    name: 'COSMIC REALM',  requiredLevel: 30, color: '#ffe14d' },
+          { biome: 'magma',  name: 'MAGMA CAVES'   + suffix, requiredLevel: levels[0], color: '#ff5030' },
+          { biome: 'frost',  name: 'FROZEN RUINS'  + suffix, requiredLevel: levels[1], color: '#66d9ff' },
+          { biome: 'cursed', name: 'CURSED FOREST' + suffix, requiredLevel: levels[2], color: '#b266ff' },
+          { biome: 'cosmic', name: 'COSMIC REALM'  + suffix, requiredLevel: levels[3], color: '#ffe14d' },
         ];
         const cleared = (this.game && this.game.zonesCleared) || {};
         portalDefs.forEach((pdef, i) => {
-          const ang = (i / portalDefs.length) * Math.PI * 2 + 0.4;
-          const radius = Math.min(W, H) * 0.42;
-          const px = cx + Math.cos(ang) * radius + (Math.random() - 0.5) * 200;
-          const py = cy + Math.sin(ang) * radius + (Math.random() - 0.5) * 200;
+          const ang = (i / portalDefs.length) * Math.PI * 2 + baseAng;
+          const radius = Math.min(W, H) * radPct;
+          const px = cx + Math.cos(ang) * radius + (Math.random() - 0.5) * jitter;
+          const py = cy + Math.sin(ang) * radius + (Math.random() - 0.5) * jitter;
           this.features.push({
             type: 'portal',
             x: Math.max(200, Math.min(W - 200, px)),
@@ -392,6 +402,19 @@
           });
         });
       }
+    }
+
+    // Returns the right palette/theme for the current main map based on the active act.
+    // Tele-zones still use ZONE_THEMES; this only tints the home base.
+    applyMainActTheme() {
+      const D = DDI.data;
+      const act = (this.game && this.game.act) || 1;
+      const theme = (D && D.actTheme) ? D.actTheme(act) : null;
+      if (!theme) return;
+      // Hand-roll a tele-zone-shaped object so render.js's `app.zoneTheme.palette` lookup
+      // works on the main map for acts > 1 too (and for act 1 it's a no-op tint match).
+      this.zoneTheme = { name: theme.mainName, palette: theme.mainPalette };
+      if (this.zone) this.zone.displayName = theme.mainName;
     }
 
     triggerUlt() {
@@ -1121,9 +1144,13 @@
     }
 
     spawnZoneFinalElite(fadeIn) {
-      const ENEMIES = DDI.data.ENEMIES;
-      // Pull from BOSS pool — proper boss-tier encounter, not a soft elite
-      const bossPool = (this.zoneTheme && this.zoneTheme.bossPool) || ['boss_warden','boss_mushroom'];
+      const D = DDI.data;
+      const ENEMIES = D.ENEMIES;
+      // Per-act override first, then fall back to ZONE_THEMES.bossPool
+      const act = (this.game && this.game.act) || 1;
+      const biome = this.zone && this.zone.name;
+      const actPool = (D.actZoneBoss) ? D.actZoneBoss(act, biome) : null;
+      const bossPool = actPool || (this.zoneTheme && this.zoneTheme.bossPool) || ['boss_warden','boss_mushroom'];
       const id = bossPool[Math.floor(Math.random() * bossPool.length)];
       const def = ENEMIES[id];
       const ang = Math.random() * Math.PI * 2;
@@ -1190,6 +1217,7 @@
       this.zoneDifficulty = 1;     // zone bonus reset, but runDifficulty persists
       this.zoneRequiredLevel = 0;
       this.zoneTheme = null;
+      this.applyMainActTheme();
       this.generateFeatures('main');
       this.enemies.live.forEach(function (e) { e._alive = false; });
       this.enemies.sweep();
@@ -1208,8 +1236,11 @@
 
     // Summon the main-map act boss after all 4 tele zones are cleared.
     spawnActBoss() {
-      const ENEMIES = DDI.data.ENEMIES;
-      const def = ENEMIES.boss_warden || ENEMIES.boss_mushroom;
+      const D = DDI.data;
+      const ENEMIES = D.ENEMIES;
+      const act = (this.game && this.game.act) || 1;
+      const finalId = (D.actFinalBoss && D.actFinalBoss(act)) || 'boss_warden';
+      const def = ENEMIES[finalId] || ENEMIES.boss_warden || ENEMIES.boss_mushroom;
       if (!def) return;
       const ang = Math.random() * Math.PI * 2;
       const dist = 480;
@@ -1269,10 +1300,35 @@
         this.submitLeaderboard({});
       }
       // Regenerate main features so the now-unsealed portals reset
-      if (this.zone && this.zone.name === 'main') this.generateFeatures('main');
+      // and apply the new act's palette/name to the home base.
+      if (this.zone && this.zone.name === 'main') {
+        this.applyMainActTheme();
+        this.generateFeatures('main');
+      }
       this.fx.toast('★  ACT ' + this.game.act + ' BEGINS  ★');
       this.fx.flash('#ffe14d', 0.6);
       this.game.paused = false;
+      this.game.pendingActAdvance = false;
+    }
+
+    // Admin/dev helper — instantly satisfies the act-clear path so the player
+    // jumps straight to the post-act intermission.  Wired to #btn-admin-act.
+    adminSkipAct() {
+      if (!this.game || !this.game.running) return;
+      this.fx.toast('▶ ADMIN: SKIP ACT');
+      this.game.actBossActive = null;
+      this.game.pendingActBoss = false;
+      this.game.pendingActAdvance = false;
+      // Bump the player up so the new act's portal level reqs make sense
+      const D = DDI.data;
+      const nextAct = (this.game.act || 1) + 1;
+      const theme = (D && D.actTheme) ? D.actTheme(nextAct) : null;
+      if (theme && this.game.level < theme.portalLevels[0]) {
+        this.game.level = Math.max(this.game.level, theme.portalLevels[0]);
+      }
+      if (this.ui && this.ui.hideActProceedButton) this.ui.hideActProceedButton();
+      if (this.ui && this.ui.hideZoneExitButton)   this.ui.hideZoneExitButton();
+      this.advanceAct();
     }
 
     getDifficultyMult() {
