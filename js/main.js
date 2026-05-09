@@ -96,20 +96,20 @@
     }
 
     // Called after sign-in/sign-up — pulls server save (if any) into this.save
-    // and starts mirroring local writes to Supabase.
+    // and starts mirroring local writes to Supabase.  Always builds a fully-
+    // populated save (DEFAULT_SAVE merged with remote data) so downstream code
+    // never sees missing fields like permUpgrades or settings.
     async onAuthChanged() {
       this.isGuest = false;
-      if (!DDI.auth) return;
-      await DDI.auth.ensureProfile();
-      const remote = await DDI.auth.loadSave();
+      const baseDefaults = (DDI.save && DDI.save.defaults) ? DDI.save.defaults() : {};
+      if (!DDI.auth) { this.save = baseDefaults; this.persist(); return; }
+      try { await DDI.auth.ensureProfile(); } catch (e) { console.error('[onAuthChanged] ensureProfile', e); }
+      let remote = null;
+      try { remote = await DDI.auth.loadSave(); } catch (e) { console.error('[onAuthChanged] loadSave', e); }
       if (remote && remote.save_data && Object.keys(remote.save_data).length > 0) {
-        // Merge over defaults so newly added fields don't break old saves
-        const defaults = (DDI.save && DDI.save.load) ? DDI.save.load() : {};
-        this.save = Object.assign({}, defaults || {}, remote.save_data);
+        this.save = Object.assign({}, baseDefaults, remote.save_data);
       } else {
-        // First login on this account → use local default save
-        this.save = (DDI.save && DDI.save.load) ? DDI.save.load() : null;
-        if (!this.save) this.save = {};
+        this.save = baseDefaults;
       }
       this.persist();
     }

@@ -1144,15 +1144,17 @@ DDI.UI = (function () {
     hideBoss() { this.$('boss-wrap').classList.add('hidden'); }
 
     showTitle() {
-      // Gate: if no active profile, show login instead
-      if (!DDI.save.activeId() || !this.app.save) { this.showLogin(); return; }
-      // Show tutorial on first run of this profile
+      // Gate: must have a save (Supabase user, guest, or local profile).  Don't
+      // require DDI.save.activeId() — Supabase users may have no localStorage profile.
+      if (!this.app.save) { this.showAuth(); return; }
+      // Show tutorial on first run
       if (!this.app.save.tutorialDone && !this._tutorialShown) {
         this._tutorialShown = true;
         this.openTutorial(0);
         return;
       }
-      this.$('modal-login').classList.add('hidden');
+      this.$('modal-auth').classList.add('hidden');
+      this.$('modal-character').classList.add('hidden');
       this.$('modal-title').classList.remove('hidden');
       this.$('modal-tutorial').classList.add('hidden');
       this.$('modal-death').classList.add('hidden');
@@ -1160,9 +1162,18 @@ DDI.UI = (function () {
       this.$('modal-forge').classList.add('hidden');
       this.$('modal-settings').classList.add('hidden');
       this.modalOpen = true;
-      this.$('profile-name').textContent = (DDI.save.activeName() || 'Adventurer').toUpperCase();
+      // Resolve display name: Supabase profile > localStorage profile > 'Adventurer'
+      let pname = 'Adventurer';
+      if (DDI.auth && DDI.auth.profile) {
+        const p = DDI.auth.profile();
+        if (p && p.display_name) pname = p.display_name;
+      }
+      if (pname === 'Adventurer' && DDI.save.activeName) {
+        pname = DDI.save.activeName() || pname;
+      }
+      this.$('profile-name').textContent = pname.toUpperCase();
       this.$('title-stats').innerHTML =
-        'Best Floor <b>' + this.app.save.bestFloor + '</b> · Soul Dust <b>' + shortNum(this.app.save.dust) + '</b>';
+        'Best Floor <b>' + (this.app.save.bestFloor || 1) + '</b> · Soul Dust <b>' + shortNum(this.app.save.dust || 0) + '</b>';
     }
     hideTitle() { this.$('modal-title').classList.add('hidden'); this.modalOpen = false; }
 

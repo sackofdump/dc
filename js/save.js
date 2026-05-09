@@ -147,8 +147,12 @@ DDI.save = (function () {
 
   function logout() { setActiveId(null); }
 
+  // Return a fresh, fully-populated default save structure.  Used by the
+  // Supabase auth flow when no existing save exists yet.
+  function defaults() { return Object.assign({}, DEFAULT_SAVE, { keybinds: Object.assign({}, DEFAULT_KEYBINDS) }); }
+
   return {
-    load, write, reset,
+    load, write, reset, defaults,
     listProfiles, createProfile, deleteProfile, renameProfile,
     selectProfile, logout, activeName, activeId,
     DEFAULT_KEYBINDS,
