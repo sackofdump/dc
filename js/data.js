@@ -455,14 +455,15 @@ DDI.data = (function () {
   };
   ABILITIES.backstab = {
     id: 'backstab', name: 'Backstab', icon: '🥷', element: 'physical', color: '#ff3d52',
-    desc: 'A killing blow on the most-wounded foe — heavy single-target damage.',
+    desc: 'A killing blow on the most-wounded foe within reach — heavy single-target damage.',
     type: 'homing', maxLevel: 8,
-    base: { cooldown: 2.4, damage: 60, count: 1, life: 0.4, pierce: 0 },
+    base: { cooldown: 2.4, damage: 60, count: 1, life: 0.4, pierce: 0, range: 220 },
     scale: function (lvl, b) {
       return Object.assign({}, b, {
         damage:   b.damage * (1 + 0.25 * lvl),
         count:    b.count + Math.floor(lvl / 3),
         cooldown: b.cooldown * (1 - 0.05 * lvl),
+        range:    b.range  * (1 + 0.04 * lvl),
       });
     },
     desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · ' + s.count + ' target' + (s.count>1?'s':'') + ' · CD ' + s.cooldown.toFixed(2) + 's'; },
@@ -471,17 +472,18 @@ DDI.data = (function () {
   // ---- Rogue movement / utility ----
   ABILITIES.shadowstep = {
     id: 'shadowstep', name: 'Shadowstep', icon: '🗡️', element: 'physical', color: '#b266ff',
-    desc: 'Phantom strikes — daggers from the shadows on the nearest foes.',
+    desc: 'Phantom strikes — daggers from the shadows on nearby foes.',
     type: 'homing', maxLevel: 8,
-    base: { cooldown: 1.6, damage: 28, count: 3, life: 0.4, pierce: 0 },
+    base: { cooldown: 1.6, damage: 28, count: 3, life: 0.4, pierce: 0, range: 240 },
     scale: function (lvl, b) {
       return Object.assign({}, b, {
         damage:   b.damage   * (1 + 0.20 * lvl),
         count:    b.count    + Math.floor(lvl / 2),
         cooldown: b.cooldown * (1 - 0.04 * lvl),
+        range:    b.range    * (1 + 0.05 * lvl),
       });
     },
-    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · ' + s.count + ' targets · CD ' + s.cooldown.toFixed(2) + 's'; },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · ' + s.count + ' targets · range ' + Math.round(s.range); },
   };
   ABILITIES.cruelty = {
     id: 'cruelty', name: 'Cruelty', icon: '💢', element: 'physical', color: '#ff3d52',

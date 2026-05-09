@@ -217,8 +217,12 @@ DDI.systems = (function () {
         // Projectile reach ≈ speed × life. Cap at a reasonable on-screen distance.
         const reach = (stats.speed || 320) * (stats.life || 1.4) * 0.9;
         range = Math.min(reach, Math.max(app.viewW, app.viewH) * 0.7);
+      } else if (def.type === 'homing') {
+        // Targeted homing abilities (shadowstep, backstab) carry an explicit range;
+        // un-ranged ones (bats / generic homing) fall back to on-screen.
+        range = stats.range || (Math.max(app.viewW, app.viewH) * 0.7);
       } else {
-        // homing / meteor — anywhere on the visible play area
+        // meteor — anywhere on the visible play area
         range = Math.max(app.viewW, app.viewH) * 0.7;
       }
       const r2 = range * range;
@@ -385,7 +389,7 @@ DDI.systems = (function () {
       const hero = app.hero;
       const total = (stats.count || 1) + hero.projMult;
 
-      // Shadowstep: phantom violet daggers strike the N nearest foes
+      // Shadowstep: phantom violet daggers strike the N nearest foes within range
       if (def.id === 'shadowstep') {
         // Burst at hero — violet smoke + dagger streaks outward
         for (let i = 0; i < 14; i++) {
@@ -399,8 +403,13 @@ DDI.systems = (function () {
           });
         }
         app.particles.spawn({ x: hero.x, y: hero.y, life: 0.35, size: 80,  color: '#b266ff', kind: 'ring', fade: 1 });
+        const range = stats.range || 240;
+        const r2 = range * range;
         const live = [];
-        app.enemies.forEach(function (e) { if (e._alive) live.push(e); });
+        app.enemies.forEach(function (e) {
+          if (!e._alive) return;
+          if (dist2(hero.x, hero.y, e.x, e.y) <= r2) live.push(e);
+        });
         live.sort(function (a, b) { return dist2(hero.x, hero.y, a.x, a.y) - dist2(hero.x, hero.y, b.x, b.y); });
         const targets = live.slice(0, total);
         targets.forEach(function (e) {
@@ -423,10 +432,15 @@ DDI.systems = (function () {
         return;
       }
 
-      // Backstab: a single brutal strike on the most-wounded foe
+      // Backstab: a single brutal strike on the most-wounded foe within reach
       if (def.id === 'backstab') {
+        const range = stats.range || 220;
+        const r2 = range * range;
         const live = [];
-        app.enemies.forEach(function (e) { if (e._alive) live.push(e); });
+        app.enemies.forEach(function (e) {
+          if (!e._alive) return;
+          if (dist2(hero.x, hero.y, e.x, e.y) <= r2) live.push(e);
+        });
         // Sort by missing HP (most wounded first), tie-break by distance
         live.sort(function (a, b) {
           const am = a.maxHp - a.hp, bm = b.maxHp - b.hp;
