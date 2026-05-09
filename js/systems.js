@@ -77,9 +77,10 @@ DDI.systems = (function () {
     },
 
     spawnOne: function (app, diff) {
-      // Stop spawning once the boss transition has begun, OR once the zone's kill quota is met
+      // Stop spawning once the boss transition has begun. Otherwise mobs keep
+      // pouring in past the 75-kill mark — the kill counter caps at 75/75 in
+      // the UI but the player can keep farming while collecting shards.
       if (app.zone && app.zone.fadeOutBegan) return;
-      if (app.zone && app.zone.name !== 'main' && (app.zone.killsInZone || 0) >= (app.zone.killsNeeded || 0)) return;
       let pool;
       if (app.zoneTheme && app.zoneTheme.enemyPool) {
         pool = app.zoneTheme.enemyPool;
@@ -504,6 +505,69 @@ DDI.systems = (function () {
           app.particles.spawn({ x: e.x, y: e.y, life: 0.55, size: 110, color: '#ffffff', kind: 'ring', fade: 1 });
         });
         if (targets.length) app.fx.shake(4);
+        return;
+      }
+
+      // Raise Skeleton: summons a literal skeleton sprite at each nearby foe.
+      // The skeleton claws the target, deals damage, then dissolves into bone shards.
+      if (def.id === 'raiseSkeleton') {
+        const range = stats.range || 320;
+        const r2 = range * range;
+        const live = [];
+        app.enemies.forEach(function (e) {
+          if (!e._alive) return;
+          if (dist2(hero.x, hero.y, e.x, e.y) <= r2) live.push(e);
+        });
+        live.sort(function (a, b) { return dist2(hero.x, hero.y, a.x, a.y) - dist2(hero.x, hero.y, b.x, b.y); });
+        const targets = live.slice(0, total);
+        // Bone-shard burst at hero on summon
+        for (let i = 0; i < 12; i++) {
+          const a = (i / 12) * TAU;
+          app.particles.spawn({
+            x: hero.x, y: hero.y,
+            vx: Math.cos(a) * rand(80, 160), vy: Math.sin(a) * rand(80, 160) - 30,
+            life: rand(0.3, 0.55),
+            color: i % 2 === 0 ? '#e8dcc0' : '#fff5d9',
+            size: 3, kind: 'streak',
+          });
+        }
+        app.particles.spawn({ x: hero.x, y: hero.y, life: 0.30, size: 70, color: '#9aa3b0', kind: 'ring', fade: 1 });
+        targets.forEach(function (e) {
+          const isCrit = hero.rollCrit();
+          const dmg = stats.damage * hero.damageMult * (isCrit ? hero.critMult : 1);
+          app.combat.dealDamage(e, dmg, def.element, isCrit, hero.x, hero.y, def.color);
+          // Skeleton sprite rises from the ground at the target
+          app.particles.spawn({
+            x: e.x, y: e.y + 18,            // start slightly below
+            vx: 0, vy: -55,                  // rise upward
+            life: 0.85, size: 64, color: '#fff',
+            kind: 'sprite', sprite: 'skeleton_sheet', spriteFrame: 0,
+            rot: rand(-0.1, 0.1), spin: 0, fade: 1,
+          });
+          // Dust puff at the ground where the skeleton clawed up
+          for (let k = 0; k < 8; k++) {
+            const a = rand(0, TAU);
+            app.particles.spawn({
+              x: e.x + (Math.random() - 0.5) * 14, y: e.y + 14,
+              vx: Math.cos(a) * rand(40, 90), vy: -rand(20, 50),
+              life: rand(0.4, 0.7),
+              color: 'rgba(180,170,150,0.7)',
+              size: 4, kind: 'smoke',
+            });
+          }
+          // Bone shards exploding outward on impact
+          for (let k = 0; k < 8; k++) {
+            const a = rand(0, TAU);
+            app.particles.spawn({
+              x: e.x, y: e.y,
+              vx: Math.cos(a) * rand(60, 130), vy: Math.sin(a) * rand(60, 130) - 30,
+              life: rand(0.3, 0.5),
+              color: k % 2 === 0 ? '#e8dcc0' : '#fff5d9',
+              size: 3, kind: 'streak',
+            });
+          }
+          app.particles.spawn({ x: e.x, y: e.y, life: 0.30, size: 50, color: '#cdd5e0', kind: 'ring', fade: 1 });
+        });
         return;
       }
 
