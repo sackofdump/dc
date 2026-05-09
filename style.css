@@ -698,13 +698,12 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
   color: var(--accent-gold); text-shadow: 0 4px 0 #2a1a00, 0 0 16px rgba(255,217,102,0.4);
 }
 .modal-card h1 .sub { font-size: 16px; color: var(--accent-violet); letter-spacing: 0.4em; }
-/* Modals that float a logo above their card — anchor to top so the card sits
-   right beneath the logo instead of centering as a group. */
+/* Modals that float a logo above their card — center the logo+card as one
+   stacked unit so the logo sits directly above the card, not pinned to the top. */
 .modal-with-logo {
   flex-direction: column;
   gap: 0;
-  justify-content: flex-start;
-  padding-top: 4vh;
+  justify-content: center;
   align-items: center;
 }
 .modal-with-logo .game-logo {
