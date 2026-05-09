@@ -41,7 +41,7 @@ DDI.assets = (function () {
     bats_sheet:          'Assets/Characters/BatSwarm_Sprites.png',
 
     // Objects + UI
-    chest:      'Assets/Objects/Treasure Chest.png',
+    // (treasure chest is now drawn procedurally — no asset needed)
     ui_sprites: 'Assets/UI/UI_Sprites.png',
   };
 

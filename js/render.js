@@ -2948,26 +2948,16 @@ DDI.Renderer = (function () {
     }
 
     drawLoot(ctx) {
+      const self = this;
+      const t = performance.now() / 1000;
       this.app.loot.forEach(function (l) {
         if (!l._alive) return;
         const bob = Math.sin(l.bobT) * 2;
         ctx.save();
         if (l.kind === 'chest') {
-          ctx.globalCompositeOperation = 'screen';
-          const grd = ctx.createLinearGradient(l.x, l.y - 60, l.x, l.y - 220);
-          grd.addColorStop(0, 'rgba(255,217,102,0.45)');
-          grd.addColorStop(1, 'rgba(255,217,102,0)');
-          ctx.fillStyle = grd;
-          ctx.fillRect(l.x - 14, l.y - 220, 28, 220);
-          ctx.globalCompositeOperation = 'source-over';
-          drawSpriteOrFallback(ctx, 'chest', l.x, l.y + bob, 70, function (c, x, y, d) {
-            c.fillStyle = '#a86a2a';
-            c.fillRect(x - d*0.32, y - d*0.18, d*0.64, d*0.42);
-            c.fillStyle = '#ffd966';
-            c.fillRect(x - d*0.3, y - d*0.07, d*0.6, d*0.16);
-            c.strokeStyle = '#000'; c.lineWidth = 2;
-            c.strokeRect(x - d*0.32, y - d*0.18, d*0.64, d*0.42);
-          });
+          // Reuse the procedural feature chest for consistency — same visual
+          // for both loot drops and static feature chests.
+          self.drawChestFeature(ctx, { x: l.x, y: l.y + bob, rarity: l.rarity || 'magic' }, t);
         } else if (l.kind === 'gold') {
           ctx.fillStyle = '#ffd966';
           ctx.beginPath(); ctx.arc(l.x, l.y + bob, 5, 0, TAU); ctx.fill();
