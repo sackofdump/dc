@@ -2069,7 +2069,29 @@ DDI.Renderer = (function () {
           ctx.fillStyle = 'rgba(102,217,255,0.18)';
           ctx.beginPath(); ctx.arc(0, 0, e.radius * 1.1, 0, TAU); ctx.fill();
         }
+        // Poisoned enemies glow green + show a pulsing toxic outline
+        if (e.dotT > 0) {
+          const pulse = 0.55 + Math.sin((e.bobT || 0) * 5) * 0.25;
+          ctx.globalCompositeOperation = 'screen';
+          const grd = ctx.createRadialGradient(0, 0, 0, 0, 0, e.radius * 1.4);
+          grd.addColorStop(0, 'rgba(168,255,102,' + (0.28 * pulse).toFixed(2) + ')');
+          grd.addColorStop(1, 'rgba(168,255,102,0)');
+          ctx.fillStyle = grd;
+          ctx.beginPath(); ctx.arc(0, 0, e.radius * 1.4, 0, TAU); ctx.fill();
+          ctx.globalCompositeOperation = 'source-over';
+        }
         ctx.restore();
+
+        // Floating poison emoji above poisoned enemies (drawn outside the per-enemy transform)
+        if (e.dotT > 0) {
+          const float = Math.sin((e.bobT || 0) * 3) * 2;
+          ctx.save();
+          ctx.font = '14px serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('☠', e.x + e.radius * 0.6, e.y - e.radius * sc - 16 + float);
+          ctx.restore();
+        }
 
         if (e.def.isElite || e.def.isBoss || e.maxHp > 80) {
           const w = e.radius * 2;
@@ -2271,6 +2293,75 @@ DDI.Renderer = (function () {
             ctx.beginPath(); ctx.arc(p.x, p.gravityFall, p.areaOnHit, 0, TAU); ctx.stroke();
             ctx.restore();
           }
+          return;
+        }
+
+        // Procedural poisoned dagger — short curved blade with green poison drip
+        if (p.shape === 'dagger') {
+          const ang = Math.atan2(p.vy, p.vx);
+          const len = Math.max(22, p.radius * 2.6);
+          const wid = Math.max(3.5, p.radius * 0.55);
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(ang);
+
+          // Green venom aura around the blade
+          ctx.globalCompositeOperation = 'screen';
+          const aura = ctx.createRadialGradient(0, 0, 0, 0, 0, len * 0.7);
+          aura.addColorStop(0, 'rgba(168,255,102,0.55)');
+          aura.addColorStop(1, 'rgba(168,255,102,0)');
+          ctx.fillStyle = aura;
+          ctx.beginPath(); ctx.ellipse(0, 0, len * 0.7, wid * 1.6, 0, 0, TAU); ctx.fill();
+          ctx.globalCompositeOperation = 'source-over';
+
+          const xPommel = -len * 0.45;
+          const xGripA  = -len * 0.30;
+          const xGuard  = -len * 0.05;
+          const xMid    =  len * 0.20;
+          const xTip    =  len * 0.55;
+
+          // Handle / grip — dark wrap
+          ctx.fillStyle = '#1a0f08';
+          ctx.fillRect(xGripA, -wid * 0.32, xGuard - xGripA, wid * 0.64);
+          ctx.fillStyle = 'rgba(120,80,40,0.6)';
+          for (let i = 0; i < 3; i++) {
+            const xL = xGripA + (i + 0.5) * (xGuard - xGripA) / 3;
+            ctx.fillRect(xL, -wid * 0.32, 1, wid * 0.64);
+          }
+          // Pommel — green-tinted gem
+          ctx.fillStyle = '#3a1a08';
+          ctx.beginPath(); ctx.arc(xPommel, 0, wid * 0.42, 0, TAU); ctx.fill();
+          ctx.fillStyle = '#a8ff66';
+          ctx.beginPath(); ctx.arc(xPommel, 0, wid * 0.22, 0, TAU); ctx.fill();
+          // Crossguard
+          ctx.fillStyle = '#7a5a30';
+          ctx.fillRect(xGuard - 2, -wid * 0.85, 4, wid * 1.70);
+          ctx.strokeStyle = '#1a0f08'; ctx.lineWidth = 1; ctx.strokeRect(xGuard - 2, -wid * 0.85, 4, wid * 1.70);
+          // Blade — straight tapered with green tint
+          ctx.fillStyle = '#cdd5e0';
+          ctx.beginPath();
+          ctx.moveTo(xGuard, -wid * 0.45);
+          ctx.lineTo(xMid,   -wid * 0.40);
+          ctx.lineTo(xTip,    0);
+          ctx.lineTo(xMid,    wid * 0.40);
+          ctx.lineTo(xGuard,  wid * 0.45);
+          ctx.closePath(); ctx.fill();
+          ctx.strokeStyle = '#5a6a78'; ctx.lineWidth = 1.2; ctx.stroke();
+          // Poison sheen down the blade
+          ctx.globalCompositeOperation = 'screen';
+          ctx.fillStyle = 'rgba(168,255,102,0.55)';
+          ctx.beginPath();
+          ctx.moveTo(xGuard, -wid * 0.20);
+          ctx.lineTo(xTip - wid * 0.05, 0);
+          ctx.lineTo(xGuard, wid * 0.20);
+          ctx.closePath(); ctx.fill();
+          // Center fuller
+          ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+          ctx.lineWidth = 0.9;
+          ctx.beginPath(); ctx.moveTo(xGuard + 1, 0); ctx.lineTo(xTip - 2, 0); ctx.stroke();
+          ctx.globalCompositeOperation = 'source-over';
+
+          ctx.restore();
           return;
         }
 

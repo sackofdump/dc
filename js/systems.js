@@ -254,7 +254,8 @@ DDI.systems = (function () {
         : null;
       // Fireball: procedural fire trail (in updateProjectiles).
       // BoneSpear: procedural stretched-bone shape (set below) + bone-dust trail.
-      const isBoneSpear = (def.id === 'boneSpear');
+      const isBoneSpear   = (def.id === 'boneSpear');
+      const isVenomStrike = (def.id === 'venomStrike');
       for (let i = 0; i < total; i++) {
         const a = baseAng + (total === 1 ? 0 : (i / (total - 1) - 0.5) * spread);
         const isCrit = hero.rollCrit(stats.critBonus || 0);
@@ -281,6 +282,12 @@ DDI.systems = (function () {
           opts.shape = 'spear';
           opts.color = '#e8dcc0';        // bone-white
           opts.radius = Math.max(opts.radius, 12);
+        }
+        if (isVenomStrike) {
+          opts.shape = 'dagger';
+          opts.dotDps = stats.dotDps || 0;
+          opts.dotDur = stats.dotDur || 0;
+          opts.radius = Math.max(opts.radius, 10);
         }
         app.projectiles.spawn(opts);
       }
@@ -314,6 +321,32 @@ DDI.systems = (function () {
       const radius = stats.area * hero.areaMult;
       const dmg = stats.damage * hero.damageMult;
       app.fx.nova(hero.x, hero.y, radius, def.color);
+      // Smoke Bomb: fat grey smoke puffs swirling outward + lingering haze
+      if (def.id === 'smokeBomb') {
+        for (let i = 0; i < 18; i++) {
+          const a = (i / 18) * TAU + rand(-0.1, 0.1);
+          const sp = rand(60, 160);
+          app.particles.spawn({
+            x: hero.x + Math.cos(a) * 10, y: hero.y + Math.sin(a) * 10 - 8,
+            vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 30,
+            life: rand(0.7, 1.2),
+            color: i % 2 === 0 ? 'rgba(180,180,200,0.85)' : 'rgba(120,120,140,0.85)',
+            size: rand(14, 22), kind: 'smoke',
+          });
+        }
+        // Lingering pale haze inside the cloud
+        for (let i = 0; i < 8; i++) {
+          const a = rand(0, TAU), d = rand(0, radius * 0.7);
+          app.particles.spawn({
+            x: hero.x + Math.cos(a) * d, y: hero.y + Math.sin(a) * d,
+            vx: rand(-15, 15), vy: rand(-25, -5),
+            life: rand(1.0, 1.6),
+            color: 'rgba(200,205,220,0.55)',
+            size: rand(20, 32), kind: 'smoke',
+          });
+        }
+        app.fx.shake(4);
+      }
       const r2 = radius * radius;
       app.enemies.forEach(function (e) {
         if (!e._alive) return;
@@ -322,9 +355,11 @@ DDI.systems = (function () {
           const d = isCrit ? dmg * hero.critMult : dmg;
           app.combat.dealDamage(e, d, def.element, isCrit, hero.x, hero.y, def.color);
           if (stats.dot) e.applyDot(stats.dot * hero.damageMult, stats.dotDur || 2);
+          // Smoke Bomb also slows whoever it hits
+          if (def.id === 'smokeBomb' && e.applySlow) e.applySlow(0.5, 1.4);
         }
       });
-      app.fx.shake(3);
+      if (def.id !== 'smokeBomb') app.fx.shake(3);
     },
 
     fireMeteor: function (app, def, stats) {
@@ -349,6 +384,82 @@ DDI.systems = (function () {
     fireHoming: function (app, def, stats) {
       const hero = app.hero;
       const total = (stats.count || 1) + hero.projMult;
+
+      // Shadowstep: phantom violet daggers strike the N nearest foes
+      if (def.id === 'shadowstep') {
+        // Burst at hero — violet smoke + dagger streaks outward
+        for (let i = 0; i < 14; i++) {
+          const a = (i / 14) * TAU;
+          app.particles.spawn({
+            x: hero.x, y: hero.y,
+            vx: Math.cos(a) * rand(120, 200), vy: Math.sin(a) * rand(120, 200),
+            life: rand(0.3, 0.5),
+            color: i % 2 === 0 ? '#b266ff' : '#fff',
+            size: 4, kind: 'streak',
+          });
+        }
+        app.particles.spawn({ x: hero.x, y: hero.y, life: 0.35, size: 80,  color: '#b266ff', kind: 'ring', fade: 1 });
+        const live = [];
+        app.enemies.forEach(function (e) { if (e._alive) live.push(e); });
+        live.sort(function (a, b) { return dist2(hero.x, hero.y, a.x, a.y) - dist2(hero.x, hero.y, b.x, b.y); });
+        const targets = live.slice(0, total);
+        targets.forEach(function (e) {
+          const isCrit = hero.rollCrit();
+          const dmg = stats.damage * hero.damageMult * (isCrit ? hero.critMult : 1);
+          app.combat.dealDamage(e, dmg, def.element, isCrit, hero.x, hero.y, def.color);
+          // Dark slash mark at the target
+          app.particles.spawn({ x: e.x, y: e.y, life: 0.30, size: 60, color: '#b266ff', kind: 'ring', fade: 1 });
+          for (let i = 0; i < 8; i++) {
+            const a = rand(0, TAU);
+            app.particles.spawn({
+              x: e.x, y: e.y,
+              vx: Math.cos(a) * rand(60, 140), vy: Math.sin(a) * rand(60, 140),
+              life: rand(0.3, 0.5),
+              color: i % 2 === 0 ? '#b266ff' : '#cdd5e0',
+              size: 3, kind: 'streak',
+            });
+          }
+        });
+        return;
+      }
+
+      // Backstab: a single brutal strike on the most-wounded foe
+      if (def.id === 'backstab') {
+        const live = [];
+        app.enemies.forEach(function (e) { if (e._alive) live.push(e); });
+        // Sort by missing HP (most wounded first), tie-break by distance
+        live.sort(function (a, b) {
+          const am = a.maxHp - a.hp, bm = b.maxHp - b.hp;
+          if (bm !== am) return bm - am;
+          return dist2(hero.x, hero.y, a.x, a.y) - dist2(hero.x, hero.y, b.x, b.y);
+        });
+        const targets = live.slice(0, total);
+        targets.forEach(function (e) {
+          const isCrit = hero.rollCrit();
+          const dmg = stats.damage * hero.damageMult * (isCrit ? hero.critMult : 1);
+          app.combat.dealDamage(e, dmg, def.element, isCrit, hero.x, hero.y, def.color);
+          // Red slash arc through the target
+          const ang = rand(0, TAU);
+          for (let s = -1; s <= 1; s++) {
+            for (let k = 0; k < 6; k++) {
+              const t = k / 6;
+              const px = e.x + Math.cos(ang) * (t - 0.5) * 80;
+              const py = e.y + Math.sin(ang) * (t - 0.5) * 80;
+              app.particles.spawn({
+                x: px, y: py,
+                vx: Math.cos(ang + Math.PI/2) * s * 40,
+                vy: Math.sin(ang + Math.PI/2) * s * 40,
+                life: rand(0.25, 0.45),
+                color: '#ff3d52', size: 4, kind: 'streak',
+              });
+            }
+          }
+          app.particles.spawn({ x: e.x, y: e.y, life: 0.35, size: 70, color: '#ff3d52', kind: 'ring', fade: 1 });
+          app.particles.spawn({ x: e.x, y: e.y, life: 0.55, size: 110, color: '#ffffff', kind: 'ring', fade: 1 });
+        });
+        if (targets.length) app.fx.shake(4);
+        return;
+      }
 
       // Bats: no homing projectiles. Flash the swarm sprite on the hero, then on each target enemy with instant damage.
       if (def.id === 'bats') {

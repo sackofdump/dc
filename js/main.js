@@ -733,6 +733,22 @@
             });
           }
         }
+        // Poison drip trail for venom dagger projectiles
+        if (p.shape === 'dagger' && !p.hostile) {
+          if (Math.random() < 0.6) {
+            const colors = ['#a8ff66', '#6dff9b', 'rgba(120,200,80,0.85)'];
+            self.particles.spawn({
+              x: p.x + (Math.random()-0.5) * 4,
+              y: p.y + (Math.random()-0.5) * 4,
+              vx: -p.vx * 0.10 + (Math.random()-0.5) * 20,
+              vy: -p.vy * 0.10 + Math.random() * 30 + 10,    // drips fall
+              life: 0.35 + Math.random() * 0.25,
+              color: colors[Math.floor(Math.random() * colors.length)],
+              size: 2 + Math.random() * 2,
+              kind: 'spark',
+            });
+          }
+        }
         // Bone dust trail for spear-shape projectiles
         if (p.shape === 'spear' && !p.hostile) {
           if (Math.random() < 0.55) {
