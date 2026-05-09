@@ -191,6 +191,10 @@ DDI.systems = (function () {
       if (app.game.paused) return;
       for (let i = 0; i < hero.abilities.length; i++) {
         const a = hero.abilities[i];
+        // Player has manually disabled this ability via the slot context menu.
+        // Persistent buffs (orbital/aura/buff) also skip when disabled — they
+        // simply don't tick, freeing the player from forced effects.
+        if (a.disabled) continue;
         const def = ABILITIES[a.id];
         const stats = def.scale(a.level - 1, def.base);
         if (def.type === 'orbital') { this.tickOrbital(app, a, def, stats, dt); continue; }

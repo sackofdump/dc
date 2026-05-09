@@ -1268,21 +1268,66 @@ DDI.UI = (function () {
       slot.type = 'button';
       slot.style.borderColor = def.color;
       slot.style.color = def.color;
-      slot.title = def.name + ' — tap for info';
+      slot.title = def.name + ' — tap for info, long-press / right-click to toggle';
       slot.innerHTML =
         '<div class="ring"></div>' +
         '<span class="glyph">' + def.icon + '</span>' +
         '<span class="lvl">' + ab.level + '</span>' +
-        '<div class="cd"></div>';
+        '<div class="cd"></div>' +
+        '<div class="off-marker"></div>';
+      slot.classList.toggle('off', !!ab.disabled);
       const self = this;
+      // Long-press / right-click toggles disabled state
+      let pressTimer = null, suppressTap = false;
+      const startPress = function () {
+        suppressTap = false;
+        pressTimer = setTimeout(function () {
+          suppressTap = true;
+          self.toggleAbility(ab.id);
+        }, 480);
+      };
+      const cancelPress = function () { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } };
+      slot.addEventListener('mousedown', startPress);
+      slot.addEventListener('mouseup', cancelPress);
+      slot.addEventListener('mouseleave', cancelPress);
+      slot.addEventListener('touchstart', function (ev) { ev.preventDefault(); startPress(); }, { passive: false });
+      slot.addEventListener('touchend',   function () { cancelPress(); });
+      slot.addEventListener('touchcancel', function () { cancelPress(); });
+      slot.addEventListener('contextmenu', function (ev) {
+        ev.preventDefault();
+        suppressTap = true;
+        self.toggleAbility(ab.id);
+      });
       const tap = function (ev) {
         ev.preventDefault();
         ev.stopPropagation();
+        if (suppressTap) { suppressTap = false; return; }
         self.tapAbility(ab.id, slot);
       };
       slot.addEventListener('click', tap);
-      slot.addEventListener('touchstart', tap, { passive: false });
       bar.appendChild(slot);
+    }
+
+    toggleAbility(abilityId) {
+      const a = this.app;
+      const ab = a.hero.abilities.find(function (x) { return x.id === abilityId; });
+      if (!ab) return;
+      ab.disabled = !ab.disabled;
+      // Persistent-buff abilities clear their per-tick effect when turned off
+      const def = ABILITIES[ab.id];
+      if (ab.disabled && def && def.type === 'buff') {
+        a.hero._buffDR = 0;
+        a.hero._buffCrit = 0;
+      }
+      const onoff = ab.disabled ? 'OFF' : 'ON';
+      a.fx.toast(def.name.toUpperCase() + ' — ' + onoff);
+      // Refresh the slot's visual state
+      const bar = this.$('ability-bar');
+      if (bar && bar.children) {
+        const idx = a.hero.abilities.findIndex(function (x) { return x.id === abilityId; });
+        const slot = bar.children[idx];
+        if (slot) slot.classList.toggle('off', !!ab.disabled);
+      }
     }
 
     tapAbility(abilityId, slotEl) {
