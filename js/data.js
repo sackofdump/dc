@@ -888,45 +888,45 @@ DDI.data = (function () {
   const CLASSES = {
     default: {
       name: 'Warrior',
-      requiredRank: 1,    // unlocked from the start
+      requiredRank: 1,    // unlocked from the start (free starter class)
       starters: ['daggers', 'blades'],
       pool:     ['daggers', 'blades', 'boneSpear', 'bats', 'whirlwind', 'endurance'],
     },
-    mage: {
-      name: 'Mage',
-      requiredRank: 1,    // TODO: re-raise to 3 once balance/testing is locked in
-      starters: ['fireball', 'chain'],
-      pool:     ['fireball', 'chain', 'frostAura', 'poisonNova', 'meteor', 'halo'],
-    },
     rogue: {
       name: 'Rogue',
-      requiredRank: 1,    // TODO: re-raise to 2 once balance/testing is locked in
+      requiredRank: 2,
       starters: ['venomStrike', 'cruelty'],
       pool:     ['venomStrike', 'cruelty', 'shadowstep', 'smokeBomb', 'kunaiFan', 'backstab'],
     },
-    necromancer: {
-      name: 'Necromancer',
-      requiredRank: 1,    // TODO: re-raise once tested
-      starters: ['boneLance', 'curse'],
-      pool:     ['boneLance', 'raiseSkeleton', 'curse', 'corpseBomb', 'soulDrain', 'deathGrip'],
-    },
-    paladin: {
-      name: 'Paladin',
-      requiredRank: 1,
-      starters: ['holyHammer', 'divineShield'],
-      pool:     ['holyHammer', 'divineShield', 'consecration', 'judgment', 'lightWrath', 'guardianOrb'],
-    },
     ranger: {
       name: 'Ranger',
-      requiredRank: 1,
+      requiredRank: 3,
       starters: ['multishot', 'huntersMark'],
       pool:     ['multishot', 'ricochet', 'pierceShot', 'arrowVolley', 'bearTrap', 'huntersMark'],
     },
+    mage: {
+      name: 'Mage',
+      requiredRank: 4,
+      starters: ['fireball', 'chain'],
+      pool:     ['fireball', 'chain', 'frostAura', 'poisonNova', 'meteor', 'halo'],
+    },
+    paladin: {
+      name: 'Paladin',
+      requiredRank: 5,
+      starters: ['holyHammer', 'divineShield'],
+      pool:     ['holyHammer', 'divineShield', 'consecration', 'judgment', 'lightWrath', 'guardianOrb'],
+    },
     berserker: {
       name: 'Berserker',
-      requiredRank: 1,
+      requiredRank: 6,
       starters: ['greatAxe', 'rage'],
       pool:     ['greatAxe', 'leapSlam', 'rage', 'bloodthirst', 'whirlingAxe', 'berserkerRoar'],
+    },
+    necromancer: {
+      name: 'Necromancer',
+      requiredRank: 8,
+      starters: ['boneLance', 'curse'],
+      pool:     ['boneLance', 'raiseSkeleton', 'curse', 'corpseBomb', 'soulDrain', 'deathGrip'],
     },
   };
 
