@@ -323,10 +323,32 @@ DDI.UI = (function () {
       modal.classList.remove('hidden');
       const self = this;
       this._chosenChar = (this.app.save && this.app.save.character) || null;
+      // Populate per-card ability badges from CLASSES + ABILITIES so the player
+      // sees exactly what each class will play with.
+      const CLASSES   = (DDI.data && DDI.data.CLASSES)   || {};
+      const ABILITIES = (DDI.data && DDI.data.ABILITIES) || {};
       const picks = modal.querySelectorAll('.char-pick');
       picks.forEach(function (el) {
         const myChar = el.getAttribute('data-char');
         el.classList.toggle('selected', myChar === self._chosenChar);
+        const abilEl = el.querySelector('.char-abilities');
+        if (abilEl) {
+          const klass = CLASSES[myChar] || CLASSES.default;
+          const starters = (klass && klass.starters) || [];
+          const pool     = (klass && klass.pool)     || [];
+          abilEl.innerHTML = '';
+          pool.forEach(function (id) {
+            const def = ABILITIES[id];
+            if (!def) return;
+            const isStarter = starters.indexOf(id) !== -1;
+            const node = document.createElement('span');
+            node.className = 'ab' + (isStarter ? ' starter' : '');
+            node.title = def.desc || def.name;
+            node.innerHTML = '<span class="ico" style="color:' + (def.color || '#fff') + '">' + def.icon + '</span>'
+              + '<span class="nm">' + def.name + '</span>';
+            abilEl.appendChild(node);
+          });
+        }
         if (!el._wired) {
           el._wired = true;
           el.addEventListener('click', function () {
