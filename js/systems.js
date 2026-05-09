@@ -260,6 +260,10 @@ DDI.systems = (function () {
       // BoneSpear: procedural stretched-bone shape (set below) + bone-dust trail.
       const isBoneSpear   = (def.id === 'boneSpear');
       const isVenomStrike = (def.id === 'venomStrike');
+      const isBoneLance   = (def.id === 'boneLance');
+      const isHolyHammer  = (def.id === 'holyHammer');
+      const isArrow       = (def.id === 'multishot' || def.id === 'ricochet' || def.id === 'pierceShot');
+      const isWhirlAxe    = (def.id === 'whirlingAxe');
       for (let i = 0; i < total; i++) {
         const a = baseAng + (total === 1 ? 0 : (i / (total - 1) - 0.5) * spread);
         const isCrit = hero.rollCrit(stats.critBonus || 0);
@@ -293,6 +297,25 @@ DDI.systems = (function () {
           opts.dotDur = stats.dotDur || 0;
           opts.radius = Math.max(opts.radius, 10);
         }
+        if (isBoneLance) {
+          opts.shape = 'lance';      // long thin bone shaft
+          opts.color = '#e8dcc0';
+          opts.radius = Math.max(opts.radius, 11);
+        }
+        if (isHolyHammer) {
+          opts.shape = 'hammer';
+          opts.spin = true;          // spins as it flies
+          opts.radius = Math.max(opts.radius, 16);
+        }
+        if (isArrow) {
+          opts.shape = 'arrow';
+          opts.radius = Math.max(opts.radius, 9);
+        }
+        if (isWhirlAxe) {
+          opts.shape = 'axe';
+          opts.spin = true;
+          opts.radius = Math.max(opts.radius, 16);
+        }
         app.projectiles.spawn(opts);
       }
       // Skip the muzzle flash streaks for sprite-based projectiles; they have their own visual.
@@ -309,11 +332,20 @@ DDI.systems = (function () {
       const isCrit = hero.rollCrit();
       if (isCrit) dmg *= hero.critMult;
       const maxJumps = stats.jumps + Math.floor(hero.projMult / 2);
+      // Lifesteal per hit — used by Soul Drain (25% of damage) and Bloodthirst (flat HP)
+      const lifestealFlat = stats.lifesteal || 0;
+      const lifestealPct  = (def.id === 'soulDrain') ? 0.25 : 0;
       for (let j = 0; j <= maxJumps; j++) {
         if (!target) break;
         hits.push({ x: target.x, y: target.y });
         app.combat.dealDamage(target, dmg, def.element, isCrit, from.x, from.y, def.color);
         app.fx.lightning(from.x, from.y, target.x, target.y, def.color);
+        // Heal back per hit if either lifesteal mode is active
+        const heal = lifestealFlat + lifestealPct * dmg;
+        if (heal > 0 && hero.hp < hero.maxHp) {
+          hero.hp = Math.min(hero.maxHp, hero.hp + heal);
+          app.fx.damageNumber(hero.x, hero.y - hero.radius * 0.7, '+' + Math.round(heal) + ' HP', '#6dff9b', false);
+        }
         from = { x: target.x, y: target.y };
         dmg *= stats.falloff;
         target = nearestEnemyExcluding(app, target.x, target.y, stats.range, hits);

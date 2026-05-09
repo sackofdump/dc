@@ -5,10 +5,14 @@ window.DDI = window.DDI || {};
 DDI.assets = (function () {
 
   const IMAGES = {
-    // Hero portraits — 'hero' is warrior, 'hero_mage' is mage, 'hero_rogue' is rogue
-    hero:       'Assets/Characters/Main_character.png',
-    hero_mage:  'Assets/Characters/Main_Mage.png',
-    hero_rogue: 'Assets/Characters/Main_Rogue.png',
+    // Hero portraits per class (the canvas-transform animation works on any static portrait)
+    hero:            'Assets/Characters/Main_character.png',
+    hero_mage:       'Assets/Characters/Main_Mage.png',
+    hero_rogue:      'Assets/Characters/Main_Rogue.png',
+    hero_necromancer:'Assets/Characters/Main_Necromancer.png',
+    hero_paladin:    'Assets/Characters/Main_Paladin.png',
+    hero_ranger:     'Assets/Characters/Main_Ranger.png',
+    hero_berserker:  'Assets/Characters/Main_Beserker.png',     // user filename (typo Beserker)
 
     // Enemy single-portrait sprites (used as fallback if sheet missing)
     slime:         'Assets/Characters/Slime.png',

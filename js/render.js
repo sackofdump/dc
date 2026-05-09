@@ -724,8 +724,12 @@ DDI.Renderer = (function () {
       ctx.scale((flipX ? -sxx : sxx), syy);
 
       const charPick = this.app.save && this.app.save.character;
-      const heroKey = charPick === 'mage'  ? 'hero_mage'
-                    : charPick === 'rogue' ? 'hero_rogue'
+      const heroKey = charPick === 'mage'        ? 'hero_mage'
+                    : charPick === 'rogue'       ? 'hero_rogue'
+                    : charPick === 'necromancer' ? 'hero_necromancer'
+                    : charPick === 'paladin'     ? 'hero_paladin'
+                    : charPick === 'ranger'      ? 'hero_ranger'
+                    : charPick === 'berserker'   ? 'hero_berserker'
                     : 'hero';
       const drewSprite = drawSpriteOrFallback(ctx, heroKey, 0, 0, d, function (c, x, y, dd) {
         c.save();
@@ -2408,6 +2412,141 @@ DDI.Renderer = (function () {
             ctx.beginPath(); ctx.arc(p.x, p.gravityFall, p.areaOnHit, 0, TAU); ctx.stroke();
             ctx.restore();
           }
+          return;
+        }
+
+        // ----- LANCE — slim bone shaft with sharp tip (Necromancer) -----
+        if (p.shape === 'lance') {
+          const ang = Math.atan2(p.vy, p.vx);
+          const len = Math.max(36, p.radius * 4.0);
+          const wid = Math.max(3.5, p.radius * 0.45);
+          ctx.save();
+          ctx.translate(p.x, p.y); ctx.rotate(ang);
+          // Soft aura
+          ctx.globalCompositeOperation = 'screen';
+          const aura = ctx.createRadialGradient(0,0,0,0,0,len*0.55);
+          aura.addColorStop(0,'rgba(232,220,192,0.35)'); aura.addColorStop(1,'rgba(232,220,192,0)');
+          ctx.fillStyle = aura;
+          ctx.beginPath(); ctx.ellipse(0,0,len*0.55,wid*1.4,0,0,TAU); ctx.fill();
+          ctx.globalCompositeOperation = 'source-over';
+          // Shaft
+          ctx.fillStyle = '#e8dcc0';
+          ctx.beginPath();
+          ctx.moveTo(-len*0.5, 0);
+          ctx.lineTo(-len*0.4, -wid*0.5);
+          ctx.lineTo( len*0.30, -wid*0.5);
+          ctx.lineTo( len*0.30,  wid*0.5);
+          ctx.lineTo(-len*0.4,  wid*0.5);
+          ctx.closePath(); ctx.fill();
+          ctx.strokeStyle = '#3a2a18'; ctx.lineWidth = 1; ctx.stroke();
+          // Pointed tip (longer than shaft width)
+          ctx.fillStyle = '#fff5d9';
+          ctx.beginPath();
+          ctx.moveTo(len*0.30, -wid*1.2);
+          ctx.lineTo(len*0.30,  wid*1.2);
+          ctx.lineTo(len*0.55,  0);
+          ctx.closePath(); ctx.fill();
+          ctx.strokeStyle = '#7a6a4a'; ctx.lineWidth = 1; ctx.stroke();
+          // Bone ribs along the shaft
+          ctx.fillStyle = '#7a6a4a';
+          for (let i = 0; i < 4; i++) {
+            ctx.fillRect(-len*0.35 + i * len*0.16, -wid*0.5, 1.5, wid);
+          }
+          ctx.restore();
+          return;
+        }
+
+        // ----- HAMMER — square head + handle, spins as it flies (Paladin) -----
+        if (p.shape === 'hammer') {
+          const ang = Math.atan2(p.vy, p.vx);
+          const spin = (p.life || 0) * 14;
+          ctx.save();
+          ctx.translate(p.x, p.y); ctx.rotate(ang + spin);
+          // Holy aura
+          ctx.globalCompositeOperation = 'screen';
+          const aura = ctx.createRadialGradient(0,0,0,0,0, 30);
+          aura.addColorStop(0,'rgba(255,225,77,0.55)'); aura.addColorStop(1,'rgba(255,225,77,0)');
+          ctx.fillStyle = aura; ctx.beginPath(); ctx.arc(0,0,30,0,TAU); ctx.fill();
+          ctx.globalCompositeOperation = 'source-over';
+          // Handle
+          ctx.fillStyle = '#7a4820';
+          ctx.fillRect(-2, -4, 22, 8);
+          ctx.strokeStyle = '#3a1a08'; ctx.lineWidth = 1; ctx.strokeRect(-2,-4,22,8);
+          // Head
+          ctx.fillStyle = '#cdb060';
+          ctx.fillRect(-18, -10, 18, 20);
+          ctx.strokeStyle = '#5a4018'; ctx.lineWidth = 1.5; ctx.strokeRect(-18,-10,18,20);
+          // Holy cross on head
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(-12, -2, 8, 4);
+          ctx.fillRect(-9, -7, 2, 14);
+          // Pommel ring
+          ctx.strokeStyle = '#3a1a08'; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.arc(22, 0, 3, 0, TAU); ctx.stroke();
+          ctx.restore();
+          return;
+        }
+
+        // ----- ARROW — feathered shaft with sharp head (Ranger) -----
+        if (p.shape === 'arrow') {
+          const ang = Math.atan2(p.vy, p.vx);
+          const len = Math.max(28, p.radius * 3.2);
+          ctx.save();
+          ctx.translate(p.x, p.y); ctx.rotate(ang);
+          // Shaft
+          ctx.strokeStyle = '#7a4820';
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(-len*0.5, 0); ctx.lineTo(len*0.40, 0); ctx.stroke();
+          // Arrowhead
+          ctx.fillStyle = '#dde3eb';
+          ctx.beginPath();
+          ctx.moveTo(len*0.40, -3.5);
+          ctx.lineTo(len*0.40,  3.5);
+          ctx.lineTo(len*0.55,  0);
+          ctx.closePath(); ctx.fill();
+          ctx.strokeStyle = '#3a3a44'; ctx.lineWidth = 1; ctx.stroke();
+          // Fletching
+          ctx.fillStyle = p.color || '#a8ff66';
+          ctx.beginPath();
+          ctx.moveTo(-len*0.5,  0);
+          ctx.lineTo(-len*0.35, -4);
+          ctx.lineTo(-len*0.30,  0);
+          ctx.lineTo(-len*0.35,  4);
+          ctx.closePath(); ctx.fill();
+          ctx.restore();
+          return;
+        }
+
+        // ----- AXE — head + handle, spins (Berserker) -----
+        if (p.shape === 'axe') {
+          const ang = Math.atan2(p.vy, p.vx);
+          const spin = (p.life || 0) * 18;
+          ctx.save();
+          ctx.translate(p.x, p.y); ctx.rotate(ang + spin);
+          // Aura
+          ctx.globalCompositeOperation = 'screen';
+          const aura = ctx.createRadialGradient(0,0,0,0,0, 32);
+          aura.addColorStop(0,'rgba(255,123,31,0.45)'); aura.addColorStop(1,'rgba(255,123,31,0)');
+          ctx.fillStyle = aura; ctx.beginPath(); ctx.arc(0,0,32,0,TAU); ctx.fill();
+          ctx.globalCompositeOperation = 'source-over';
+          // Handle
+          ctx.fillStyle = '#3a2a08';
+          ctx.fillRect(-18, -2, 36, 4);
+          ctx.strokeStyle = '#1a0f08'; ctx.lineWidth = 1; ctx.strokeRect(-18,-2,36,4);
+          // Axe head — crescent blade
+          ctx.fillStyle = '#cdd5e0';
+          ctx.beginPath();
+          ctx.moveTo(8, -4);
+          ctx.quadraticCurveTo(20, -16, 24, -8);
+          ctx.lineTo(24,  8);
+          ctx.quadraticCurveTo(20, 16, 8, 4);
+          ctx.closePath(); ctx.fill();
+          ctx.strokeStyle = '#5a6a78'; ctx.lineWidth = 1.4; ctx.stroke();
+          // Edge highlight
+          ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(20, -10); ctx.lineTo(22, 10); ctx.stroke();
+          ctx.restore();
           return;
         }
 

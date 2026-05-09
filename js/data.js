@@ -499,6 +499,368 @@ DDI.data = (function () {
     desc_at: function (lvl, s) { return '+' + Math.round(s.bonusCrit*100) + '% crit · +' + Math.round(s.heal) + ' HP/' + s.cooldown.toFixed(1) + 's'; },
   };
 
+  // ============================================================
+  //  NECROMANCER — dark physical / soul magic
+  // ============================================================
+  ABILITIES.boneLance = {
+    id: 'boneLance', name: 'Bone Lance', icon: '🦴', element: 'physical', color: '#e8dcc0',
+    desc: 'Hurls a piercing bone lance — splinters fly behind it.',
+    type: 'projectile', maxLevel: 8,
+    base: { cooldown: 1.0, damage: 18, count: 1, speed: 460, pierce: 2, area: 14, life: 1.2 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage:   b.damage   * (1 + 0.20 * lvl),
+        count:    b.count    + Math.floor(lvl / 3),
+        cooldown: b.cooldown * (1 - 0.05 * lvl),
+        pierce:   b.pierce   + Math.floor(lvl / 2),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · pierces ' + s.pierce + ' · ' + s.count + ' shots'; },
+  };
+  ABILITIES.raiseSkeleton = {
+    id: 'raiseSkeleton', name: 'Raise Skeleton', icon: '💀', element: 'physical', color: '#cdd5e0',
+    desc: 'Phantom skeletons claw the nearest foes.',
+    type: 'homing', maxLevel: 8,
+    base: { cooldown: 2.0, damage: 22, count: 3, range: 320, life: 0.4, pierce: 0 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage: b.damage * (1 + 0.18 * lvl),
+        count:  b.count  + Math.floor(lvl / 2),
+        cooldown: b.cooldown * (1 - 0.04 * lvl),
+        range:  b.range  * (1 + 0.04 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return s.count + ' skeletons · ' + Math.round(s.damage) + ' dmg · range ' + Math.round(s.range); },
+  };
+  ABILITIES.curse = {
+    id: 'curse', name: 'Curse', icon: '🕯️', element: 'poison', color: '#7a3aa8',
+    desc: 'Cursed aura — bleeds nearby foes and slows them.',
+    type: 'aura', maxLevel: 8,
+    base: { cooldown: 0.6, damage: 8, area: 150, slow: 0.3 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage: b.damage * (1 + 0.18 * lvl),
+        area:   b.area   * (1 + 0.10 * lvl),
+        slow:   Math.min(0.7, b.slow + 0.04 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg/tick · radius ' + Math.round(s.area) + ' · slow ' + Math.round(s.slow*100) + '%'; },
+  };
+  ABILITIES.corpseBomb = {
+    id: 'corpseBomb', name: 'Corpse Bomb', icon: '💣', element: 'physical', color: '#7faf6d',
+    desc: 'Detonates a putrid corpse around you in a green burst.',
+    type: 'nova', maxLevel: 8,
+    base: { cooldown: 3.0, damage: 36, area: 160, dot: 6, dotDur: 3 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage: b.damage * (1 + 0.20 * lvl),
+        area:   b.area   * (1 + 0.08 * lvl),
+        dot:    b.dot    * (1 + 0.20 * lvl),
+        cooldown: b.cooldown * (1 - 0.04 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg + ' + Math.round(s.dot) + ' rot/s · radius ' + Math.round(s.area); },
+  };
+  ABILITIES.soulDrain = {
+    id: 'soulDrain', name: 'Soul Drain', icon: '🩸', element: 'lightning', color: '#b266ff',
+    desc: 'A leeching tether arcs between foes, healing you per hit.',
+    type: 'chain', maxLevel: 8,
+    base: { cooldown: 1.8, damage: 18, jumps: 3, range: 220, falloff: 0.85 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage: b.damage * (1 + 0.18 * lvl),
+        jumps:  b.jumps  + Math.floor(lvl / 2),
+        range:  b.range  * (1 + 0.04 * lvl),
+        cooldown: b.cooldown * (1 - 0.05 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · ' + s.jumps + ' jumps · heals 25% per hit'; },
+  };
+  ABILITIES.deathGrip = {
+    id: 'deathGrip', name: 'Death Grip', icon: '👻', element: 'physical', color: '#9aa3b0',
+    desc: 'Wreathing skulls orbit, gnashing through whatever they touch.',
+    type: 'orbital', maxLevel: 8,
+    base: { count: 3, damage: 9, radius: 60, rps: 1.4, hitCd: 0.30 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        count:  b.count  + Math.floor(lvl / 2),
+        damage: b.damage * (1 + 0.18 * lvl),
+        radius: b.radius * (1 + 0.10 * lvl),
+        rps:    b.rps    * (1 + 0.05 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return s.count + ' skulls · ' + Math.round(s.damage) + ' dmg/hit'; },
+  };
+
+  // ============================================================
+  //  PALADIN — holy tank
+  // ============================================================
+  ABILITIES.holyHammer = {
+    id: 'holyHammer', name: 'Holy Hammer', icon: '🔨', element: 'holy', color: '#ffe14d',
+    desc: 'Throws a thunderous hammer that bursts on impact.',
+    type: 'projectile', maxLevel: 8,
+    base: { cooldown: 1.4, damage: 32, count: 1, speed: 320, pierce: 0, area: 22, life: 1.4 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage:   b.damage   * (1 + 0.22 * lvl),
+        count:    b.count    + Math.floor(lvl / 3),
+        area:     b.area     * (1 + 0.10 * lvl),
+        cooldown: b.cooldown * (1 - 0.05 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · radius ' + Math.round(s.area); },
+  };
+  ABILITIES.divineShield = {
+    id: 'divineShield', name: 'Divine Shield', icon: '🛡️', element: 'holy', color: '#ffe14d',
+    desc: 'Holy ward — heavy damage reduction and a healing pulse.',
+    type: 'buff', maxLevel: 8,
+    base: { cooldown: 1.2, heal: 4, dr: 0.06 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        heal:     b.heal     * (1 + 0.25 * lvl),
+        cooldown: b.cooldown * (1 - 0.04 * lvl),
+        dr:       Math.min(0.50, b.dr + 0.02 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return '+' + Math.round(s.heal) + ' HP/' + s.cooldown.toFixed(1) + 's · ' + Math.round(s.dr*100) + '% DR'; },
+  };
+  ABILITIES.consecration = {
+    id: 'consecration', name: 'Consecration', icon: '✨', element: 'holy', color: '#fff066',
+    desc: 'Hallowed ground burns the unworthy.',
+    type: 'aura', maxLevel: 8,
+    base: { cooldown: 0.5, damage: 9, area: 130 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage: b.damage * (1 + 0.20 * lvl),
+        area:   b.area   * (1 + 0.10 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg/tick · radius ' + Math.round(s.area); },
+  };
+  ABILITIES.judgment = {
+    id: 'judgment', name: 'Judgment', icon: '⚖️', element: 'holy', color: '#fff066',
+    desc: 'Pillars of light strike from foe to foe.',
+    type: 'chain', maxLevel: 8,
+    base: { cooldown: 1.6, damage: 26, jumps: 3, range: 240, falloff: 0.88 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage: b.damage * (1 + 0.20 * lvl),
+        jumps:  b.jumps  + Math.floor(lvl / 2),
+        range:  b.range  * (1 + 0.04 * lvl),
+        cooldown: b.cooldown * (1 - 0.05 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · ' + s.jumps + ' jumps'; },
+  };
+  ABILITIES.lightWrath = {
+    id: 'lightWrath', name: 'Light Wrath', icon: '🌟', element: 'holy', color: '#ffffff',
+    desc: 'Erupts a blinding shockwave of pure light around you.',
+    type: 'nova', maxLevel: 8,
+    base: { cooldown: 4.0, damage: 50, area: 200 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage: b.damage * (1 + 0.22 * lvl),
+        area:   b.area   * (1 + 0.10 * lvl),
+        cooldown: b.cooldown * (1 - 0.05 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · radius ' + Math.round(s.area); },
+  };
+  ABILITIES.guardianOrb = {
+    id: 'guardianOrb', name: 'Guardian Orbs', icon: '⚪', element: 'holy', color: '#fff5d9',
+    desc: 'Holy bulwarks orbit, smiting what dares approach.',
+    type: 'orbital', maxLevel: 8,
+    base: { count: 2, damage: 11, radius: 80, rps: 1.0, hitCd: 0.35 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        count:  b.count  + Math.floor(lvl / 2),
+        damage: b.damage * (1 + 0.18 * lvl),
+        radius: b.radius * (1 + 0.08 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return s.count + ' orbs · ' + Math.round(s.damage) + ' dmg/hit'; },
+  };
+
+  // ============================================================
+  //  RANGER — bow / precision physical
+  // ============================================================
+  ABILITIES.multishot = {
+    id: 'multishot', name: 'Multishot', icon: '🏹', element: 'physical', color: '#a8ff66',
+    desc: 'Fires a fan of arrows at the nearest foe.',
+    type: 'projectile', maxLevel: 8,
+    base: { cooldown: 0.9, damage: 11, count: 3, speed: 480, pierce: 0, area: 10, life: 1.0 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage:   b.damage   * (1 + 0.16 * lvl),
+        count:    b.count    + Math.floor(lvl / 2),
+        cooldown: b.cooldown * (1 - 0.04 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return s.count + ' arrows · ' + Math.round(s.damage) + ' dmg each'; },
+  };
+  ABILITIES.ricochet = {
+    id: 'ricochet', name: 'Ricochet', icon: '↩️', element: 'physical', color: '#cdd5e0',
+    desc: 'A bouncy arrow pierces and ricochets between foes.',
+    type: 'projectile', maxLevel: 8,
+    base: { cooldown: 1.2, damage: 18, count: 1, speed: 520, pierce: 4, area: 9, life: 1.6 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage: b.damage * (1 + 0.20 * lvl),
+        pierce: b.pierce + Math.floor(lvl / 2),
+        cooldown: b.cooldown * (1 - 0.04 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · pierces ' + s.pierce + ' foes'; },
+  };
+  ABILITIES.pierceShot = {
+    id: 'pierceShot', name: 'Piercing Shot', icon: '➤', element: 'physical', color: '#ffe14d',
+    desc: 'A long-range arrow that punches through entire ranks.',
+    type: 'projectile', maxLevel: 8,
+    base: { cooldown: 2.0, damage: 42, count: 1, speed: 700, pierce: 8, area: 12, life: 1.8 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage: b.damage * (1 + 0.22 * lvl),
+        pierce: b.pierce + Math.floor(lvl / 2),
+        cooldown: b.cooldown * (1 - 0.05 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · pierces ' + s.pierce; },
+  };
+  ABILITIES.arrowVolley = {
+    id: 'arrowVolley', name: 'Arrow Volley', icon: '🌧️', element: 'physical', color: '#cdd5e0',
+    desc: 'Rains arrows from above onto random nearby targets.',
+    type: 'meteor', maxLevel: 8,
+    base: { cooldown: 2.4, damage: 22, count: 6, area: 28 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage: b.damage * (1 + 0.18 * lvl),
+        count:  b.count  + Math.floor(lvl / 2),
+        cooldown: b.cooldown * (1 - 0.05 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return s.count + ' arrows · ' + Math.round(s.damage) + ' dmg each'; },
+  };
+  ABILITIES.bearTrap = {
+    id: 'bearTrap', name: 'Snare Trap', icon: '🪤', element: 'physical', color: '#7a4820',
+    desc: 'Snaps shut on every foe near you — heavy damage and slow.',
+    type: 'nova', maxLevel: 8,
+    base: { cooldown: 3.0, damage: 40, area: 140, dot: 4, dotDur: 2 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage: b.damage * (1 + 0.20 * lvl),
+        area:   b.area   * (1 + 0.10 * lvl),
+        dot:    b.dot    * (1 + 0.18 * lvl),
+        cooldown: b.cooldown * (1 - 0.04 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg + ' + Math.round(s.dot) + ' bleed/s · radius ' + Math.round(s.area); },
+  };
+  ABILITIES.huntersMark = {
+    id: 'huntersMark', name: "Hunter's Mark", icon: '🎯', element: 'physical', color: '#ffd966',
+    desc: 'Sharpened focus — bonus crit chance and a steady regen.',
+    type: 'buff', maxLevel: 8,
+    base: { cooldown: 2.0, heal: 1, bonusCrit: 0.07 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        bonusCrit: Math.min(0.5, b.bonusCrit + 0.025 * lvl),
+        heal:      b.heal      * (1 + 0.20 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return '+' + Math.round(s.bonusCrit*100) + '% crit · +' + Math.round(s.heal) + ' HP/' + s.cooldown.toFixed(1) + 's'; },
+  };
+
+  // ============================================================
+  //  BERSERKER — heavy physical / rage / lifesteal
+  // ============================================================
+  ABILITIES.greatAxe = {
+    id: 'greatAxe', name: 'Great Axe', icon: '🪓', element: 'physical', color: '#cdd5e0',
+    desc: 'A massive axe spins around you, cleaving anything close.',
+    type: 'orbital', maxLevel: 8,
+    base: { count: 1, damage: 22, radius: 75, rps: 0.9, hitCd: 0.40 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        count:  b.count  + Math.floor(lvl / 3),
+        damage: b.damage * (1 + 0.22 * lvl),
+        radius: b.radius * (1 + 0.08 * lvl),
+        rps:    b.rps    * (1 + 0.05 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return s.count + ' axe' + (s.count>1?'s':'') + ' · ' + Math.round(s.damage) + ' dmg/hit'; },
+  };
+  ABILITIES.leapSlam = {
+    id: 'leapSlam', name: 'Leap Slam', icon: '⬇️', element: 'physical', color: '#ff7b1f',
+    desc: 'Hurls yourself at a foe — bone-shattering crash on landing.',
+    type: 'meteor', maxLevel: 8,
+    base: { cooldown: 3.5, damage: 70, count: 1, area: 90 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage: b.damage * (1 + 0.22 * lvl),
+        count:  b.count  + Math.floor(lvl / 3),
+        area:   b.area   * (1 + 0.08 * lvl),
+        cooldown: b.cooldown * (1 - 0.05 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · radius ' + Math.round(s.area); },
+  };
+  ABILITIES.rage = {
+    id: 'rage', name: 'Rage', icon: '😡', element: 'physical', color: '#ff3d52',
+    desc: 'Bottomless fury — flat damage reduction and a heavy heal.',
+    type: 'buff', maxLevel: 8,
+    base: { cooldown: 2.2, heal: 5, dr: 0.05 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        heal:     b.heal     * (1 + 0.25 * lvl),
+        dr:       Math.min(0.40, b.dr + 0.02 * lvl),
+        cooldown: b.cooldown * (1 - 0.04 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return '+' + Math.round(s.heal) + ' HP/' + s.cooldown.toFixed(1) + 's · ' + Math.round(s.dr*100) + '% DR'; },
+  };
+  ABILITIES.bloodthirst = {
+    id: 'bloodthirst', name: 'Bloodthirst', icon: '🩸', element: 'physical', color: '#ff3d52',
+    desc: 'A leeching tether — every hit returns life to you.',
+    type: 'chain', maxLevel: 8,
+    base: { cooldown: 2.0, damage: 22, jumps: 3, range: 220, falloff: 0.8, lifesteal: 4 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage: b.damage * (1 + 0.20 * lvl),
+        jumps:  b.jumps  + Math.floor(lvl / 2),
+        lifesteal: b.lifesteal * (1 + 0.20 * lvl),
+        cooldown: b.cooldown * (1 - 0.05 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · ' + s.jumps + ' jumps · +' + Math.round(s.lifesteal) + ' HP/hit'; },
+  };
+  ABILITIES.whirlingAxe = {
+    id: 'whirlingAxe', name: 'Whirling Axe', icon: '🪓', element: 'physical', color: '#ff7b1f',
+    desc: 'A returning axe — pierces everything in its arc.',
+    type: 'projectile', maxLevel: 8,
+    base: { cooldown: 1.6, damage: 26, count: 1, speed: 360, pierce: 6, area: 18, life: 1.4 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage: b.damage * (1 + 0.20 * lvl),
+        count:  b.count  + Math.floor(lvl / 3),
+        pierce: b.pierce + Math.floor(lvl / 2),
+        cooldown: b.cooldown * (1 - 0.04 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · pierces ' + s.pierce + ' · ' + s.count + ' axes'; },
+  };
+  ABILITIES.berserkerRoar = {
+    id: 'berserkerRoar', name: 'War Cry', icon: '📢', element: 'physical', color: '#ff7b1f',
+    desc: 'A bone-rattling roar pulverizes nearby foes.',
+    type: 'nova', maxLevel: 8,
+    base: { cooldown: 3.6, damage: 38, area: 180 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage: b.damage * (1 + 0.20 * lvl),
+        area:   b.area   * (1 + 0.10 * lvl),
+        cooldown: b.cooldown * (1 - 0.05 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · radius ' + Math.round(s.area); },
+  };
+
   ABILITIES.endurance = {
     id: 'endurance', name: 'Endurance', icon: '🛡️', element: 'physical', color: '#6dff9b',
     desc: 'Iron vitality — passive HP regen and damage reduction.',
@@ -541,6 +903,30 @@ DDI.data = (function () {
       requiredRank: 1,    // TODO: re-raise to 2 once balance/testing is locked in
       starters: ['venomStrike', 'cruelty'],
       pool:     ['venomStrike', 'cruelty', 'shadowstep', 'smokeBomb', 'kunaiFan', 'backstab'],
+    },
+    necromancer: {
+      name: 'Necromancer',
+      requiredRank: 1,    // TODO: re-raise once tested
+      starters: ['boneLance', 'curse'],
+      pool:     ['boneLance', 'raiseSkeleton', 'curse', 'corpseBomb', 'soulDrain', 'deathGrip'],
+    },
+    paladin: {
+      name: 'Paladin',
+      requiredRank: 1,
+      starters: ['holyHammer', 'divineShield'],
+      pool:     ['holyHammer', 'divineShield', 'consecration', 'judgment', 'lightWrath', 'guardianOrb'],
+    },
+    ranger: {
+      name: 'Ranger',
+      requiredRank: 1,
+      starters: ['multishot', 'huntersMark'],
+      pool:     ['multishot', 'ricochet', 'pierceShot', 'arrowVolley', 'bearTrap', 'huntersMark'],
+    },
+    berserker: {
+      name: 'Berserker',
+      requiredRank: 1,
+      starters: ['greatAxe', 'rage'],
+      pool:     ['greatAxe', 'leapSlam', 'rage', 'bloodthirst', 'whirlingAxe', 'berserkerRoar'],
     },
   };
 
