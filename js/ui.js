@@ -881,9 +881,10 @@ DDI.UI = (function () {
 
     // ---- Settings ----
     openSettings() {
-      this.$('modal-title').classList.add('hidden');
-      this.$('modal-login').classList.add('hidden');
-      this.$('modal-act-complete').classList.add('hidden');
+      const t = this.$('modal-title');         if (t) t.classList.add('hidden');
+      const a = this.$('modal-auth');          if (a) a.classList.add('hidden');
+      const c = this.$('modal-character');     if (c) c.classList.add('hidden');
+      const ac = this.$('modal-act-complete'); if (ac) ac.classList.add('hidden');
       this.$('modal-settings').classList.remove('hidden');
       const s = (this.app.save && this.app.save.settings) || {};
       this.$('set-sound').checked = !!s.sound;
@@ -913,7 +914,7 @@ DDI.UI = (function () {
         this.$('modal-pause').classList.remove('hidden');
       } else if (this._settingsFromLogin) {
         this._settingsFromLogin = false;
-        this.$('modal-login').classList.remove('hidden');
+        this.$('modal-auth').classList.remove('hidden');
       } else {
         this.$('modal-title').classList.remove('hidden');
       }
@@ -1235,10 +1236,19 @@ DDI.UI = (function () {
       const xpNext = (D.accountXpForRank ? D.accountXpForRank(rk + 1) : xpThis + 100);
       const into   = Math.max(0, xp - xpThis);
       const span   = Math.max(1, xpNext - xpThis);
-      const pct    = Math.min(100, (into / span) * 100).toFixed(0);
+      const pct    = Math.min(100, (into / span) * 100);
       this.$('title-stats').innerHTML =
-        '<div>Rank <b>' + rk + '</b> · ' + into + ' / ' + (xpNext - xpThis) + ' XP <span style="color:var(--ink-fade)">(' + pct + '%)</span></div>' +
-        '<div>Best Floor <b>' + (this.app.save.bestFloor || 1) + '</b> · Soul Dust <b>' + shortNum(this.app.save.dust || 0) + '</b></div>';
+        '<div class="rank-block">' +
+          '<div class="rank-row">' +
+            '<span class="rank-pill">RANK <b>' + rk + '</b></span>' +
+            '<span class="rank-xp-text">' + into + ' / ' + (xpNext - xpThis) + ' XP</span>' +
+          '</div>' +
+          '<div class="rank-bar"><div class="rank-bar-fill" style="width:' + pct.toFixed(1) + '%"></div></div>' +
+        '</div>' +
+        '<div class="title-stats-row">' +
+          '<span><span class="label">BEST FLOOR</span> <b>' + (this.app.save.bestFloor || 1) + '</b></span>' +
+          '<span><span class="label">SOUL DUST</span> <b>' + shortNum(this.app.save.dust || 0) + '</b></span>' +
+        '</div>';
     }
     hideTitle() { this.$('modal-title').classList.add('hidden'); this.modalOpen = false; }
 
