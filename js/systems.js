@@ -579,9 +579,16 @@ DDI.systems = (function () {
       count = count || 3;
       const choices = [];
       const heroAbilities = app.hero.abilities;
-      const allAbilityIds = Object.keys(ABILITIES);
+      // Restrict offered abilities to the active class pool (Warrior = physical,
+      // Mage = magical).  Falls back to all if no class pool is defined.
+      const CLASSES = DDI.data.CLASSES || {};
+      const charKey = (app.save && app.save.character) || 'default';
+      const klass = CLASSES[charKey] || CLASSES.default;
+      const allowedIds = (klass && klass.pool && klass.pool.length)
+        ? klass.pool.filter(function (id) { return !!ABILITIES[id]; })
+        : Object.keys(ABILITIES);
       const levelable = heroAbilities.filter(function (a) { return a.level < ABILITIES[a.id].maxLevel; });
-      const newOnes = allAbilityIds.filter(function (id) {
+      const newOnes = allowedIds.filter(function (id) {
         return !heroAbilities.find(function (a) { return a.id === id; });
       });
       const upgradeIds = Object.keys(UPGRADES);

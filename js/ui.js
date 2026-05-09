@@ -122,6 +122,11 @@ DDI.UI = (function () {
       // Title leaderboard button
       const btnLb = this.$('btn-leaderboard');
       if (btnLb) btnLb.addEventListener('click', function () { self.showLeaderboard(); });
+      const btnChangeChar = this.$('btn-change-char');
+      if (btnChangeChar) btnChangeChar.addEventListener('click', function () {
+        self._charFromTitle = true;
+        self.showCharacterSelect();
+      });
       const btnLbBack = this.$('btn-lb-back');
       if (btnLbBack) btnLbBack.addEventListener('click', function () {
         self.hideLeaderboard();
@@ -303,15 +308,25 @@ DDI.UI = (function () {
 
     // ---- Character select ----
     showCharacterSelect() {
+      const modal = this.$('modal-character');
+      if (!modal) {
+        // Modal HTML missing (stale cache?) — skip gracefully so the user
+        // isn't trapped on a blank screen.  They can re-pick later.
+        console.warn('[ui] modal-character not found, skipping char select');
+        if (this.app.save && !this.app.save.character) this.app.save.character = 'default';
+        this.showTitle();
+        return;
+      }
       this.modalOpen = true;
       this.$('modal-title').classList.add('hidden');
       this.$('modal-auth').classList.add('hidden');
-      this.$('modal-character').classList.remove('hidden');
+      modal.classList.remove('hidden');
       const self = this;
-      this._chosenChar = null;
-      const picks = this.$('modal-character').querySelectorAll('.char-pick');
+      this._chosenChar = (this.app.save && this.app.save.character) || null;
+      const picks = modal.querySelectorAll('.char-pick');
       picks.forEach(function (el) {
-        el.classList.remove('selected');
+        const myChar = el.getAttribute('data-char');
+        el.classList.toggle('selected', myChar === self._chosenChar);
         if (!el._wired) {
           el._wired = true;
           el.addEventListener('click', function () {
@@ -325,16 +340,20 @@ DDI.UI = (function () {
       });
       const btn = this.$('btn-char-confirm');
       if (btn) {
-        btn.disabled = true;
+        btn.disabled = !self._chosenChar;     // pre-enable if a char is already picked
         if (!btn._wired) {
           btn._wired = true;
           btn.addEventListener('click', function () {
             if (!self._chosenChar || !self.app.save) return;
             self.app.save.character = self._chosenChar;
             self.app.persist();
-            self.$('modal-character').classList.add('hidden');
+            modal.classList.add('hidden');
             self.modalOpen = false;
+            self._charFromTitle = false;
             self.showTitle();
+            if (self.app.fx && self.app.fx.toast) {
+              self.app.fx.toast('CHARACTER: ' + self._chosenChar.toUpperCase());
+            }
           });
         }
       }

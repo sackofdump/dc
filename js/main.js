@@ -4,7 +4,7 @@
 (function () {
   const { Pool, dist, dist2, rand, chance } = DDI.util;
   const { preload } = DDI.assets;
-  const { HERO_BASE, STARTER_ABILITY } = DDI.data;
+  const { HERO_BASE, STARTER_ABILITY, CLASSES } = DDI.data;
   const { Hero, Enemy, Projectile, Loot, Particle, DmgNum } = DDI.entities;
   const { Spawner, Abilities, Combat, Leveling, Slaughter } = DDI.systems;
 
@@ -163,9 +163,11 @@
       this.generateFeatures('main');
       // Apply Forge meta-upgrades (permanent, account-wide)
       DDI.data.applyMetaUpgrades(this.hero, this.save.permUpgrades);
-      // Start with two abilities so combat is varied immediately
-      Abilities.add(this, STARTER_ABILITY);
-      Abilities.add(this, 'blades');
+      // Start with class-appropriate abilities — mage gets magic, warrior gets physical
+      const charKey = (this.save && this.save.character) || 'default';
+      const klass = (CLASSES && CLASSES[charKey]) || CLASSES.default;
+      const starters = (klass && klass.starters) || [STARTER_ABILITY, 'blades'];
+      starters.forEach((ab) => Abilities.add(this, ab));
       this.fx.toast('FLOOR ' + this.game.floor);
       this.save.totalRuns++;
       this.persist();

@@ -397,6 +397,24 @@ DDI.data = (function () {
   const STARTER_ABILITY = 'fireball';
 
   // ============================================================
+  // CLASSES — character archetypes with their starter abilities + ability pool.
+  // 'pool' is the set of abilities this class can be offered on level-up;
+  // the others won't appear in their picks.
+  // ============================================================
+  const CLASSES = {
+    default: {
+      name: 'Warrior',
+      starters: ['daggers', 'blades'],
+      pool:     ['daggers', 'blades', 'boneSpear', 'bats'],
+    },
+    mage: {
+      name: 'Mage',
+      starters: ['fireball', 'chain'],
+      pool:     ['fireball', 'chain', 'frostAura', 'poisonNova', 'meteor', 'halo'],
+    },
+  };
+
+  // ============================================================
   // ULTS — slot a single one, swap any time. Default Cataclysm is free.
   // Each cast() runs the effect against `app`. cooldown in seconds.
   // ============================================================
@@ -577,5 +595,5 @@ DDI.data = (function () {
   }
 
   return { RARITY, HERO_BASE, ABILITIES, UPGRADES, ENEMIES, BIOMES, STARTER_ABILITY,
-           META_UPGRADES, metaUpgradeCost, applyMetaUpgrades, ULTS, ZONE_THEMES };
+           CLASSES, META_UPGRADES, metaUpgradeCost, applyMetaUpgrades, ULTS, ZONE_THEMES };
 })();
