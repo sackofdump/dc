@@ -229,9 +229,23 @@ DDI.UI = (function () {
       this.setAuthError('Logging in…', 'info');
       const { data, error } = await DDI.auth.signIn(email, pw);
       if (error) { this.setAuthError(error.message || 'Login failed'); return; }
+      // Remember-me: when unchecked, sign out on tab close so the session
+      // doesn't persist into the next browser visit.
+      const remember = !!(this.$('remember-me') && this.$('remember-me').checked);
+      this.app._rememberMe = remember;
+      if (!remember) {
+        window.addEventListener('beforeunload', function () {
+          if (DDI.auth && DDI.auth.signOut) DDI.auth.signOut();
+        });
+      }
       await this.app.onAuthChanged();
       this.hideAuth();
-      this.showTitle();
+      // After login, if no character is chosen yet, prompt for it before title
+      if (!this.app.save || !this.app.save.character) {
+        this.showCharacterSelect();
+      } else {
+        this.showTitle();
+      }
     }
     async submitSignup() {
       this.setAuthError('');
@@ -250,7 +264,9 @@ DDI.UI = (function () {
         setTimeout(async function () {
           await self.app.onAuthChanged();
           self.hideAuth();
-          self.showTitle();
+          // First-time signup → always go through character select
+          if (!self.app.save || !self.app.save.character) self.showCharacterSelect();
+          else                                            self.showTitle();
         }, 700);
       } else {
         // Email confirmation required — surface a strong success state, then bounce them to login
@@ -284,6 +300,45 @@ DDI.UI = (function () {
       this.showAuth();
     }
     switchProfile() { return this.signOutFromTitle(); }   // legacy alias
+
+    // ---- Character select ----
+    showCharacterSelect() {
+      this.modalOpen = true;
+      this.$('modal-title').classList.add('hidden');
+      this.$('modal-auth').classList.add('hidden');
+      this.$('modal-character').classList.remove('hidden');
+      const self = this;
+      this._chosenChar = null;
+      const picks = this.$('modal-character').querySelectorAll('.char-pick');
+      picks.forEach(function (el) {
+        el.classList.remove('selected');
+        if (!el._wired) {
+          el._wired = true;
+          el.addEventListener('click', function () {
+            picks.forEach(function (p) { p.classList.remove('selected'); });
+            el.classList.add('selected');
+            self._chosenChar = el.getAttribute('data-char');
+            const btn = self.$('btn-char-confirm');
+            if (btn) btn.disabled = false;
+          });
+        }
+      });
+      const btn = this.$('btn-char-confirm');
+      if (btn) {
+        btn.disabled = true;
+        if (!btn._wired) {
+          btn._wired = true;
+          btn.addEventListener('click', function () {
+            if (!self._chosenChar || !self.app.save) return;
+            self.app.save.character = self._chosenChar;
+            self.app.persist();
+            self.$('modal-character').classList.add('hidden');
+            self.modalOpen = false;
+            self.showTitle();
+          });
+        }
+      }
+    }
 
     // ---- Leaderboard ----
     showLeaderboard() {

@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.50.3/dist/umd/supabase.js"></script>
 </head>
 <body>
   <div id="game-root">
@@ -207,6 +207,29 @@
       </div>
     </div>
 
+    <!-- Character select — shown right after login if no character chosen yet -->
+    <div id="modal-character" class="modal hidden">
+      <div class="modal-card char-card">
+        <h2>CHOOSE YOUR DELVER</h2>
+        <p class="tagline">You can change this later from the title screen.</p>
+        <div class="char-grid">
+          <button class="char-pick" data-char="default" type="button">
+            <div class="char-portrait"><img src="Assets/Characters/Main_character.png" alt="Warrior" /></div>
+            <div class="char-name">WARRIOR</div>
+            <div class="char-desc">Balanced fighter — sword and fireball.</div>
+          </button>
+          <button class="char-pick" data-char="mage" type="button">
+            <div class="char-portrait"><img src="Assets/Characters/CultistMage.png" alt="Cultist Mage" /></div>
+            <div class="char-name">CULTIST MAGE</div>
+            <div class="char-desc">Hooded spellcaster wielding violet flame.</div>
+          </button>
+        </div>
+        <div class="modal-foot">
+          <button id="btn-char-confirm" class="primary-btn" disabled>CONFIRM</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Auth modal — login + signup (shown on first load if no session) -->
     <div id="modal-auth" class="modal">
       <div class="modal-card auth-card">
@@ -219,6 +242,7 @@
         <div id="auth-form-login" class="auth-form">
           <input type="email"    id="login-email"    placeholder="Email"    autocomplete="email" />
           <input type="password" id="login-password" placeholder="Password" autocomplete="current-password" />
+          <label class="remember-row"><input type="checkbox" id="remember-me" checked /> <span>Remember me</span></label>
           <button id="btn-login"  class="primary-btn">LOG IN</button>
           <button id="btn-forgot" class="ghost-btn link-btn">Forgot password?</button>
         </div>
@@ -309,19 +333,19 @@
   </div>
 
   <!-- Load order matters. ?v= busts browser cache when files change. -->
-  <script src="js/util.js?v=115"></script>
-  <script src="js/auth.js?v=115"></script>
-  <script src="js/data.js?v=115"></script>
-  <script src="js/save.js?v=115"></script>
-  <script src="js/assets.js?v=115"></script>
-  <script src="js/entities.js?v=115"></script>
-  <script src="js/systems.js?v=115"></script>
-  <script src="js/fx.js?v=115"></script>
-  <script src="js/input.js?v=115"></script>
-  <script src="js/ui.js?v=115"></script>
-  <script src="js/render.js?v=115"></script>
-  <script src="js/hudedit.js?v=115"></script>
-  <script src="js/minimap.js?v=115"></script>
-  <script src="js/main.js?v=115"></script>
+  <script src="js/util.js?v=116"></script>
+  <script src="js/auth.js?v=116"></script>
+  <script src="js/data.js?v=116"></script>
+  <script src="js/save.js?v=116"></script>
+  <script src="js/assets.js?v=116"></script>
+  <script src="js/entities.js?v=116"></script>
+  <script src="js/systems.js?v=116"></script>
+  <script src="js/fx.js?v=116"></script>
+  <script src="js/input.js?v=116"></script>
+  <script src="js/ui.js?v=116"></script>
+  <script src="js/render.js?v=116"></script>
+  <script src="js/hudedit.js?v=116"></script>
+  <script src="js/minimap.js?v=116"></script>
+  <script src="js/main.js?v=116"></script>
 </body>
 </html>

@@ -88,7 +88,11 @@
         }
       }
       if (this.ui && this.ui.hideAuth) this.ui.hideAuth();
-      if (this.ui && this.ui.showTitle) this.ui.showTitle();
+      if (!this.save || !this.save.character) {
+        if (this.ui && this.ui.showCharacterSelect) this.ui.showCharacterSelect();
+      } else {
+        if (this.ui && this.ui.showTitle) this.ui.showTitle();
+      }
     }
 
     // Called after sign-in/sign-up — pulls server save (if any) into this.save
@@ -111,6 +115,16 @@
     }
 
     startRun() {
+      try { return this._startRunInner(); }
+      catch (err) {
+        console.error('[startRun]', err);
+        if (this.fx && this.fx.toast) this.fx.toast('START ERR: ' + (err && err.message));
+        // Don't leave the player in a half-running state if init bombed
+        this.game.running = false;
+        if (this.ui && this.ui.showTitle) this.ui.showTitle();
+      }
+    }
+    _startRunInner() {
       if (!this.save) { this.ui.showLogin(); return; }
       this.ui.hideTitle();
       this.ui.hideDeath();

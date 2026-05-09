@@ -19,17 +19,34 @@ DDI.auth = (function () {
   function init() {
     if (client) return client;
     if (!window.supabase || !window.supabase.createClient) {
-      console.error('[auth] @supabase/supabase-js not loaded');
+      console.error('[auth] @supabase/supabase-js not loaded — CDN may have failed to load');
       return null;
     }
     if (!isConfigured()) {
       console.error('[auth] supabase URL/key placeholders — paste credentials in js/auth.js');
       return null;
     }
-    client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
-    });
-    return client;
+    try {
+      client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+      });
+      console.log('[auth] supabase client created');
+      return client;
+    } catch (e) {
+      console.error('[auth] createClient failed', e);
+      return null;
+    }
+  }
+
+  // Race a promise against a timeout so a hung network call doesn't leave
+  // the UI stuck on "Logging in…".
+  function withTimeout(promise, ms, label) {
+    return Promise.race([
+      promise,
+      new Promise(function (_, reject) {
+        setTimeout(function () { reject(new Error(label + ' timed out (' + ms + 'ms)')); }, ms);
+      }),
+    ]);
   }
 
   async function getSession() {
@@ -46,7 +63,7 @@ DDI.auth = (function () {
   // ---------- AUTH ACTIONS ----------
 
   async function signUp(email, password, displayName) {
-    if (!client) return { error: { message: 'Auth not configured' } };
+    if (!client) return { error: { message: 'Auth not configured — Supabase client failed to initialize' } };
     const name = (displayName || '').trim();
     if (name.length < 3 || name.length > 18) {
       return { error: { message: 'Display name must be 3–18 chars' } };
@@ -54,28 +71,46 @@ DDI.auth = (function () {
     if ((password || '').length < 8) {
       return { error: { message: 'Password must be 8+ chars' } };
     }
-    const { data, error } = await client.auth.signUp({
-      email, password,
-      options: { data: { display_name: name } },
-    });
-    if (error) return { error };
-    currentUser = data.user;
-    // Try creating the profile row.  If email confirmation is required, the user
-    // won't be authenticated yet and this will fail with RLS — that's OK; the
-    // profile is created on first login instead.
-    if (data.session) {
-      await ensureProfile(name);
+    console.log('[auth] signUp calling Supabase...');
+    try {
+      const result = await withTimeout(
+        client.auth.signUp({ email, password, options: { data: { display_name: name } } }),
+        15000,
+        'signUp'
+      );
+      console.log('[auth] signUp returned', result);
+      const { data, error } = result;
+      if (error) return { error };
+      currentUser = data.user;
+      if (data.session) {
+        try { await ensureProfile(name); } catch (e) { console.error('[auth] ensureProfile after signUp failed', e); }
+      }
+      return { data };
+    } catch (e) {
+      console.error('[auth] signUp threw', e);
+      return { error: { message: e.message || 'Network error' } };
     }
-    return { data };
   }
 
   async function signIn(email, password) {
-    if (!client) return { error: { message: 'Auth not configured' } };
-    const { data, error } = await client.auth.signInWithPassword({ email, password });
-    if (error) return { error };
-    currentUser = data.user;
-    await ensureProfile();
-    return { data };
+    if (!client) return { error: { message: 'Auth not configured — Supabase client failed to initialize' } };
+    console.log('[auth] signIn calling Supabase...');
+    try {
+      const result = await withTimeout(
+        client.auth.signInWithPassword({ email, password }),
+        15000,
+        'signIn'
+      );
+      console.log('[auth] signIn returned', result);
+      const { data, error } = result;
+      if (error) return { error };
+      currentUser = data.user;
+      try { await ensureProfile(); } catch (e) { console.error('[auth] ensureProfile after signIn failed', e); }
+      return { data };
+    } catch (e) {
+      console.error('[auth] signIn threw', e);
+      return { error: { message: e.message || 'Network error' } };
+    }
   }
 
   async function signOut() {

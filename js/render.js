@@ -640,7 +640,8 @@ DDI.Renderer = (function () {
       ctx.rotate(lean);
       ctx.scale((flipX ? -sxx : sxx), syy);
 
-      const drewSprite = drawSpriteOrFallback(ctx, 'hero', 0, 0, d, function (c, x, y, dd) {
+      const heroKey = (this.app.save && this.app.save.character === 'mage') ? 'hero_mage' : 'hero';
+      const drewSprite = drawSpriteOrFallback(ctx, heroKey, 0, 0, d, function (c, x, y, dd) {
         c.save();
         c.fillStyle = '#3a2a55';
         c.beginPath(); c.ellipse(x, y + 2, dd * 0.27, dd * 0.32, 0, 0, TAU); c.fill();
@@ -655,7 +656,7 @@ DDI.Renderer = (function () {
       if (drewSprite && flash > 0.1) {
         ctx.globalCompositeOperation = 'lighter';
         ctx.globalAlpha = flash * 0.7;
-        drawSpriteOrFallback(ctx, 'hero', 0, 0, d, null);
+        drawSpriteOrFallback(ctx, heroKey, 0, 0, d, null);
         ctx.globalAlpha = 1;
         ctx.globalCompositeOperation = 'source-over';
       }
