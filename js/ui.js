@@ -122,6 +122,12 @@ DDI.UI = (function () {
       // Title leaderboard button
       const btnLb = this.$('btn-leaderboard');
       if (btnLb) btnLb.addEventListener('click', function () { self.showLeaderboard(); });
+      // Rank unlocks (button is re-rendered inside title-stats; delegate from document)
+      document.addEventListener('click', function (e) {
+        if (e.target && e.target.id === 'btn-rank-unlocks') self.showUnlocks();
+      });
+      const btnUnlocksBack = this.$('btn-unlocks-back');
+      if (btnUnlocksBack) btnUnlocksBack.addEventListener('click', function () { self.hideUnlocks(); });
       const btnChangeChar = this.$('btn-change-char');
       if (btnChangeChar) btnChangeChar.addEventListener('click', function () {
         self._charFromTitle = true;
@@ -437,6 +443,40 @@ DDI.UI = (function () {
     }
     hideLeaderboard() {
       this.$('modal-leaderboard').classList.add('hidden');
+      this.modalOpen = false;
+    }
+
+    // Rank → Unlocks panel
+    showUnlocks() {
+      const a = this.app;
+      const rk = (a.save && a.save.accountRank) || 1;
+      const D = DDI.data || {};
+      const CLASSES = D.CLASSES || {};
+      const list = Object.keys(CLASSES).map(function (k) { return Object.assign({ key: k }, CLASSES[k]); });
+      list.sort(function (x, y) { return (x.requiredRank || 1) - (y.requiredRank || 1); });
+      const html = list.map(function (c) {
+        const req = c.requiredRank || 1;
+        const unlocked = rk >= req;
+        const starters = (c.starters || []).map(function (id) {
+          const def = (D.ABILITIES && D.ABILITIES[id]);
+          return def ? def.name : id;
+        }).join(' · ');
+        return '' +
+          '<div class="unlock-row ' + (unlocked ? 'on' : 'off') + '">' +
+            '<div class="unlock-rank">RANK ' + req + '</div>' +
+            '<div class="unlock-name">' + (c.name || c.key) +
+              (unlocked ? ' <span class="unlock-tag on">UNLOCKED</span>'
+                        : ' <span class="unlock-tag off">LOCKED</span>') +
+            '</div>' +
+            '<div class="unlock-starters">' + (starters || '—') + '</div>' +
+          '</div>';
+      }).join('');
+      this.$('unlocks-list').innerHTML = html;
+      this.$('modal-unlocks').classList.remove('hidden');
+      this.modalOpen = true;
+    }
+    hideUnlocks() {
+      this.$('modal-unlocks').classList.add('hidden');
       this.modalOpen = false;
     }
     refreshLeaderboardTabs() {
@@ -1252,6 +1292,7 @@ DDI.UI = (function () {
         '<div class="rank-block">' +
           '<div class="rank-row">' +
             '<span class="rank-pill">RANK <b>' + rk + '</b></span>' +
+            '<button id="btn-rank-unlocks" class="rank-info-btn" type="button" title="View unlocks">UNLOCKS</button>' +
             '<span class="rank-xp-text">' + into + ' / ' + (xpNext - xpThis) + ' XP</span>' +
           '</div>' +
           '<div class="rank-bar"><div class="rank-bar-fill" style="width:' + pct.toFixed(1) + '%"></div></div>' +

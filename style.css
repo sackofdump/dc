@@ -1165,6 +1165,53 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
 .title-stats-row .label { color: var(--ink-fade); font-weight: 700; }
 .title-stats-row b { color: var(--accent-gold); font-size: 14px; margin-left: 4px; }
 
+/* Rank → unlocks button + modal list */
+.rank-info-btn {
+  font-family: inherit;
+  font-size: 10px; font-weight: 800; letter-spacing: 0.12em;
+  padding: 4px 8px;
+  margin-left: 6px;
+  background: rgba(0,0,0,0.5);
+  color: var(--accent-gold);
+  border: 1px solid var(--accent-gold);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+.rank-info-btn:hover { background: var(--accent-gold); color: #1a0e2a; }
+.unlock-row {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 6px 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--panel-edge);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  background: rgba(0,0,0,0.35);
+}
+.unlock-row.off { opacity: 0.55; }
+.unlock-rank {
+  font-family: Cinzel, "Cinzel Decorative", serif;
+  font-weight: 800; letter-spacing: 0.16em;
+  color: var(--accent-violet);
+  font-size: 12px;
+  text-align: center;
+}
+.unlock-row.on .unlock-rank { color: var(--accent-gold); text-shadow: 0 0 8px rgba(255,217,102,0.5); }
+.unlock-name { font-weight: 800; letter-spacing: 0.08em; font-size: 13px; color: var(--ink); }
+.unlock-tag {
+  font-size: 9px; font-weight: 800; letter-spacing: 0.10em;
+  padding: 2px 6px; border-radius: 4px;
+  margin-left: 4px;
+}
+.unlock-tag.on  { color: var(--accent-green); border: 1px solid var(--accent-green); background: rgba(109,255,155,0.08); }
+.unlock-tag.off { color: #ff8a99; border: 1px solid #ff6477; background: rgba(255,100,119,0.08); }
+.unlock-starters {
+  grid-column: 2;
+  font-size: 11px; color: var(--ink-dim); letter-spacing: 0.04em;
+}
+
 .modal-foot { display: flex; gap: 10px; justify-content: center; margin-top: 16px; }
 .primary-btn, .ghost-btn {
   font-family: inherit; font-weight: 700; letter-spacing: 0.16em;

@@ -146,6 +146,11 @@
         zonesCleared: {},      // { magma:true, ... } — set when zone guardian dies
         pendingActBoss: false, // queued on the 4th tele clear; spawns on returnToMain
         actBossActive: null,
+        // Per-run revive + payout bookkeeping (must reset between runs)
+        revivesUsed: 0,
+        _dustPaid: 0,
+        _killsPaid: 0,
+        _accountXpPaid: 0,
       });
       Spawner.reset(); Slaughter.reset();
       this.ult.cd = 0;
@@ -279,6 +284,9 @@
       // Resume the run
       this.game.running = true;
       this.game.paused = false;
+      // CSS hides all .hud children when game-root lacks .in-game — re-enable it.
+      const rootEl = document.getElementById('game-root');
+      if (rootEl) rootEl.classList.add('in-game');
       if (this.ui && this.ui.hideDeath) this.ui.hideDeath();
       // Big revival fanfare
       this.fx.toast('★  REVIVED  ★');
