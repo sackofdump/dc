@@ -879,17 +879,41 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
   overflow-x: hidden;
   padding-right: 6px;   /* room for the scrollbar */
 }
+/* Confirm button is a floating bottom popup that slides up only after a
+   character has been picked. Hidden by default — far easier to spot than
+   a tiny disabled button buried at the bottom of the card. */
 .char-card > .modal-foot {
   flex: 0 0 auto;
-  margin-top: 0;
-  padding: 10px 0 0;
-  border-top: 1px solid var(--panel-edge);
-  background: linear-gradient(180deg, rgba(28,18,48,0), rgba(10,6,18,0.9));
-  position: sticky; bottom: 0; z-index: 3;
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%) translateY(140%);
+  bottom: max(16px, env(safe-area-inset-bottom));
+  width: min(420px, calc(100vw - 24px));
+  margin: 0;
+  padding: 12px 14px;
+  background: linear-gradient(180deg, rgba(28,18,48,0.95), rgba(10,6,18,0.98));
+  border: 2px solid var(--accent-gold);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.7), 0 0 22px rgba(255,217,102,0.45);
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0;
+  transition: transform 0.28s cubic-bezier(.2,1.2,.4,1), opacity 0.18s;
+}
+.char-card.has-pick > .modal-foot {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+  pointer-events: auto;
 }
 .char-card > .modal-foot .primary-btn {
   width: 100%; padding: 14px 20px;
   font-size: 16px;
+  letter-spacing: 0.18em;
+  animation: confirm-pulse 1.6s ease-in-out infinite;
+}
+@keyframes confirm-pulse {
+  0%,100% { box-shadow: 0 4px 0 #6e2a00, 0 0 14px rgba(255,123,31,0.45); }
+  50%     { box-shadow: 0 4px 0 #6e2a00, 0 0 24px rgba(255,123,31,0.95); }
 }
 
 /* Mobile sizing — keep everything on-screen and the CONFIRM button clickable */

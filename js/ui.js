@@ -370,6 +370,8 @@ DDI.UI = (function () {
             picks.forEach(function (p) { p.classList.remove('selected'); });
             el.classList.add('selected');
             self._chosenChar = el.getAttribute('data-char');
+            const card = self.$('modal-character').querySelector('.char-card');
+            if (card) card.classList.add('has-pick');     // reveals the floating CONFIRM popup
             const btn = self.$('btn-char-confirm');
             if (btn) btn.disabled = false;
           });
@@ -384,6 +386,8 @@ DDI.UI = (function () {
             if (!self._chosenChar || !self.app.save) return;
             self.app.save.character = self._chosenChar;
             self.app.persist();
+            const card = modal.querySelector('.char-card');
+            if (card) card.classList.remove('has-pick');     // hide popup on commit
             modal.classList.add('hidden');
             self.modalOpen = false;
             self._charFromTitle = false;
