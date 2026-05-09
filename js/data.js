@@ -470,13 +470,13 @@ DDI.data = (function () {
     },
     mage: {
       name: 'Mage',
-      requiredRank: 3,
+      requiredRank: 1,    // TODO: re-raise to 3 once balance/testing is locked in
       starters: ['fireball', 'chain'],
       pool:     ['fireball', 'chain', 'frostAura', 'poisonNova', 'meteor', 'halo'],
     },
     rogue: {
       name: 'Rogue',
-      requiredRank: 2,
+      requiredRank: 1,    // TODO: re-raise to 2 once balance/testing is locked in
       starters: ['daggers', 'cruelty'],
       pool:     ['daggers', 'cruelty', 'shadowstep', 'poisonNova', 'blades', 'bats'],
     },
