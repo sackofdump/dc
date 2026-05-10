@@ -351,9 +351,23 @@ DDI.UI = (function () {
       const ABILITIES = (DDI.data && DDI.data.ABILITIES) || {};
       const accountRank = (this.app.save && this.app.save.accountRank) || 1;
       const picks = modal.querySelectorAll('.char-pick');
-      // Helper: commit the chosen character + close modal + go to title
+      // Helper: commit the chosen character + close modal + go to title.
+      // If a saved-mid-run snapshot exists and the player picks a DIFFERENT
+      // character, warn them — the saved run will be discarded since the
+      // ability roster won't match.
       const commit = function (choice) {
         if (!choice || !self.app.save) return;
+        const prev = self.app.save.character;
+        const hasSaved = !!(self.app.save.runState);
+        if (hasSaved && prev && prev !== choice) {
+          const ok = window.confirm(
+            'You have a saved run on ' + (prev || '').toUpperCase() + '.\n\n' +
+            'Switching to ' + choice.toUpperCase() + ' will DISCARD that saved run.\n\n' +
+            'Continue?'
+          );
+          if (!ok) return;
+          self.app.save.runState = null;
+        }
         self.app.save.character = choice;
         self.app.persist();
         modal.classList.add('hidden');
@@ -714,6 +728,20 @@ DDI.UI = (function () {
     hideActComplete() {
       this.$('modal-act-complete').classList.add('hidden');
       this.modalOpen = false;
+    }
+
+    // ---- Boot splash — covers the brief auto-login hydrate so title doesn't pop ----
+    showBootSplash() {
+      const el = document.getElementById('boot-splash');
+      if (!el) return;
+      el.classList.remove('hidden');
+      el.classList.remove('fading');
+    }
+    hideBootSplash() {
+      const el = document.getElementById('boot-splash');
+      if (!el) return;
+      el.classList.add('fading');
+      setTimeout(function () { el.classList.add('hidden'); el.classList.remove('fading'); }, 500);
     }
 
     // ---- Objective banner — big centered card on zone entry, stays ~5s ----

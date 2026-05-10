@@ -66,7 +66,13 @@
       if (DDI.auth && DDI.auth.getSession) {
         const session = await DDI.auth.getSession();
         if (session) {
+          // Auto-login (remember-me) — show a brief loading splash so the
+          // transition into the title doesn't feel like a hard cut.
+          if (this.ui && this.ui.showBootSplash) this.ui.showBootSplash();
           await this.onAuthChanged();
+          // Hold the splash a bit so the user actually sees it.
+          await new Promise(function (r) { setTimeout(r, 900); });
+          if (this.ui && this.ui.hideBootSplash) this.ui.hideBootSplash();
           this.ui.showTitle();
         } else {
           this.ui.showAuth();

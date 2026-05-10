@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=187" />
+  <link rel="stylesheet" href="style.css?v=188" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.50.3/dist/umd/supabase.js"></script>
 </head>
 <body>
@@ -62,6 +62,13 @@
       </div>
     </div>
 
+
+    <!-- Boot splash — shows briefly during auto-login so the title doesn't pop in -->
+    <div id="boot-splash" class="hidden">
+      <img src="logo.png" alt="XxDungeonSlayerxX" class="boot-logo" />
+      <div class="boot-spinner"><span></span><span></span><span></span></div>
+      <div class="boot-status">Restoring your descent…</div>
+    </div>
 
     <!-- Boss HP -->
     <div id="boss-wrap" class="hud hidden">
@@ -396,19 +403,19 @@
   </div>
 
   <!-- Load order matters. ?v= busts browser cache when files change. -->
-  <script src="js/util.js?v=187"></script>
-  <script src="js/auth.js?v=187"></script>
-  <script src="js/data.js?v=187"></script>
-  <script src="js/save.js?v=187"></script>
-  <script src="js/assets.js?v=187"></script>
-  <script src="js/entities.js?v=187"></script>
-  <script src="js/systems.js?v=187"></script>
-  <script src="js/fx.js?v=187"></script>
-  <script src="js/input.js?v=187"></script>
-  <script src="js/ui.js?v=187"></script>
-  <script src="js/render.js?v=187"></script>
-  <script src="js/hudedit.js?v=187"></script>
-  <script src="js/minimap.js?v=187"></script>
-  <script src="js/main.js?v=187"></script>
+  <script src="js/util.js?v=188"></script>
+  <script src="js/auth.js?v=188"></script>
+  <script src="js/data.js?v=188"></script>
+  <script src="js/save.js?v=188"></script>
+  <script src="js/assets.js?v=188"></script>
+  <script src="js/entities.js?v=188"></script>
+  <script src="js/systems.js?v=188"></script>
+  <script src="js/fx.js?v=188"></script>
+  <script src="js/input.js?v=188"></script>
+  <script src="js/ui.js?v=188"></script>
+  <script src="js/render.js?v=188"></script>
+  <script src="js/hudedit.js?v=188"></script>
+  <script src="js/minimap.js?v=188"></script>
+  <script src="js/main.js?v=188"></script>
 </body>
 </html>
