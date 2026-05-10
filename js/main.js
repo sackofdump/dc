@@ -519,10 +519,18 @@
         const t = 1 - h._leapT / total;        // 0 → 1
         h.x = h._leapFromX + (h._leapToX - h._leapFromX) * t;
         h.y = h._leapFromY + (h._leapToY - h._leapFromY) * t;
+        // Defensive clamp — never leap outside the world even if the destination
+        // ended up past the edge from a knock-around target enemy.
+        const pad = h.radius;
+        if (h.x < pad) h.x = pad;
+        if (h.y < pad) h.y = pad;
+        if (h.x > this.world.width  - pad) h.x = this.world.width  - pad;
+        if (h.y > this.world.height - pad) h.y = this.world.height - pad;
         h.moving = false;
         h.iframes = Math.max(h.iframes || 0, 0.05);
         if (h._leapT <= 0) {
-          h.x = h._leapToX; h.y = h._leapToY;
+          h.x = Math.max(pad, Math.min(this.world.width  - pad, h._leapToX));
+          h.y = Math.max(pad, Math.min(this.world.height - pad, h._leapToY));
           h._leapT = null;
           if (this._onLeapLand) { this._onLeapLand(); this._onLeapLand = null; }
         }

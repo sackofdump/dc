@@ -270,6 +270,12 @@ DDI.systems = (function () {
         tx = hero.x + fx * 320;
         ty = hero.y + fy * 320;
       }
+      // Clamp landing point inside the world so the hero never leaps out of bounds.
+      const pad = (hero.radius || 16) + 4;
+      const W = app.world && app.world.width  ? app.world.width  : 4000;
+      const H = app.world && app.world.height ? app.world.height : 4000;
+      tx = Math.max(pad, Math.min(W - pad, tx));
+      ty = Math.max(pad, Math.min(H - pad, ty));
       // Lock hero into a leap arc — updateHero will tween position; on landing, slam.
       hero._leapFromX = hero.x;
       hero._leapFromY = hero.y;
