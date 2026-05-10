@@ -25,8 +25,8 @@ DDI.entities = (function () {
       this.iframes = 0; this.flash = 0;
       this.walkT = 0;
       this.moving = false;
-      this.stamina = 1;        // 0..1
-      this.maxStamina = 1;
+      this.stamina = 2;        // bigger starting reserve so early sprints are usable
+      this.maxStamina = 2;
       this.sprinting = false;
       this.abilities = [];
     }
@@ -43,10 +43,11 @@ DDI.entities = (function () {
       this.iframes = 0; this.flash = 0;
       this.walkT = 0;
       this.moving = false;
-      this.stamina = 1;
-      this.maxStamina = 1;
+      this.stamina = 2;
+      this.maxStamina = 2;
       this.sprinting = false;
       this.abilities = [];
+      this.staminaRegenBonus = 0.15;     // small starting regen so it refills faster between bursts
     }
     takeDamage(amount) {
       if (this.iframes > 0) return 0;

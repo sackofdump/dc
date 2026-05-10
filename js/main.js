@@ -1070,8 +1070,13 @@
           return;
         }
 
-        // Building exterior — walk onto the door to enter the instanced interior
+        // Building exterior — walk onto the door to enter the instanced interior.
+        // Once entered, the building is sealed and can't be re-looted.
         if (f.type === 'building') {
+          if (f.entered) {
+            if (f.cooldown > 0) f.cooldown -= dt;
+            return;
+          }
           const ddx = h.x - f.doorX, ddy = h.y - f.doorY;
           const dd2 = ddx * ddx + ddy * ddy;
           if (dd2 < 36 * 36 && self.zone.name === 'main' && (!f.cooldown || f.cooldown <= 0)) {

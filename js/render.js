@@ -309,11 +309,23 @@ DDI.Renderer = (function () {
       const color = (def && def.color) || '#a8a08a';
       const id = f.buildingId || 'ruins';
       const pulse = 0.55 + Math.sin(t * 1.5) * 0.18;
-      // Drop shadow
+      // Sealed-after-loot visual: skip the bright pulse glow; renderer below uses
+      // f._explored to drop saturation so the structure clearly reads as done.
+      const explored = !!f.entered;
+
+      // Drop shadow — bigger, softer, with a hint of color
       ctx.save();
-      ctx.fillStyle = 'rgba(0,0,0,0.55)';
-      ctx.beginPath(); ctx.ellipse(f.x, f.y + 70, 90, 16, 0, 0, TAU); ctx.fill();
+      const shadow = ctx.createRadialGradient(f.x, f.y + 78, 0, f.x, f.y + 78, 110);
+      shadow.addColorStop(0, 'rgba(0,0,0,0.7)');
+      shadow.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = shadow;
+      ctx.fillRect(f.x - 110, f.y + 60, 220, 36);
       ctx.restore();
+
+      // Sealed buildings: render the whole structure desaturated. We achieve this
+      // with a sub-context that we recolor at the end via composite.
+      ctx.save();
+      if (explored) ctx.globalAlpha = 0.55;
 
       if (id === 'tower') {
         // ===== OBSIDIAN TOWER — tall narrow column with crenellated top =====
@@ -464,21 +476,134 @@ DDI.Renderer = (function () {
           const yy = yTop + 28 + (h - 28) * i / 4;
           ctx.beginPath(); ctx.moveTo(cx - baseW/2 + 2, yy); ctx.lineTo(cx + baseW/2 - 2, yy); ctx.stroke();
         }
-        // Arched doorway
+        // Arched doorway with depth
+        const drx = cx, dry = f.doorY - 36;
+        // Outer frame (stone arch trim)
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(cx - 26, f.doorY);
+        ctx.lineTo(cx - 26, f.doorY - 36);
+        ctx.arc(drx, dry, 26, Math.PI, 0);
+        ctx.lineTo(cx + 26, f.doorY);
+        ctx.closePath();
+        ctx.fill();
+        // Recessed dark interior
         ctx.fillStyle = '#0a0804';
         ctx.beginPath();
         ctx.moveTo(cx - 22, f.doorY);
         ctx.lineTo(cx - 22, f.doorY - 36);
-        ctx.arc(cx, f.doorY - 36, 22, Math.PI, 0);
+        ctx.arc(drx, dry, 22, Math.PI, 0);
         ctx.lineTo(cx + 22, f.doorY);
         ctx.closePath();
         ctx.fill();
-        ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.stroke();
+        // Faint inner glow
+        if (!explored) {
+          ctx.save();
+          ctx.globalCompositeOperation = 'screen';
+          const dgrd = ctx.createLinearGradient(cx, dry - 22, cx, f.doorY);
+          dgrd.addColorStop(0, 'rgba(255,217,102,' + (0.30 * pulse) + ')');
+          dgrd.addColorStop(1, 'rgba(255,217,102,0)');
+          ctx.fillStyle = dgrd;
+          ctx.fillRect(cx - 20, dry - 22, 40, 60);
+          ctx.restore();
+        }
+        // Hanging moss / vines on the broken top — slow sway
+        ctx.strokeStyle = 'rgba(60,120,40,0.65)';
+        ctx.lineWidth = 1.5;
+        const sway = Math.sin(t * 0.8) * 2;
+        for (let i = 0; i < 6; i++) {
+          const vx = cx - baseW/2 + 14 + (i * (baseW - 28) / 5);
+          const vy = yTop + 20 + Math.random() * 6;
+          ctx.beginPath();
+          ctx.moveTo(vx, vy);
+          ctx.quadraticCurveTo(vx + sway * 0.5, vy + 10, vx + sway, vy + 20);
+          ctx.stroke();
+        }
+        // Scattered fallen stones at the base
+        ctx.fillStyle = '#3a3018';
+        ctx.beginPath(); ctx.ellipse(cx - baseW/2 - 14, f.doorY + 8, 10, 4, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#5a5040';
+        ctx.beginPath(); ctx.ellipse(cx - baseW/2 - 14, f.doorY + 6, 8, 3, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#3a3018';
+        ctx.beginPath(); ctx.ellipse(cx + baseW/2 + 12, f.doorY + 10, 12, 5, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#5a5040';
+        ctx.beginPath(); ctx.ellipse(cx + baseW/2 + 12, f.doorY + 8, 10, 3.5, 0, 0, TAU); ctx.fill();
       }
 
-      // Floating banner with the building's name + "ENTER" hint when nearby
+      // End the alpha-wrap save() opened up top
+      ctx.restore();
+
+      // ===== Atmospheric particles + "EXPLORED" overlay =====
+      // Type-specific ambient accents drawn outside the desaturate wrapper
+      // so the air around the structure stays vivid even when sealed.
+      if (!explored) {
+        if (id === 'tower') {
+          // Faint violet sparks rising from the base
+          for (let i = 0; i < 3; i++) {
+            const sx = f.x + (Math.random() - 0.5) * 80;
+            const sy = f.y + 50 - (i / 3) * 60 - (t * 30 % 60);
+            ctx.fillStyle = 'rgba(178,102,255,' + (0.4 + Math.random() * 0.4) + ')';
+            ctx.beginPath(); ctx.arc(sx, sy, 1.5, 0, TAU); ctx.fill();
+          }
+        } else if (id === 'temple') {
+          // Twin lit braziers flanking the doorway
+          const bxL = f.x - 60, bxR = f.x + 60;
+          const by  = f.doorY - 4;
+          const flame = 0.7 + Math.sin(t * 5) * 0.25;
+          [bxL, bxR].forEach(function (bx) {
+            // Bowl
+            ctx.fillStyle = '#3a2a08';
+            ctx.beginPath(); ctx.ellipse(bx, by, 7, 3, 0, 0, TAU); ctx.fill();
+            ctx.strokeStyle = '#7a5400'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.ellipse(bx, by, 7, 3, 0, 0, TAU); ctx.stroke();
+            // Stem
+            ctx.fillRect(bx - 1, by, 2, 14);
+            // Flame
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen';
+            const fg = ctx.createRadialGradient(bx, by - 6, 0, bx, by - 6, 14);
+            fg.addColorStop(0, 'rgba(255,217,102,' + flame + ')');
+            fg.addColorStop(0.5, 'rgba(255,123,31,' + (flame * 0.7) + ')');
+            fg.addColorStop(1, 'rgba(255,123,31,0)');
+            ctx.fillStyle = fg;
+            ctx.beginPath(); ctx.arc(bx, by - 6, 14, 0, TAU); ctx.fill();
+            ctx.restore();
+          });
+          // Golden dust rising
+          for (let i = 0; i < 4; i++) {
+            const dx = f.x + (Math.random() - 0.5) * 140;
+            const dy = f.y + 30 - ((t * 18 + i * 30) % 80);
+            ctx.fillStyle = 'rgba(255,217,102,0.45)';
+            ctx.beginPath(); ctx.arc(dx, dy, 1.2, 0, TAU); ctx.fill();
+          }
+        } else if (id === 'ruins') {
+          // Slow drifting dust motes around the rubble
+          for (let i = 0; i < 4; i++) {
+            const dx = f.x + (Math.random() - 0.5) * 130;
+            const dy = f.y + 30 - ((t * 12 + i * 25) % 70);
+            ctx.fillStyle = 'rgba(200,180,140,0.40)';
+            ctx.beginPath(); ctx.arc(dx, dy, 1, 0, TAU); ctx.fill();
+          }
+        }
+      }
+
+      // Floating banner with the building's name + "ENTER" hint when nearby —
+      // sealed buildings instead show "EXPLORED" in red.
       const dist = Math.hypot(this.app.hero.x - f.doorX, this.app.hero.y - f.doorY);
-      if (dist < 200) {
+      if (explored) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(10,6,18,0.85)';
+        const txt = 'EXPLORED';
+        ctx.font = 'bold 11px Cinzel, serif';
+        ctx.textAlign = 'center';
+        const w = ctx.measureText(txt).width + 18;
+        ctx.fillRect(f.x - w/2, f.y - 90, w, 20);
+        ctx.strokeStyle = '#7a4848'; ctx.lineWidth = 1.5;
+        ctx.strokeRect(f.x - w/2, f.y - 90, w, 20);
+        ctx.fillStyle = '#ff8a99';
+        ctx.fillText(txt, f.x, f.y - 76);
+        ctx.restore();
+      } else if (dist < 200) {
         const alpha = Math.max(0, 1 - (dist - 60) / 140);
         ctx.save();
         ctx.globalAlpha = alpha;
