@@ -42,7 +42,8 @@ DDI.minimap = (function () {
     const wrap = $('minimap');
     const btn  = $('minimap-toggle');
     if (wrap) wrap.classList.toggle('mm-unlocked', unlocked);
-    if (btn)  btn.textContent = unlocked ? '🔓' : '🔒';
+    if (btn)  btn.textContent = unlocked ? '✕' : '⋯';
+    if (btn)  btn.title = unlocked ? 'Lock minimap (drag to move, scroll to resize)' : 'Unlock minimap (drag + scroll-resize)';
   }
 
   function applySavedState() {

@@ -513,22 +513,30 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
 }
 #minimap-toggle {
   position: absolute;
-  /* Sit ABOVE the minimap so the canvas surface (shards, portals, etc.) is never occluded. */
-  top: -26px; right: 0;
-  width: 22px; height: 22px;
+  /* Three-dot handle stuck outside the top-right corner of the minimap so
+     the player can spot it as the unlock affordance without occluding the
+     canvas surface. */
+  top: -10px; right: -10px;
+  width: 26px; height: 26px;
   padding: 0;
-  background: rgba(0,0,0,0.75);
-  border: 1px solid var(--panel-edge);
-  border-radius: 4px;
-  color: #fff;
-  font-size: 13px;
-  line-height: 18px;
+  background: rgba(28,18,48,0.92);
+  border: 1px solid var(--accent-gold);
+  border-radius: 50%;
+  color: var(--accent-gold);
+  font-size: 16px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: 0.1em;
   cursor: pointer;
-  z-index: 3;
+  z-index: 4;
   pointer-events: auto;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.6), 0 0 8px rgba(255,217,102,0.35);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.1s, box-shadow 0.12s;
 }
-#minimap-toggle:hover { border-color: var(--accent-gold); }
+#minimap-toggle:hover { transform: scale(1.10); box-shadow: 0 2px 10px rgba(0,0,0,0.7), 0 0 14px rgba(255,217,102,0.7); }
+#minimap-toggle:active { transform: scale(0.95); }
+#minimap.mm-unlocked > #minimap-toggle { color: #6dff9b; border-color: #6dff9b; box-shadow: 0 2px 10px rgba(0,0,0,0.7), 0 0 14px rgba(109,255,155,0.7); }
 #minimap.mm-unlocked {
   outline: 2px dashed var(--accent-gold);
   outline-offset: 2px;
