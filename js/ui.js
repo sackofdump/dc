@@ -1169,6 +1169,17 @@ DDI.UI = (function () {
         stEl.classList.toggle('empty', stPct <= 0.02);
       }
 
+      // Zone header — current location at the top of the screen
+      const zh = this.$('zone-header');
+      if (zh) {
+        const act = (a.game && a.game.act) || 1;
+        const name = (a.zone && a.zone.displayName) || 'DUNGEON';
+        const actEl  = this.$('zone-header-act');
+        const nameEl = this.$('zone-header-name');
+        if (actEl)  actEl.textContent  = 'ACT ' + act + ' ·';
+        if (nameEl) nameEl.textContent = name;
+      }
+
       // Zone progress (only visible inside biome zones) — bars adapt to the
       // randomized zone objective (standard, survival, bounty, defend, ritual).
       const zoneWrap = this.$('zone-progress-wrap');
