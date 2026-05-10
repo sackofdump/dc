@@ -725,11 +725,15 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
   #joystick-knob { width: 42px; height: 42px; }
 }
 
-/* ===== Action buttons (bottom right) ===== */
+/* ===== Action buttons (bottom right) — touch only ===== */
 #action-buttons {
   bottom: env(safe-area-inset-bottom, 20px); right: 16px;
-  display: flex; flex-direction: column; gap: 10px;
+  display: none;     /* desktop: keys cover cast/magnet/ult, no on-screen buttons */
+  flex-direction: column; gap: 10px;
   align-items: center;
+}
+@media (pointer: coarse) {
+  #action-buttons { display: flex; }
 }
 .action-btn {
   width: 60px; height: 60px;

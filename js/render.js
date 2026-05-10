@@ -1020,7 +1020,7 @@ DDI.Renderer = (function () {
       ctx.restore();
 
       // ----- New procedural chest (wider, ornate gold trim, gem lock) -----
-      const W = 70, H = 50;
+      const W = 56, H = 42;
       const x = f.x - W / 2;
       const yBase = f.y + H / 2;     // bottom of chest sits at f.y + H/2
       const yTop  = f.y - H / 2;     // top edge of arched lid

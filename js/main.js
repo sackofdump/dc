@@ -1198,7 +1198,17 @@
         const d2 = dx*dx + dy*dy;
 
         if (f.type === 'chest' && !f.opened) {
-          if (d2 < 36 * 36) {
+          // Magnet pull — chests now slide toward the hero once they're close,
+          // with speed ramping as the gap closes. No more "front-only" pickups.
+          const pullR = 110;
+          if (d2 < pullR * pullR && d2 > 0.01) {
+            const d = Math.sqrt(d2);
+            const t = 1 - d / pullR;
+            const pullSpeed = 240 + 360 * t;     // 240 -> 600 px/s
+            f.x += (dx / d) * pullSpeed * dt;
+            f.y += (dy / d) * pullSpeed * dt;
+          }
+          if (d2 < 50 * 50) {
             f.opened = true;
             const rdef = RARITY[f.rarity] || RARITY.common;
             const dustGain = ({ common: 5, magic: 12, rare: 25, epic: 50, legendary: 120, mythic: 250, primal: 500 })[f.rarity] || 5;
@@ -1753,6 +1763,11 @@
         if (!e._alive) return;
         e._fadeOut = true;
         e._fadeT = 0;
+      });
+      // Sweep ritual circles + objective props off the map — they served
+      // their purpose, now make room for the boss arena.
+      this.features = this.features.filter(function (f) {
+        return f.type !== 'ritual_circle' && f.type !== 'totem' && f.type !== 'shard';
       });
       // Brief beat, then fade the boss in (and its escort)
       const self = this;
