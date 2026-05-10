@@ -1947,6 +1947,27 @@
       const W = this.world.width, H = this.world.height;
       const cx = W / 2, cy = H / 2;
       if (!z) return;
+      // Helper — random angle picker that keeps a minimum angular separation
+      // between picks so circles/bounties don't all clump together.
+      const randomSeparatedAngles = function (count, minSep) {
+        const out = [];
+        let attempts = 0;
+        while (out.length < count && attempts < 200) {
+          attempts++;
+          const a = Math.random() * Math.PI * 2;
+          let ok = true;
+          for (let i = 0; i < out.length; i++) {
+            let d = Math.abs(a - out[i]);
+            if (d > Math.PI) d = Math.PI * 2 - d;
+            if (d < minSep) { ok = false; break; }
+          }
+          if (ok) out.push(a);
+        }
+        // Fill the rest with evenly spaced fallbacks if RNG gave up
+        while (out.length < count) out.push((out.length / count) * Math.PI * 2);
+        return out;
+      };
+
       if (z.objective === 'bounty') {
         // Build a queue of 3 named bounty configs scattered around the map.
         // We spawn ONLY the first immediately; the rest spawn one-at-a-time as
@@ -1955,9 +1976,10 @@
         const elitePool = (this.zoneTheme && this.zoneTheme.elitePool) || ['elite_skel','elite_zombie','elite_slime'];
         const names = ['THE WANDERING DREAD', 'OBSIDIAN MARAUDER', 'SHRIEKING REVENANT'];
         z.bountyQueue = [];
+        const bAngs = randomSeparatedAngles(z.bountyTotal, Math.PI * 0.55);
         for (let i = 0; i < z.bountyTotal; i++) {
-          const ang = (i / z.bountyTotal) * Math.PI * 2 + Math.random() * 0.6;
-          const dist = Math.min(W, H) * 0.32;
+          const ang  = bAngs[i];
+          const dist = Math.min(W, H) * (0.22 + Math.random() * 0.18);     // 0.22..0.40
           const x = Math.max(200, Math.min(W - 200, cx + Math.cos(ang) * dist + (Math.random() - 0.5) * 200));
           const y = Math.max(200, Math.min(H - 200, cy + Math.sin(ang) * dist + (Math.random() - 0.5) * 200));
           const id = elitePool[Math.floor(Math.random() * elitePool.length)];
@@ -1966,16 +1988,35 @@
         }
         this.spawnNextBounty();
       } else if (z.objective === 'defend') {
-        // Place a totem at zone center as a feature (renderer + collision will read this).
-        this.features.push({ type: 'totem', x: cx, y: cy, kind: 'totem' });
+        // Totem position varies — sometimes dead center, sometimes off in a
+        // corner so the player has to commit to defending it from one side.
+        const offRoll = Math.random();
+        let tx = cx, ty = cy;
+        if (offRoll < 0.4) {
+          // Center placement (40% of the time)
+          tx = cx; ty = cy;
+        } else {
+          const ang = Math.random() * Math.PI * 2;
+          const dist = Math.min(W, H) * (0.10 + Math.random() * 0.18);
+          tx = Math.max(280, Math.min(W - 280, cx + Math.cos(ang) * dist));
+          ty = Math.max(280, Math.min(H - 280, cy + Math.sin(ang) * dist));
+        }
+        this.features.push({ type: 'totem', x: tx, y: ty, kind: 'totem' });
+        // Also reposition the hero's view of the zone so they spawn near
+        // (but not on top of) the totem
+        this.hero.x = tx + (Math.random() - 0.5) * 160;
+        this.hero.y = ty + (Math.random() - 0.5) * 160 + 200;
       } else if (z.objective === 'ritual') {
-        // Place 3 ritual circles equidistant around the zone
+        // Place ritual circles at random angles + random distances so each
+        // ritual zone has a different layout to scout out.
         const total = (z.objectiveDef && z.objectiveDef.circles) || 3;
+        const rAngs = randomSeparatedAngles(total, Math.PI * 0.50);
         for (let i = 0; i < total; i++) {
-          const ang = (i / total) * Math.PI * 2 + 0.2;
-          const dist = Math.min(W, H) * 0.30;
-          const x = cx + Math.cos(ang) * dist;
-          const y = cy + Math.sin(ang) * dist;
+          const ang  = rAngs[i];
+          const dist = Math.min(W, H) * (0.18 + Math.random() * 0.20);     // 0.18..0.38
+          const jitter = 80;
+          const x = Math.max(220, Math.min(W - 220, cx + Math.cos(ang) * dist + (Math.random() - 0.5) * jitter));
+          const y = Math.max(220, Math.min(H - 220, cy + Math.sin(ang) * dist + (Math.random() - 0.5) * jitter));
           const c = { charge: 0, done: false, x, y };
           z.ritualCircles.push(c);
           this.features.push({ type: 'ritual_circle', x, y, kind: 'ritual_circle', _data: c });
