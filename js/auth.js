@@ -187,15 +187,25 @@ DDI.auth = (function () {
     if (!client || !currentUser) return;
     const name = (currentProfile && currentProfile.display_name)
       || (currentUser.email ? currentUser.email.split('@')[0] : 'Delver');
-    const args = {
+    const baseArgs = {
       p_best_floor:         stats.bestFloor   | 0,
       p_best_act:           stats.bestAct     | 0,
       p_total_dust:         stats.totalDust   | 0,
       p_act1_clear_seconds: (stats.act1ClearSeconds == null) ? null : (stats.act1ClearSeconds | 0),
       p_display_name:       name,
-      p_character:          stats.character || null,
     };
-    const { error } = await client.rpc('submit_score', args);
+    const argsWithChar = Object.assign({}, baseArgs, { p_character: stats.character || null });
+    // Try the new signature first; fall back to the legacy one if the
+    // server's submit_score function hasn't been updated yet.
+    let { error } = await client.rpc('submit_score', argsWithChar);
+    if (error) {
+      const msg = (error && error.message) || '';
+      if (/p_character/i.test(msg) || /unknown|argument/i.test(msg) || error.code === '42883') {
+        const retry = await client.rpc('submit_score', baseArgs);
+        error = retry.error;
+      }
+    }
+    if (error) console.error('[auth] submitScore', error);
     // SQL migration the user needs to run once on Supabase to enable class
     // tracking — submitScore degrades gracefully without it (column missing
     // -> RPC ignores p_character and the row just shows '—' on the board).
@@ -203,32 +213,41 @@ DDI.auth = (function () {
     //   create or replace function submit_score(p_best_floor int, p_best_act int,
     //     p_total_dust int, p_act1_clear_seconds int, p_display_name text,
     //     p_character text default null) ...   (extend existing fn to upsert it)
-    if (error) console.error('[auth] submitScore', error);
   }
 
-  // Pull the top N rows for the requested sort.
+  // Pull the top N rows for the requested sort.  Falls back to the legacy
+  // column set if the new `character` column doesn't exist yet — keeps the
+  // leaderboard visible for installs that haven't run the SQL migration.
   async function fetchLeaderboard(sortKey, limit) {
     if (!client) return [];
     limit = limit || 25;
-    let q = client.from('leaderboard')
-      .select('user_id, display_name, best_floor, best_act, total_dust, act1_clear_seconds, character, updated_at')
-      .limit(limit);
-    if (sortKey === 'floor') {
-      q = q.order('best_floor', { ascending: false }).order('total_dust', { ascending: false });
-    } else if (sortKey === 'dust') {
-      q = q.order('total_dust', { ascending: false });
-    } else if (sortKey === 'time') {
-      q = q.not('act1_clear_seconds', 'is', null)
-           .order('act1_clear_seconds', { ascending: true });
-    } else {
-      // default: best_act desc, best_floor desc, total_dust desc
-      q = q.order('best_act', { ascending: false })
-           .order('best_floor', { ascending: false })
-           .order('total_dust', { ascending: false });
+    const buildQuery = function (cols) {
+      let q = client.from('leaderboard').select(cols).limit(limit);
+      if (sortKey === 'floor') {
+        q = q.order('best_floor', { ascending: false }).order('total_dust', { ascending: false });
+      } else if (sortKey === 'dust') {
+        q = q.order('total_dust', { ascending: false });
+      } else if (sortKey === 'time') {
+        q = q.not('act1_clear_seconds', 'is', null)
+             .order('act1_clear_seconds', { ascending: true });
+      } else {
+        q = q.order('best_act', { ascending: false })
+             .order('best_floor', { ascending: false })
+             .order('total_dust', { ascending: false });
+      }
+      return q;
+    };
+    // Try the full column set first.
+    let res = await buildQuery('user_id, display_name, best_floor, best_act, total_dust, act1_clear_seconds, character, updated_at');
+    if (res.error) {
+      // Column missing? Retry with the legacy set.  Anything else is a real failure.
+      const msg = (res.error && res.error.message) || '';
+      if (/character/i.test(msg) || res.error.code === '42703') {
+        res = await buildQuery('user_id, display_name, best_floor, best_act, total_dust, act1_clear_seconds, updated_at');
+      }
     }
-    const { data, error } = await q;
-    if (error) { console.error('[auth] fetchLeaderboard', error); return []; }
-    return data || [];
+    if (res.error) { console.error('[auth] fetchLeaderboard', res.error); return []; }
+    return res.data || [];
   }
 
   return {
