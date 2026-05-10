@@ -608,7 +608,8 @@ DDI.UI = (function () {
           '<p>Spend it in the <strong>FORGE</strong> on permanent upgrades that apply to every future run.</p>' +
           '<div class="row"><span class="key">ESC</span><span>Pause the run anytime.</span></div>' },
         { title: 'GO BREAK THE DUNGEON', html:
-          '<p>You start with <strong>Fireball</strong> + <strong>Spinning Blades</strong>. Stack synergies, evolve weapons, melt floors.</p>' +
+          '<p>Each <strong>class</strong> starts with two unique abilities — Warriors throw daggers, Mages hurl fireballs, Rogues bleed foes with venom, and so on. Pick a class on the title screen.</p>' +
+          '<p>Stack synergies, evolve weapons, melt floors.</p>' +
           '<p>One more run is always a lie.</p>' },
       ];
     }
