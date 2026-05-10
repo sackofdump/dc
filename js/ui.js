@@ -1381,6 +1381,30 @@ DDI.UI = (function () {
       if (map[tier]) root.classList.add(map[tier]);
       // No tier yet: just show "COMBO". After: tier name + bonus.
       this.$('slaughter-text').textContent = (tier > 0 ? label : 'COMBO');
+      // Big top-center banner — surfaces the active tier + exact damage bonus.
+      // Hidden when no tier; pops into view + hot palette when the combo climbs.
+      const banner = this.$('combo-banner');
+      if (banner) {
+        if (tier > 0) {
+          banner.classList.remove('hidden');
+          banner.classList.remove('tier-3','tier-4','tier-5');
+          if (tier >= 5)      banner.classList.add('tier-5');
+          else if (tier === 4) banner.classList.add('tier-4');
+          else if (tier === 3) banner.classList.add('tier-3');
+          // Parse "FRENZY +20%" → tier name + bonus
+          const labels = ['—','BLOODY','FRENZY','MASSACRE','APOCALYPSE','GODKILL'];
+          const icons  = ['',  '🩸',    '🔥',    '💀',       '☄️',         '👑'];
+          const bonusPct = tier * 10;
+          const tEl = banner.querySelector('.combo-tier');
+          const bEl = banner.querySelector('.combo-bonus');
+          const iEl = banner.querySelector('.combo-icon');
+          if (tEl) tEl.textContent = labels[tier] || 'COMBO';
+          if (bEl) bEl.textContent = '+' + bonusPct + '% DMG';
+          if (iEl) iEl.textContent = icons[tier] || '🔥';
+        } else {
+          banner.classList.add('hidden');
+        }
+      }
     }
     setSlaughterMeter(value) {
       this.$('slaughter-fill').style.width = (value * 100).toFixed(1) + '%';

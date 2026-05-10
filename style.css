@@ -239,6 +239,58 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
   #boss-bar { height: 9px; }
 }
 
+/* ===== Slaughter combo banner — top-center, visible while combo is active ===== */
+#combo-banner {
+  top: 48px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 12;
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 16px;
+  background: linear-gradient(180deg, rgba(40,12,8,0.92), rgba(15,6,2,0.92));
+  border: 2px solid var(--accent-orange);
+  border-radius: 22px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.6), 0 0 22px rgba(255,123,31,0.45);
+  font-family: Cinzel, "Cinzel Decorative", serif;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  pointer-events: none;
+  animation: combo-pulse 1.0s ease-in-out infinite;
+}
+#combo-banner .combo-icon { font-size: 18px; line-height: 1; }
+#combo-banner .combo-tier {
+  font-size: 14px;
+  color: var(--accent-orange);
+  text-shadow: 0 0 10px rgba(255,123,31,0.7);
+}
+#combo-banner .combo-bonus {
+  font-size: 13px;
+  color: var(--accent-gold);
+  text-shadow: 0 0 8px rgba(255,217,102,0.55);
+}
+@keyframes combo-pulse {
+  0%,100% { box-shadow: 0 4px 14px rgba(0,0,0,0.6), 0 0 22px rgba(255,123,31,0.45); transform: translateX(-50%) scale(1); }
+  50%     { box-shadow: 0 4px 18px rgba(0,0,0,0.7), 0 0 36px rgba(255,217,102,0.85); transform: translateX(-50%) scale(1.04); }
+}
+/* Higher tier = hotter glow */
+#combo-banner.tier-3 { border-color: #ff7b1f; box-shadow: 0 4px 18px rgba(0,0,0,0.7), 0 0 30px rgba(255,123,31,0.85); }
+#combo-banner.tier-4 { border-color: #ff3d52; box-shadow: 0 4px 22px rgba(0,0,0,0.7), 0 0 38px rgba(255,61,82,1.0); }
+#combo-banner.tier-5 {
+  border-color: #ffd966;
+  box-shadow: 0 4px 26px rgba(0,0,0,0.7), 0 0 50px rgba(255,217,102,1.0);
+  animation: combo-pulse-godkill 0.6s ease-in-out infinite;
+}
+#combo-banner.tier-5 .combo-tier { color: #ffd966; text-shadow: 0 0 16px rgba(255,217,102,1.0); }
+@keyframes combo-pulse-godkill {
+  0%,100% { transform: translateX(-50%) scale(1.0); }
+  50%     { transform: translateX(-50%) scale(1.07); }
+}
+@media (max-width: 480px) {
+  #combo-banner { top: 36px; padding: 4px 12px; gap: 6px; }
+  #combo-banner .combo-icon  { font-size: 14px; }
+  #combo-banner .combo-tier  { font-size: 11px; letter-spacing: 0.12em; }
+  #combo-banner .combo-bonus { font-size: 10px; }
+}
+
 /* ===== Boss HP ===== */
 #boss-wrap {
   top: 86px; left: 50%; transform: translateX(-50%);

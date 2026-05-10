@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=160" />
+  <link rel="stylesheet" href="style.css?v=161" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.50.3/dist/umd/supabase.js"></script>
 </head>
 <body>
@@ -70,6 +70,13 @@
     </div>
 
     <!-- Floating "EXIT ZONE" button — appears after zone clear, while player keeps playing -->
+    <!-- Slaughter combo banner — shows the active tier + damage bonus prominently -->
+    <div id="combo-banner" class="hud hidden">
+      <span class="combo-icon">🔥</span>
+      <span class="combo-tier">BLOODY</span>
+      <span class="combo-bonus">+10% DMG</span>
+    </div>
+
     <button id="btn-zone-exit" class="hud hidden" type="button">EXIT ZONE</button>
     <button id="btn-act-proceed" class="hud hidden" type="button">PROCEED TO ACT 2 ★</button>
     <button id="btn-admin-act" class="hud" type="button" title="Admin: skip to next act">⏭ ACT</button>
@@ -381,19 +388,19 @@
   </div>
 
   <!-- Load order matters. ?v= busts browser cache when files change. -->
-  <script src="js/util.js?v=160"></script>
-  <script src="js/auth.js?v=160"></script>
-  <script src="js/data.js?v=160"></script>
-  <script src="js/save.js?v=160"></script>
-  <script src="js/assets.js?v=160"></script>
-  <script src="js/entities.js?v=160"></script>
-  <script src="js/systems.js?v=160"></script>
-  <script src="js/fx.js?v=160"></script>
-  <script src="js/input.js?v=160"></script>
-  <script src="js/ui.js?v=160"></script>
-  <script src="js/render.js?v=160"></script>
-  <script src="js/hudedit.js?v=160"></script>
-  <script src="js/minimap.js?v=160"></script>
-  <script src="js/main.js?v=160"></script>
+  <script src="js/util.js?v=161"></script>
+  <script src="js/auth.js?v=161"></script>
+  <script src="js/data.js?v=161"></script>
+  <script src="js/save.js?v=161"></script>
+  <script src="js/assets.js?v=161"></script>
+  <script src="js/entities.js?v=161"></script>
+  <script src="js/systems.js?v=161"></script>
+  <script src="js/fx.js?v=161"></script>
+  <script src="js/input.js?v=161"></script>
+  <script src="js/ui.js?v=161"></script>
+  <script src="js/render.js?v=161"></script>
+  <script src="js/hudedit.js?v=161"></script>
+  <script src="js/minimap.js?v=161"></script>
+  <script src="js/main.js?v=161"></script>
 </body>
 </html>
