@@ -243,11 +243,37 @@ DDI.Renderer = (function () {
         }
       }
 
-      // Enemies (small red dots; capped to first 80 for perf)
+      // Enemies (small red dots; capped to first 80 for perf).  Bounty targets
+      // get a bright gold star marker first so they're never lost in the crowd
+      // and never culled by the cap.
+      app.enemies.forEach(function (e) {
+        if (!e._alive || !e._bounty) return;
+        const ex = e.x * sx, ey = e.y * sy;
+        // Outer glow
+        ctx.save();
+        ctx.fillStyle = 'rgba(255,217,102,0.35)';
+        ctx.beginPath(); ctx.arc(ex, ey, 7, 0, TAU); ctx.fill();
+        ctx.restore();
+        // Star icon
+        ctx.fillStyle = '#ffd966';
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let i = 0; i < 10; i++) {
+          const a = -Math.PI / 2 + i * (Math.PI / 5);
+          const r = i % 2 === 0 ? 5 : 2.2;
+          const px = ex + Math.cos(a) * r;
+          const py = ey + Math.sin(a) * r;
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      });
       ctx.fillStyle = '#ff3d52';
       let drawn = 0;
       app.enemies.forEach(function (e) {
-        if (!e._alive || drawn > 80) return;
+        if (!e._alive || e._bounty || drawn > 80) return;
         ctx.fillRect(e.x * sx - 1, e.y * sy - 1, 2, 2);
         drawn++;
       });

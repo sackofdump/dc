@@ -1601,24 +1601,23 @@
       const cx = W / 2, cy = H / 2;
       if (!z) return;
       if (z.objective === 'bounty') {
-        // Pre-spawn 3 named elite bounties scattered around the map
+        // Build a queue of 3 named bounty configs scattered around the map.
+        // We spawn ONLY the first immediately; the rest spawn one-at-a-time as
+        // each previous bounty dies, so an ULT can't wipe them all at once.
         const ENEMIES = DDI.data.ENEMIES;
         const elitePool = (this.zoneTheme && this.zoneTheme.elitePool) || ['elite_skel','elite_zombie','elite_slime'];
         const names = ['THE WANDERING DREAD', 'OBSIDIAN MARAUDER', 'SHRIEKING REVENANT'];
-        const dm = this.getDifficultyMult();
+        z.bountyQueue = [];
         for (let i = 0; i < z.bountyTotal; i++) {
           const ang = (i / z.bountyTotal) * Math.PI * 2 + Math.random() * 0.6;
           const dist = Math.min(W, H) * 0.32;
           const x = Math.max(200, Math.min(W - 200, cx + Math.cos(ang) * dist + (Math.random() - 0.5) * 200));
           const y = Math.max(200, Math.min(H - 200, cy + Math.sin(ang) * dist + (Math.random() - 0.5) * 200));
           const id = elitePool[Math.floor(Math.random() * elitePool.length)];
-          const def = ENEMIES[id];
-          if (!def) continue;
-          const e = this.enemies.spawn(def, x, y, 2.0 * dm, 1.4 * dm);
-          e.level = (this.zoneRequiredLevel || 5) + 4;
-          e._bounty = true;
-          e._bountyName = names[i] || ('BOUNTY ' + (i + 1));
+          if (!ENEMIES[id]) continue;
+          z.bountyQueue.push({ id, x, y, name: names[i] || ('BOUNTY ' + (i + 1)) });
         }
+        this.spawnNextBounty();
       } else if (z.objective === 'defend') {
         // Place a totem at zone center as a feature (renderer + collision will read this).
         this.features.push({ type: 'totem', x: cx, y: cy, kind: 'totem' });
@@ -1637,6 +1636,27 @@
       }
     }
 
+    // Pop the next bounty config off the queue and spawn it. Each bounty
+    // gets a "warning" flash + toast so the player notices a new target appear.
+    spawnNextBounty() {
+      const z = this.zone;
+      if (!z || !z.bountyQueue || !z.bountyQueue.length) return;
+      const cfg = z.bountyQueue.shift();
+      const ENEMIES = DDI.data.ENEMIES;
+      const def = ENEMIES[cfg.id];
+      if (!def) return;
+      const dm = this.getDifficultyMult();
+      const e = this.enemies.spawn(def, cfg.x, cfg.y, 2.0 * dm, 1.4 * dm);
+      e.level = (this.zoneRequiredLevel || 5) + 4;
+      e._bounty = true;
+      e._bountyName = cfg.name;
+      // Cinematic announcement — players notice a new bounty appearing
+      this.fx.toast('★  ' + cfg.name + ' APPROACHES  ★');
+      this.fx.flash('#ffd966', 0.35);
+      this.particles.spawn({ x: cfg.x, y: cfg.y, life: 0.5, size: 220, color: '#ffd966', kind: 'ring', fade: 1 });
+      this.particles.spawn({ x: cfg.x, y: cfg.y, life: 0.7, size: 320, color: '#ff7b1f', kind: 'ring', fade: 1 });
+    }
+
     // Called from Combat.killEnemy after each kill — checks zone progress.
     // The killed enemy is passed so we can detect when the zone-final elite dies.
     onZoneKill(enemy) {
@@ -1652,6 +1672,10 @@
         this.zone.bountyKilled = (this.zone.bountyKilled || 0) + 1;
         this.fx.toast('★  ' + (enemy._bountyName || 'BOUNTY') + ' SLAIN  ★');
         this.fx.flash('#ffd966', 0.4);
+        // Spawn the next bounty in the queue after a short beat so it doesn't
+        // overlap with the first kill's death VFX.
+        const self = this;
+        setTimeout(function () { self.spawnNextBounty(); }, 1200);
       }
       this.zone.killsInZone = (this.zone.killsInZone || 0) + 1;
       this.checkZoneComplete();
