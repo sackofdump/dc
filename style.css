@@ -211,26 +211,34 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
 
 @media (max-width: 480px) {
   #hud-top {
-    bottom: calc(env(safe-area-inset-bottom, 8px) + 70px);
-    width: calc(100vw - 12px);
-    padding: 5px 8px;
-    gap: 6px;
+    /* Narrow + raised so the right-side ULT/action button stack doesn't crowd it */
+    bottom: calc(env(safe-area-inset-bottom, 8px) + 90px);
+    width: calc(100vw - 140px);     /* ~70px clearance per side for joystick + action btns */
+    max-width: 360px;
+    padding: 4px 6px;
+    gap: 4px;
     border-radius: 8px;
   }
   #xp-wrap {
-    bottom: calc(env(safe-area-inset-bottom, 8px) + 124px);
-    width: calc(100vw - 12px);
+    bottom: calc(env(safe-area-inset-bottom, 8px) + 144px);
+    width: calc(100vw - 140px);
+    max-width: 360px;
   }
-  #xp-bar { height: 12px; }
-  #xp-text { font-size: 9px; }
-  #hp-wrap { width: 110px; min-width: 90px; }
-  #hp-bar { height: 10px; }
+  #xp-bar { height: 10px; }
+  #xp-text { font-size: 9px; letter-spacing: 0.08em; }
+  #hp-wrap { width: 88px; min-width: 70px; }
+  #hp-bar { height: 9px; }
   #hp-text { font-size: 9px; }
-  #stamina-bar { height: 4px; margin-top: 2px; }
-  #cata-combo-stack { min-width: 130px; gap: 2px; }
-  #cata-combo-stack #ult-bar { height: 16px; }
-  #cata-combo-stack #slaughter-bar { height: 10px; }
-  #floor-num { font-size: 10px; letter-spacing: 0.10em; }
+  #stamina-bar { height: 3px; margin-top: 2px; }
+  #cata-combo-stack { min-width: 110px; gap: 2px; flex: 1 1 110px; }
+  #cata-combo-stack #ult-bar { height: 14px; }
+  #cata-combo-stack #slaughter-bar { height: 9px; }
+  /* Trim verbose ult-bar status on phone — tap-to-cast is obvious */
+  #ult-bar-label { padding: 0 4px; }
+  #ult-bar-label .ult-bar-status { display: none; }
+  #ult-bar-label .ult-bar-name   { font-size: 9px; letter-spacing: 0.08em; }
+  #floor-info { padding: 0 2px; }
+  #floor-num { font-size: 10px; letter-spacing: 0.06em; }
   #time { font-size: 9px; }
   #currency-bar { top: 8px; right: 8px; padding: 4px 8px; gap: 8px; font-size: 11px; }
   .currency .ico { font-size: 11px; }
@@ -663,9 +671,10 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
 
 @media (max-width: 480px) {
   #ability-bar {
-    max-width: calc(100vw - 130px);
-    padding: 5px 6px;
-    gap: 5px;
+    /* Leave room for joystick (96px) on left and ULT-stack (76px+margin) on right */
+    max-width: calc(100vw - 200px);
+    padding: 4px 5px;
+    gap: 4px;
     bottom: calc(env(safe-area-inset-bottom, 8px) + 8px);
     border-radius: 10px;
   }
