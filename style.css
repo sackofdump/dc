@@ -242,7 +242,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
   #time { font-size: 9px; }
   #currency-bar { top: 8px; right: 8px; padding: 4px 8px; gap: 8px; font-size: 11px; }
   .currency .ico { font-size: 11px; }
-  #boss-wrap { top: 60px; width: min(90vw, 360px); }
+  #boss-wrap { top: 86px; width: min(90vw, 360px); }
   #boss-name { font-size: 11px; }
   #boss-bar { height: 9px; }
 }
@@ -280,9 +280,10 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
   #zone-header-name { font-size: 11px; letter-spacing: 0.12em; }
 }
 
-/* ===== Slaughter combo banner — top-center, visible while combo is active ===== */
+/* ===== Slaughter combo banner — top-center, visible while combo is active.
+   Sits BELOW the zone-name pill so the two never overlap. ===== */
 #combo-banner {
-  top: 48px; left: 50%;
+  top: 60px; left: 50%;
   transform: translateX(-50%);
   z-index: 12;
   display: flex; align-items: center; gap: 10px;
@@ -326,7 +327,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
   50%     { transform: translateX(-50%) scale(1.07); }
 }
 @media (max-width: 480px) {
-  #combo-banner { top: 36px; padding: 4px 12px; gap: 6px; }
+  #combo-banner { top: 50px; padding: 4px 12px; gap: 6px; }
   #combo-banner .combo-icon  { font-size: 14px; }
   #combo-banner .combo-tier  { font-size: 11px; letter-spacing: 0.12em; }
   #combo-banner .combo-bonus { font-size: 10px; }
@@ -334,7 +335,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
 
 /* ===== Boss HP ===== */
 #boss-wrap {
-  top: 86px; left: 50%; transform: translateX(-50%);
+  top: 108px; left: 50%; transform: translateX(-50%);
   width: min(80vw, 480px);
   text-align: center;
 }
