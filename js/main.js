@@ -1027,10 +1027,11 @@
       const range = Math.max(this.viewW, this.viewH);
       const range2 = range * range;
       if (dist2(h.x, h.y, e.x, e.y) > range2) { e._eliteCd = 0.4; return; }
-      // Tight rolling cooldown — 2.0-3.5s by default, overridden per enemy
-      // (act bosses use a faster cycle).
-      const cdMin = e._eliteCdMin != null ? e._eliteCdMin : 2.0;
-      const cdMax = e._eliteCdMax != null ? e._eliteCdMax : 3.5;
+      // Aggressive rolling cooldown — 1.0-2.0s default — so even quickly-
+      // killed elites land 2-3 casts before they die. Per-enemy overrides
+      // win (act bosses tune their own pace).
+      const cdMin = e._eliteCdMin != null ? e._eliteCdMin : 1.0;
+      const cdMax = e._eliteCdMax != null ? e._eliteCdMax : 2.0;
       e._eliteCd = cdMin + Math.random() * Math.max(0.1, cdMax - cdMin);
       this.castEliteAbility(e);
     }
