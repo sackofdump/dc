@@ -93,6 +93,9 @@ DDI.systems = (function () {
       if (app.zone && app.zone.fadeOutBegan) return;
       // Interiors are pre-populated with a fixed ambush — no respawn.
       if (app.zone && app.zone.interior) return;
+      // Act boss has been slain and the act-complete intermission is pending —
+      // give the player a quiet moment to finish off stragglers and grab loot.
+      if (app.game && app.game.pendingActAdvance) return;
       let pool;
       if (app.zoneTheme && app.zoneTheme.enemyPool) {
         pool = app.zoneTheme.enemyPool;
@@ -112,6 +115,8 @@ DDI.systems = (function () {
     spawnElite: function (app, diff) {
       // No timed elites inside tele zones — the zone has its own boss gated on kills + shards
       if (app.zone && app.zone.name !== 'main') return;
+      // Quiet between act boss kill and PROCEED click — let the player loot.
+      if (app.game && app.game.pendingActAdvance) return;
       const pool = (app.zoneTheme && app.zoneTheme.elitePool) || ['elite_slime','elite_skel','elite_zombie'];
       const id = choose(pool);
       const def = ENEMIES[id];
@@ -126,6 +131,8 @@ DDI.systems = (function () {
     spawnBoss: function (app, diff) {
       // No timed bosses inside tele zones — the zone has its own boss gated on kills + shards
       if (app.zone && app.zone.name !== 'main') return;
+      // Quiet between act boss kill and PROCEED click — no follow-up bosses.
+      if (app.game && app.game.pendingActAdvance) return;
       const pool = (app.zoneTheme && app.zoneTheme.bossPool) || ['boss_warden','boss_mushroom'];
       const bossId = choose(pool);
       const def = ENEMIES[bossId];
