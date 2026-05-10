@@ -801,6 +801,9 @@ DDI.UI = (function () {
       this.pauseOpen = false;
       this.$('modal-pause').classList.add('hidden');
       this.app.game.paused = false;
+      // Voluntary quit — death summary should NOT offer a revive (player chose
+      // to end the run; reviving would feel cheap).
+      this.app.game.quitFromMenu = true;
       this.app.endRun(false);
     }
 
@@ -1477,13 +1480,16 @@ DDI.UI = (function () {
       const m = this.$('modal-death');
       m.classList.remove('hidden');
       this.$('death-title').textContent = summary.win ? 'FLOOR CLEARED' : 'YOU HAVE FALLEN';
-      // Revive button — only on death (not on win), only if not already used this run, and only if dust ≥ 1000
+      // Revive button — only on death (not on win), not after a voluntary quit,
+      // only if not already used this run, and only if dust ≥ 1000.
       const reviveBtn = this.$('btn-revive');
       if (reviveBtn) {
-        const canRevive = !summary.win && !(a.game && a.game.revivesUsed) && (a.save && a.save.dust >= 1000);
+        const quit = !!(a.game && a.game.quitFromMenu);
+        const canRevive = !summary.win && !quit && !(a.game && a.game.revivesUsed) && (a.save && a.save.dust >= 1000);
         const alreadyDead = !summary.win && (a.game && a.game.revivesUsed);
         const broke      = !summary.win && (!a.save || a.save.dust < 1000) && !alreadyDead;
-        reviveBtn.classList.toggle('hidden', summary.win);
+        // Hide on win OR on voluntary quit
+        reviveBtn.classList.toggle('hidden', summary.win || quit);
         reviveBtn.disabled = !canRevive;
         if (canRevive)            reviveBtn.textContent = 'REVIVE · 1,000 DUST';
         else if (alreadyDead)     reviveBtn.textContent = 'REVIVE USED';

@@ -151,6 +151,7 @@
         _dustPaid: 0,
         _killsPaid: 0,
         _accountXpPaid: 0,
+        quitFromMenu: false,
       });
       Spawner.reset(); Slaughter.reset();
       this.ult.cd = 0;
