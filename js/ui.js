@@ -775,6 +775,16 @@ DDI.UI = (function () {
       const self = this;
       const btnForge = this.$('btn-zone-forge');
       const btnReturn = this.$('btn-zone-return');
+      // Set the return button label to the actual destination — e.g., the
+      // current act's home-base name ("WHISPERING CRYPTS", "SCARRED CATACOMBS")
+      // so the player knows where they're going.
+      if (btnReturn) {
+        const D = DDI.data || {};
+        const act = (a.game && a.game.act) || 1;
+        const theme = (D.actTheme ? D.actTheme(act) : null);
+        const mainName = (theme && theme.mainName) || 'MAIN MAP';
+        btnReturn.textContent = 'RETURN TO ' + mainName + '  ▲';
+      }
       if (btnForge && !btnForge._wired) {
         btnForge._wired = true;
         btnForge.addEventListener('click', function () {
@@ -825,15 +835,29 @@ DDI.UI = (function () {
       this.$('modal-title').classList.add('hidden');
       this.$('modal-act-complete').classList.add('hidden');
       this.$('modal-forge').classList.remove('hidden');
-      // Adjust the back-button copy to match where we came from. Mid-run flows
-      // (zone clear / act complete) read as a continuation; from the title it's
-      // just "BACK".
+      // Adjust the back-button copy to name the actual destination.
+      // - From a zone clear  -> "RETURN TO <main map name>"
+      // - From act complete  -> "ENTER ACT N+1"
+      // - From the title     -> plain "BACK"
       const backBtn = this.$('btn-forge-back');
       if (backBtn) {
-        const inRun = !!(this._forgeFromZone || this._forgeFromActComplete);
-        backBtn.textContent = inRun ? 'CONTINUE YOUR DESCENT ▼' : 'BACK';
-        backBtn.classList.toggle('primary-btn', inRun);
-        backBtn.classList.toggle('ghost-btn', !inRun);
+        const a = this.app;
+        const D = DDI.data || {};
+        const act = (a.game && a.game.act) || 1;
+        const theme = (D.actTheme ? D.actTheme(act) : null);
+        const mainName = (theme && theme.mainName) || 'MAIN MAP';
+        let label = 'BACK';
+        let primary = false;
+        if (this._forgeFromActComplete) {
+          label = 'ENTER ACT ' + (act + 1) + '  ▼';
+          primary = true;
+        } else if (this._forgeFromZone) {
+          label = 'RETURN TO ' + mainName + '  ▲';
+          primary = true;
+        }
+        backBtn.textContent = label;
+        backBtn.classList.toggle('primary-btn', primary);
+        backBtn.classList.toggle('ghost-btn', !primary);
       }
       this.renderForge();
     }
