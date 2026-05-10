@@ -60,6 +60,8 @@
       await preload();
       if (DDI.hudedit && DDI.hudedit.init) DDI.hudedit.init(this);
       if (DDI.minimap && DDI.minimap.init) DDI.minimap.init(this);
+      // Arm the WebAudio module — context unlocks on first user gesture.
+      if (DDI.audio && DDI.audio.arm) DDI.audio.arm();
       // Bring up Supabase auth.  If we have a stored session, hydrate save from
       // the server and show title; otherwise show the login/signup modal.
       if (DDI.auth && DDI.auth.init) DDI.auth.init();
@@ -121,6 +123,10 @@
         this.save = Object.assign({}, baseDefaults, remote.save_data);
       } else {
         this.save = baseDefaults;
+      }
+      // Sync audio mute state with the saved sound setting.
+      if (DDI.audio && DDI.audio.setMuted && this.save.settings) {
+        DDI.audio.setMuted(!this.save.settings.sound);
       }
       this.persist();
     }
@@ -208,6 +214,7 @@
       if (!this.game.running) return;
       this.game.running = false;
       this.game.paused = true;
+      if (DDI.audio) DDI.audio.play(win ? 'levelup' : 'death');
       // Run is over — discard any stale save snapshot.
       // Run is over — discard the saved snapshot for the character that died/won.
       if (this.save) {
@@ -741,6 +748,7 @@
     triggerUlt() {
       if (!this.game.running || this.game.paused) return;
       if (this.ult.cd > 0) return;
+      if (DDI.audio) DDI.audio.play('ult');
       const ULTS = DDI.data.ULTS;
       const id = (this.save && this.save.activeUlt) || 'cataclysm';
       const ult = ULTS[id] || ULTS.cataclysm;
@@ -918,7 +926,18 @@
           if (e._fadeT >= 0.7) e._fadeIn = false;
           return;
         }
-        const ax = h.x - e.x, ay = h.y - e.y;
+        // Defend objective: a slice of mobs target the totem instead of the
+        // hero — gives the player something to actually defend against.
+        // Tag once on first sight so each enemy keeps its target choice.
+        if (e._totemTarget == null && self.zone && self.zone.objective === 'defend') {
+          e._totemTarget = Math.random() < 0.30;     // ~30% of mobs go for the totem
+        }
+        let tx = h.x, ty = h.y;
+        if (e._totemTarget && self.features) {
+          const totem = self.features.find(function (f) { return f.type === 'totem'; });
+          if (totem) { tx = totem.x; ty = totem.y; }
+        }
+        const ax = tx - e.x, ay = ty - e.y;
         const len = Math.hypot(ax, ay) || 1;
         const slowMult = e.slowT > 0 ? (1 - e.slow) : 1;
 
@@ -1014,6 +1033,7 @@
 
     castEliteAbility(e) {
       const ab = e.def && e.def.eliteAbility;
+      if (DDI.audio) DDI.audio.play('telegraph');
       switch (ab) {
         case 'holy_beam':    return this.eliteHolyBeam(e);
         case 'shrapnel':     return this.eliteShrapnel(e);
@@ -1434,9 +1454,11 @@
         this.game.gold += l.value;
         this.particles.spawn({ x: this.hero.x, y: this.hero.y, vx: 0, vy: -30,
           life: 0.3, color: '#ffd966', size: 2, kind: 'spark' });
+        if (DDI.audio) DDI.audio.play('pickup_gold');
       } else if (l.kind === 'gem') {
         this.save.dust += Math.max(1, Math.floor(l.value * 0.5));
         this.fx.toast('+' + l.value + ' DUST');
+        if (DDI.audio) DDI.audio.play('pickup_gem');
         this.persist();
       } else if (l.kind === 'xp') {
         Leveling.gainXp(this, l.value);
@@ -1451,6 +1473,7 @@
         }
         this.fx.toast('+' + gold + ' GOLD');
         this.fx.shake(4);
+        if (DDI.audio) DDI.audio.play('pickup_chest');
       }
     }
 
@@ -1712,7 +1735,14 @@
     // Enter a biome zone — clear enemies, regen features without portals, set kill goal.
     enterZone(biome, displayName, color, requiredLevel) {
       const D = DDI.data;
-      const objId = (D.pickObjective ? D.pickObjective() : 'standard');
+      // Pick a random objective, but never the same one as the previous zone.
+      // Track the last id on the App so it survives between zones.
+      let objId = (D.pickObjective ? D.pickObjective() : 'standard');
+      if (this._lastObjective && objId === this._lastObjective) {
+        const KEYS = (D.OBJECTIVE_KEYS || ['standard']).filter((function (k) { return k !== this._lastObjective; }).bind(this));
+        if (KEYS.length) objId = KEYS[Math.floor(Math.random() * KEYS.length)];
+      }
+      this._lastObjective = objId;
       const obj   = (D.OBJECTIVES && D.OBJECTIVES[objId]) || null;
       this.zone = {
         name: biome,
@@ -1758,6 +1788,7 @@
       this.fx.toast('ENTER ' + displayName);
       this.fx.flash(color || '#b266ff', 0.5);
       this.fx.shake(10);
+      if (DDI.audio) DDI.audio.play('portal');
       this.particles.spawn({ x: this.hero.x, y: this.hero.y, life: 0.6, size: 220, color: color || '#b266ff', kind: 'ring', fade: 1 });
       // Headline the objective so the player knows what's expected
       const self = this;
@@ -2121,6 +2152,7 @@
       this.particles.spawn({ x: e.x, y: e.y, life: 0.6, size: 260, color: this.zone.color || '#ff3d52', kind: 'ring', fade: 1 });
       this.particles.spawn({ x: e.x, y: e.y, life: 1.0, size: 420, color: '#ffe14d', kind: 'ring', fade: 1 });
       this.ui.showBoss(def.name + ' · ZONE BOSS  Lv ' + e.level, 1);
+      if (DDI.audio) DDI.audio.play('boss_spawn');
     }
 
     completeZone() {
@@ -2202,6 +2234,7 @@
       this.particles.spawn({ x: e.x, y: e.y, life: 0.6, size: 280, color: '#ff3d52', kind: 'ring', fade: 1 });
       this.particles.spawn({ x: e.x, y: e.y, life: 0.9, size: 380, color: '#ffe14d', kind: 'ring', fade: 1 });
       this.ui.showBoss(def.name + ' · ACT ' + (this.game.act || 1), 1);
+      if (DDI.audio) DDI.audio.play('boss_spawn');
     }
 
     // Called when the act boss is killed — bumps the act, resets seal-state, ramps difficulty.

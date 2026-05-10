@@ -237,11 +237,15 @@ DDI.Renderer = (function () {
             ctx.beginPath(); ctx.arc(fx, fy, 1.6, 0, TAU); ctx.fill();
           }
         } else if (f.type === 'totem') {
-          // Defend objective: gold rune marker at zone center
-          ctx.fillStyle = '#ffd966';
-          ctx.strokeStyle = '#7a5400';
-          ctx.lineWidth = 1;
-          ctx.beginPath(); ctx.arc(fx, fy, 4, 0, TAU); ctx.fill(); ctx.stroke();
+          // Defend objective: cyan rune marker (distinct from the gold hero
+          // dot + gold chest dot so it never gets confused with either).
+          ctx.fillStyle = '#66ffff';
+          ctx.strokeStyle = '#0a4060';
+          ctx.lineWidth = 1.2;
+          ctx.beginPath(); ctx.arc(fx, fy, 5, 0, TAU); ctx.fill(); ctx.stroke();
+          // Inner dot for emphasis
+          ctx.fillStyle = '#fff';
+          ctx.beginPath(); ctx.arc(fx, fy, 1.6, 0, TAU); ctx.fill();
         } else if (f.type === 'building') {
           // Tinted square — color matches the building type
           ctx.fillStyle = f.color || '#a8a08a';

@@ -904,6 +904,8 @@ DDI.systems = (function () {
       this.app.fx.damageNumber(enemy.x, enemy.y - enemy.radius * 0.6, dmg, color, isCrit);
       this.app.fx.hitSpark(enemy.x, enemy.y, color, isCrit);
       if (isCrit) this.app.fx.shake(2);
+      // Audio — short throttled thud, crunchier on crits
+      if (DDI.audio) DDI.audio.play(isCrit ? 'crit' : 'hit');
       // Tiny "trail" drops on elite/boss hits — pleasant slot-machine feel without being free loot
       if (enemy._alive && enemy.def && (enemy.def.isElite || enemy.def.isBoss)) {
         // Bosses bleed slightly more often
@@ -1029,6 +1031,7 @@ DDI.systems = (function () {
     },
     queueLevelUp: function (app) {
       app.game.pendingLevelUps++;
+      if (DDI.audio) DDI.audio.play('levelup');
       if (!app.ui.modalOpen) app.ui.openLevelUp();
     },
     buildChoices: function (app, count) {

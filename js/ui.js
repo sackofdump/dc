@@ -243,6 +243,7 @@ DDI.UI = (function () {
       const setShake = this.$('set-shake');
       if (setSound) setSound.addEventListener('change', function () {
         self.app.save.settings.sound = setSound.checked; self.app.persist();
+        if (DDI.audio && DDI.audio.setMuted) DDI.audio.setMuted(!setSound.checked);
       });
       if (setAuto) setAuto.addEventListener('change', function () {
         self.app.save.settings.autoAim = setAuto.checked; self.app.persist();
