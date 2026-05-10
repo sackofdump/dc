@@ -63,7 +63,30 @@ DDI.UI = (function () {
       const btnNewConfirm = this.$('btn-new-confirm');
       const btnNewCancel = this.$('btn-new-cancel');
       const profilePill = this.$('profile-pill');
-      if (btnStart)   btnStart.addEventListener('click', function () { self.app.startRun(); });
+      if (btnStart)   btnStart.addEventListener('click', function () {
+        // Guard the active character's saved run — DESCEND silently overwrote
+        // it before. Now we ask first so an existing save is never lost by
+        // accident.
+        const a = self.app;
+        const active = (a && a.activeSavedRun) ? a.activeSavedRun() : null;
+        if (active) {
+          const ck = (a.save && a.save.character) || 'default';
+          const D = DDI.data || {};
+          const cls = (D.CLASSES && D.CLASSES[ck]) || { name: ck };
+          self.showConfirm({
+            title: 'DISCARD ' + (cls.name || ck).toUpperCase() + ' SAVE?',
+            message:
+              'You have a saved run on <em class="hl">' + (cls.name || ck).toUpperCase() + '</em>.\n' +
+              'Starting a new run will permanently overwrite it.',
+            confirmText: 'START NEW RUN',
+            cancelText: 'KEEP MY SAVE',
+            danger: true,
+            onConfirm: function () { a.startRun(); },
+          });
+          return;
+        }
+        a.startRun();
+      });
       if (btnRestart) btnRestart.addEventListener('click', function () { self.app.startRun(); });
       const btnDeathMenu = this.$('btn-death-menu');
       if (btnDeathMenu) btnDeathMenu.addEventListener('click', function () {
