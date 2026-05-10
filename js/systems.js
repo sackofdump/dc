@@ -81,6 +81,8 @@ DDI.systems = (function () {
       // pouring in past the 75-kill mark — the kill counter caps at 75/75 in
       // the UI but the player can keep farming while collecting shards.
       if (app.zone && app.zone.fadeOutBegan) return;
+      // Interiors are pre-populated with a fixed ambush — no respawn.
+      if (app.zone && app.zone.interior) return;
       let pool;
       if (app.zoneTheme && app.zoneTheme.enemyPool) {
         pool = app.zoneTheme.enemyPool;

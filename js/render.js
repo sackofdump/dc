@@ -104,6 +104,28 @@ DDI.Renderer = (function () {
       for (let y = oy; y <= oy + h; y += tile) { ctx.moveTo(ox, y); ctx.lineTo(ox + w, y); }
       ctx.stroke();
       ctx.restore();
+      // Building interior — draw walls around the cached room rectangle so the
+      // player sees they're in a contained space.
+      if (app.zone && app.zone.interior && app._interiorBox) {
+        const box = app._interiorBox;
+        ctx.save();
+        // Outer dim halo around the room
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fillRect(camX - app.viewW, camY - app.viewH, app.viewW * 2, app.viewH * 2);
+        // Cut out the room (clear back to floor inside)
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.fillRect(box.left, box.top, box.right - box.left, box.bottom - box.top);
+        ctx.globalCompositeOperation = 'source-over';
+        // Wall rectangle outline
+        ctx.strokeStyle = palette.accent || '#7a5a3a';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(box.left, box.top, box.right - box.left, box.bottom - box.top);
+        // Inner inset highlight
+        ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(box.left + 4, box.top + 4, box.right - box.left - 8, box.bottom - box.top - 8);
+        ctx.restore();
+      }
     }
 
     drawMinimap() {
@@ -196,6 +218,19 @@ DDI.Renderer = (function () {
           ctx.strokeStyle = '#7a5400';
           ctx.lineWidth = 1;
           ctx.beginPath(); ctx.arc(fx, fy, 4, 0, TAU); ctx.fill(); ctx.stroke();
+        } else if (f.type === 'building') {
+          // Tinted square — color matches the building type
+          ctx.fillStyle = f.color || '#a8a08a';
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = 1;
+          ctx.fillRect(fx - 4, fy - 4, 8, 8);
+          ctx.strokeRect(fx - 4, fy - 4, 8, 8);
+        } else if (f.type === 'exit_door') {
+          // Bright gold dot — clearly visible inside any interior palette
+          ctx.fillStyle = '#ffd966';
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.arc(fx, fy, 5, 0, TAU); ctx.fill(); ctx.stroke();
         }
       }
 
@@ -258,8 +293,255 @@ DDI.Renderer = (function () {
           this.drawTotemFeature(ctx, f, t);
         } else if (f.type === 'ritual_circle') {
           this.drawRitualCircle(ctx, f, t);
+        } else if (f.type === 'building') {
+          this.drawBuildingFeature(ctx, f, t);
+        } else if (f.type === 'exit_door') {
+          this.drawExitDoor(ctx, f, t);
         }
       }
+    }
+
+    drawBuildingFeature(ctx, f, t) {
+      const D = DDI.data;
+      const def = (D && D.BUILDINGS && D.BUILDINGS[f.buildingId]) || null;
+      const color = (def && def.color) || '#a8a08a';
+      const id = f.buildingId || 'ruins';
+      const pulse = 0.55 + Math.sin(t * 1.5) * 0.18;
+      // Drop shadow
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.beginPath(); ctx.ellipse(f.x, f.y + 70, 90, 16, 0, 0, TAU); ctx.fill();
+      ctx.restore();
+
+      if (id === 'tower') {
+        // ===== OBSIDIAN TOWER — tall narrow column with crenellated top =====
+        const cx = f.x;
+        const baseW = 72, topW = 56, h = 130;
+        const yBase = f.y + 60;
+        const yTop  = yBase - h;
+        // Body (stone gradient)
+        const grd = ctx.createLinearGradient(cx, yTop, cx, yBase);
+        grd.addColorStop(0, '#3a2a55');
+        grd.addColorStop(1, '#1a0e2a');
+        ctx.fillStyle = grd;
+        ctx.beginPath();
+        ctx.moveTo(cx - baseW/2, yBase);
+        ctx.lineTo(cx - topW/2,  yTop + 14);
+        ctx.lineTo(cx + topW/2,  yTop + 14);
+        ctx.lineTo(cx + baseW/2, yBase);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#0a0612'; ctx.lineWidth = 2;
+        ctx.stroke();
+        // Stone seams
+        ctx.strokeStyle = 'rgba(20,12,40,0.5)';
+        ctx.lineWidth = 1;
+        for (let i = 1; i < 4; i++) {
+          const yy = yBase - (h - 14) * i / 4;
+          ctx.beginPath(); ctx.moveTo(cx - baseW/2 + 2, yy); ctx.lineTo(cx + baseW/2 - 2, yy); ctx.stroke();
+        }
+        // Crenellation
+        ctx.fillStyle = '#3a2a55';
+        for (let i = 0; i < 5; i++) {
+          const cx2 = cx - topW/2 + i * (topW / 4) - 6;
+          ctx.fillRect(cx2, yTop, 8, 12);
+        }
+        ctx.strokeStyle = '#0a0612'; ctx.lineWidth = 1;
+        for (let i = 0; i < 5; i++) {
+          const cx2 = cx - topW/2 + i * (topW / 4) - 6;
+          ctx.strokeRect(cx2, yTop, 8, 12);
+        }
+        // Glowing windows
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = 'rgba(122,58,255,' + (0.7 * pulse) + ')';
+        ctx.fillRect(cx - 5, yTop + 30, 10, 14);
+        ctx.fillRect(cx - 5, yTop + 70, 10, 14);
+        ctx.restore();
+        // Door at the bottom (where doorY lives)
+        ctx.fillStyle = '#0a0410';
+        ctx.fillRect(cx - 12, f.doorY - 30, 24, 30);
+        ctx.strokeStyle = color; ctx.lineWidth = 2;
+        ctx.strokeRect(cx - 12, f.doorY - 30, 24, 30);
+        // Door arch
+        ctx.beginPath();
+        ctx.arc(cx, f.doorY - 30, 12, Math.PI, 0);
+        ctx.stroke();
+      } else if (id === 'temple') {
+        // ===== FORGOTTEN TEMPLE — colonnaded facade with golden trim =====
+        const cx = f.x;
+        const baseW = 130, h = 80;
+        const yBase = f.y + 60;
+        const yTop  = yBase - h;
+        // Floor block
+        ctx.fillStyle = '#2a2418';
+        ctx.fillRect(cx - baseW/2, yBase - 8, baseW, 8);
+        ctx.strokeStyle = '#0a0804'; ctx.lineWidth = 2;
+        ctx.strokeRect(cx - baseW/2, yBase - 8, baseW, 8);
+        // Pediment (triangle roof)
+        ctx.fillStyle = '#7a6a3a';
+        ctx.beginPath();
+        ctx.moveTo(cx - baseW/2 + 4, yTop + 18);
+        ctx.lineTo(cx,                yTop - 8);
+        ctx.lineTo(cx + baseW/2 - 4, yTop + 18);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#3a2a08'; ctx.lineWidth = 2; ctx.stroke();
+        // Pediment gold trim
+        ctx.strokeStyle = color; ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cx - baseW/2 + 6, yTop + 16);
+        ctx.lineTo(cx,                yTop - 6);
+        ctx.lineTo(cx + baseW/2 - 6, yTop + 16);
+        ctx.stroke();
+        // Columns
+        const cols = 4;
+        const colW = 14;
+        const span = baseW - 32;
+        for (let i = 0; i < cols; i++) {
+          const ccx = cx - span/2 + i * (span / (cols - 1));
+          const cgrd = ctx.createLinearGradient(ccx, yTop + 18, ccx, yBase - 8);
+          cgrd.addColorStop(0, '#c9b8da');
+          cgrd.addColorStop(1, '#5a4670');
+          ctx.fillStyle = cgrd;
+          ctx.fillRect(ccx - colW/2, yTop + 18, colW, h - 26);
+          ctx.strokeStyle = '#1a0e2a'; ctx.lineWidth = 1;
+          ctx.strokeRect(ccx - colW/2, yTop + 18, colW, h - 26);
+          // Capital
+          ctx.fillStyle = color;
+          ctx.fillRect(ccx - colW/2 - 2, yTop + 16, colW + 4, 5);
+        }
+        // Doorway between middle two columns
+        ctx.fillStyle = '#0a0418';
+        ctx.fillRect(cx - 14, f.doorY - 38, 28, 38);
+        ctx.strokeStyle = color; ctx.lineWidth = 2;
+        ctx.strokeRect(cx - 14, f.doorY - 38, 28, 38);
+        // Glowing inner light
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        const dgrd = ctx.createLinearGradient(cx, f.doorY - 38, cx, f.doorY);
+        dgrd.addColorStop(0, 'rgba(255,217,102,' + (0.55 * pulse) + ')');
+        dgrd.addColorStop(1, 'rgba(255,217,102,0)');
+        ctx.fillStyle = dgrd;
+        ctx.fillRect(cx - 13, f.doorY - 38, 26, 38);
+        ctx.restore();
+      } else {
+        // ===== CRUMBLING RUINS (default) — broken low wall + arched doorway =====
+        const cx = f.x;
+        const baseW = 110, h = 60;
+        const yBase = f.y + 60;
+        const yTop  = yBase - h;
+        // Wall body (cracked stone)
+        ctx.fillStyle = '#5a5040';
+        ctx.fillRect(cx - baseW/2, yTop + 18, baseW, h - 18);
+        ctx.strokeStyle = '#1a1408'; ctx.lineWidth = 2;
+        ctx.strokeRect(cx - baseW/2, yTop + 18, baseW, h - 18);
+        // Broken top — irregular jagged silhouette
+        ctx.fillStyle = '#5a5040';
+        ctx.beginPath();
+        ctx.moveTo(cx - baseW/2, yTop + 18);
+        ctx.lineTo(cx - baseW/2 + 8,   yTop + 6);
+        ctx.lineTo(cx - baseW/2 + 22,  yTop + 14);
+        ctx.lineTo(cx - baseW/2 + 38,  yTop - 2);
+        ctx.lineTo(cx - 18,            yTop + 8);
+        ctx.lineTo(cx - 12,            yTop + 28);
+        ctx.lineTo(cx + 12,            yTop + 28);
+        ctx.lineTo(cx + 18,            yTop + 8);
+        ctx.lineTo(cx + baseW/2 - 38,  yTop - 4);
+        ctx.lineTo(cx + baseW/2 - 22,  yTop + 12);
+        ctx.lineTo(cx + baseW/2 - 8,   yTop + 4);
+        ctx.lineTo(cx + baseW/2,       yTop + 18);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#1a1408'; ctx.lineWidth = 2; ctx.stroke();
+        // Stone seams
+        ctx.strokeStyle = 'rgba(20,15,5,0.45)';
+        ctx.lineWidth = 1;
+        for (let i = 1; i < 3; i++) {
+          const yy = yTop + 18 + (h - 18) * i / 3;
+          ctx.beginPath(); ctx.moveTo(cx - baseW/2 + 2, yy); ctx.lineTo(cx + baseW/2 - 2, yy); ctx.stroke();
+        }
+        // Arched doorway
+        ctx.fillStyle = '#0a0804';
+        ctx.beginPath();
+        ctx.moveTo(cx - 14, f.doorY);
+        ctx.lineTo(cx - 14, f.doorY - 22);
+        ctx.arc(cx, f.doorY - 22, 14, Math.PI, 0);
+        ctx.lineTo(cx + 14, f.doorY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
+      }
+
+      // Floating banner with the building's name + "ENTER" hint when nearby
+      const dist = Math.hypot(this.app.hero.x - f.doorX, this.app.hero.y - f.doorY);
+      if (dist < 200) {
+        const alpha = Math.max(0, 1 - (dist - 60) / 140);
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = 'rgba(10,6,18,0.85)';
+        const txt = (def && def.shortName) || 'STRUCTURE';
+        ctx.font = 'bold 12px Cinzel, serif';
+        ctx.textAlign = 'center';
+        const w = ctx.measureText(txt).width + 20;
+        ctx.fillRect(f.x - w/2, f.y - 90, w, 22);
+        ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+        ctx.strokeRect(f.x - w/2, f.y - 90, w, 22);
+        ctx.fillStyle = color;
+        ctx.fillText(txt, f.x, f.y - 75);
+        if (dist < 80) {
+          ctx.fillStyle = '#ffd966';
+          ctx.font = 'bold 10px monospace';
+          ctx.fillText('▼ ENTER', f.x, f.y - 60);
+        }
+        ctx.restore();
+      }
+    }
+
+    drawExitDoor(ctx, f, t) {
+      const pulse = 0.6 + Math.sin(t * 2.4) * 0.30;
+      // Glow halo
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const aura = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, 80);
+      aura.addColorStop(0, 'rgba(255,217,102,' + (0.55 * pulse) + ')');
+      aura.addColorStop(1, 'rgba(255,217,102,0)');
+      ctx.fillStyle = aura;
+      ctx.beginPath(); ctx.arc(f.x, f.y, 80, 0, TAU); ctx.fill();
+      ctx.restore();
+      // Door frame — vertical golden arch
+      ctx.fillStyle = '#0a0612';
+      ctx.beginPath();
+      ctx.moveTo(f.x - 22, f.y + 28);
+      ctx.lineTo(f.x - 22, f.y - 18);
+      ctx.arc(f.x, f.y - 18, 22, Math.PI, 0);
+      ctx.lineTo(f.x + 22, f.y + 28);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#ffd966'; ctx.lineWidth = 3;
+      ctx.stroke();
+      // Inner light
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const dg = ctx.createLinearGradient(f.x, f.y - 40, f.x, f.y + 28);
+      dg.addColorStop(0, 'rgba(255,217,102,' + (0.85 * pulse) + ')');
+      dg.addColorStop(1, 'rgba(255,217,102,0)');
+      ctx.fillStyle = dg;
+      ctx.beginPath();
+      ctx.moveTo(f.x - 20, f.y + 26);
+      ctx.lineTo(f.x - 20, f.y - 18);
+      ctx.arc(f.x, f.y - 18, 20, Math.PI, 0);
+      ctx.lineTo(f.x + 20, f.y + 26);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+      // Label
+      ctx.save();
+      ctx.font = 'bold 11px Cinzel, serif';
+      ctx.fillStyle = '#ffd966';
+      ctx.textAlign = 'center';
+      ctx.fillText('EXIT', f.x, f.y + 50);
+      ctx.restore();
     }
 
     drawTotemFeature(ctx, f, t) {

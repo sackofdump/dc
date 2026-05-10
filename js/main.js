@@ -13,7 +13,7 @@
       this.viewW = window.innerWidth;
       this.viewH = window.innerHeight;
       // Bordered world. Hero clamped to these bounds; features distributed inside.
-      this.world = { width: 4800, height: 3200 };
+      this.world = { width: 7200, height: 4800 };
       this.features = [];
       // Zone state: 'main' has portals; biome zones have no portals and a kill goal.
       this.zone = { name: 'main', displayName: 'WHISPERING CRYPTS', color: '#b266ff', killsInZone: 0, killsNeeded: 0 };
@@ -370,6 +370,44 @@
         });
       }
 
+      // Buildings — explorable structures, MAIN MAP ONLY.
+      // Place 3 random buildings spread across the map; players walk into the
+      // door to enter the instanced interior.
+      if (isMain) {
+        const D = DDI.data;
+        const types = (D && D.BUILDING_KEYS) || ['ruins'];
+        const want = 3 + Math.floor(Math.random() * 2);   // 3-4 buildings
+        let placed = 0, attempts = 0;
+        while (placed < want && attempts < want * 30) {
+          attempts++;
+          const x = 320 + Math.random() * (W - 640);
+          const y = 320 + Math.random() * (H - 640);
+          // Stay clear of hero start + other features (portals, chests, etc.)
+          if (Math.hypot(x - cx, y - cy) < 360) continue;
+          let collides = false;
+          for (let i = 0; i < this.features.length; i++) {
+            const o = this.features[i];
+            const minD = (o.type === 'building' || o.type === 'portal') ? 360 : 220;
+            if (Math.hypot(x - o.x, y - o.y) < minD) { collides = true; break; }
+          }
+          if (collides) continue;
+          const id = types[Math.floor(Math.random() * types.length)];
+          const def = (D && D.BUILDINGS && D.BUILDINGS[id]) || null;
+          this.features.push({
+            type: 'building', kind: 'building',
+            x, y,
+            buildingId: id,
+            name: (def && def.name) || 'STRUCTURE',
+            color: (def && def.color) || '#a8a08a',
+            entered: false,
+            cooldown: 0,
+            // Door is at the bottom-front of the building — that's the interaction point
+            doorX: x, doorY: y + 56,
+          });
+          placed++;
+        }
+      }
+
       // Portals only exist in the main zone — biome zones are isolated.
       if (isMain) {
         const D = DDI.data;
@@ -571,6 +609,14 @@
       if (h.y < pad) h.y = pad;
       if (h.x > this.world.width  - pad) h.x = this.world.width  - pad;
       if (h.y > this.world.height - pad) h.y = this.world.height - pad;
+      // Building interior — additionally clamp inside the room walls
+      if (this.zone && this.zone.interior && this._interiorBox) {
+        const b = this._interiorBox;
+        if (h.x < b.left   + pad) h.x = b.left   + pad;
+        if (h.y < b.top    + pad) h.y = b.top    + pad;
+        if (h.x > b.right  - pad) h.x = b.right  - pad;
+        if (h.y > b.bottom - pad) h.y = b.bottom - pad;
+      }
     }
 
     updateEnemies(dt) {
@@ -1017,6 +1063,26 @@
           return;
         }
 
+        // Building exterior — walk onto the door to enter the instanced interior
+        if (f.type === 'building') {
+          const ddx = h.x - f.doorX, ddy = h.y - f.doorY;
+          const dd2 = ddx * ddx + ddy * ddy;
+          if (dd2 < 36 * 36 && self.zone.name === 'main' && (!f.cooldown || f.cooldown <= 0)) {
+            f.cooldown = 1.5;
+            self.enterBuilding(f);
+          }
+          if (f.cooldown > 0) f.cooldown -= dt;
+          return;
+        }
+
+        // Building exit door — walks back to the main map at the building's exterior
+        if (f.type === 'exit_door') {
+          if (d2 < 36 * 36) {
+            self.exitBuilding();
+          }
+          return;
+        }
+
         if (f.type === 'xp_shrine' && !f.used) {
           if (d2 < 32 * 32) {
             f.used = true;
@@ -1145,6 +1211,132 @@
         self.fx.toast('★  ' + name + '  ★');
         if (self.ui && self.ui.showObjectiveBanner) self.ui.showObjectiveBanner(name, desc);
       }, 600);
+    }
+
+    // ============================================================
+    // BUILDINGS — instanced interior.  Smaller than tele-zones, no objective,
+    // just loot + a couple ambush enemies + a clearly-marked exit door.
+    // ============================================================
+    enterBuilding(buildingFeature) {
+      const D = DDI.data;
+      const def = (D && D.BUILDINGS && D.BUILDINGS[buildingFeature.buildingId]) || null;
+      // Cache main-map state so exiting puts us back exactly where we were.
+      this._mainStash = {
+        features: this.features.slice(),
+        zone: this.zone,
+        zoneTheme: this.zoneTheme,
+        returnX: buildingFeature.x,
+        returnY: buildingFeature.y + 110,
+      };
+      // Mark this building exterior as entered so the player doesn't re-loot the same one
+      buildingFeature.entered = true;
+      // Use the zone system, but flag this as an interior so spawner stays quiet
+      // and the HUD progress bar / boss-spawn logic skips it.
+      this.zone = {
+        name: 'interior_' + (def ? def.id : 'building'),
+        displayName: (def && def.name) || 'STRUCTURE',
+        color: (def && def.color) || '#a8a08a',
+        killsInZone: 0,
+        killsNeeded: 0,           // gates HUD progress widget — interior shows none
+        itemsCollected: 0,
+        itemsTotal: 0,
+        finalElite: null,
+        finalEliteSpawned: true,  // suppress boss spawn path
+        objective: 'interior',
+        objectiveDef: null,
+        interior: true,
+      };
+      this.zoneTheme = def ? { name: def.name, palette: def.interiorPalette } : null;
+      this.zoneDifficulty = 1;
+      // Interior is a fenced-off region inside the world — keep the same world
+      // bounds but place walls/exit door close to a fixed spawn position.
+      // We move the hero to a safe interior spawn and wipe live entities.
+      const ix = this.world.width / 2;
+      const iy = this.world.height / 2;
+      this.hero.x = ix;
+      this.hero.y = iy + 80;
+      this.enemies.live.forEach(function (e) { e._alive = false; });
+      this.enemies.sweep();
+      this.projectiles.live.forEach(function (p) { p._alive = false; });
+      this.projectiles.sweep();
+      Spawner.reset();
+      // Build the interior features: chests, gold piles, ambush enemies, and
+      // the exit door north of the spawn point.
+      this.features = [];
+      // Exit door — north of where the hero arrives
+      this.features.push({
+        type: 'exit_door', kind: 'exit_door',
+        x: ix, y: iy - 80,
+      });
+      // Loot piles + chests scattered through a small interior region
+      const ROOM_W = 700, ROOM_H = 500;
+      const left = ix - ROOM_W / 2 + 60;
+      const right = ix + ROOM_W / 2 - 60;
+      const top = iy - ROOM_H / 2 + 60;
+      const bottom = iy + ROOM_H / 2 - 60;
+      const interiorBox = { left: ix - ROOM_W / 2, right: ix + ROOM_W / 2, top: iy - ROOM_H / 2, bottom: iy + ROOM_H / 2 };
+      this._interiorBox = interiorBox;   // render uses this for walls
+      const chestCount = (def && def.chestCount) || 3;
+      const rarities = (def && def.lootBias === 'epic') ? ['rare','rare','epic','epic','legendary']
+                     : (def && def.lootBias === 'rare') ? ['magic','magic','rare','rare','epic']
+                     : ['common','common','magic','magic','rare'];
+      for (let i = 0; i < chestCount; i++) {
+        const cx = left + Math.random() * (right - left);
+        const cy = top  + Math.random() * (bottom - top);
+        const r = rarities[Math.floor(Math.random() * rarities.length)];
+        this.features.push({
+          type: 'chest', kind: 'chest',
+          x: cx, y: cy, opened: false, rarity: r,
+        });
+      }
+      // Gold piles strewn across the floor (immediate pickup)
+      const goldPiles = (def && def.goldPiles) || 6;
+      for (let i = 0; i < goldPiles; i++) {
+        const gx = left + Math.random() * (right - left);
+        const gy = top  + Math.random() * (bottom - top);
+        this.loot.spawn('gold', gx, gy, 30 + Math.floor(Math.random() * 60));
+      }
+      // Ambush enemies — pre-spawned, no respawn
+      const enemyCount = (def && def.enemies) || 2;
+      const ENEMIES = D.ENEMIES;
+      const pool = ['skeleton','zombie','goblin_rogue','imp','cultist','cursed_eye'];
+      for (let i = 0; i < enemyCount; i++) {
+        const id = pool[Math.floor(Math.random() * pool.length)];
+        const ed = ENEMIES[id];
+        if (!ed) continue;
+        const ang = Math.random() * Math.PI * 2;
+        const ex = ix + Math.cos(ang) * 200;
+        const ey = iy + Math.sin(ang) * 200;
+        const e = this.enemies.spawn(ed, ex, ey, 1.2, 1.0);
+        e.level = (this.game.level || 1) + 2;
+        e._interior = true;
+      }
+      this.fx.toast('ENTER ' + ((def && def.name) || 'STRUCTURE'));
+      this.fx.flash((def && def.color) || '#a8a08a', 0.4);
+      this.fx.shake(8);
+      this.particles.spawn({ x: this.hero.x, y: this.hero.y, life: 0.5, size: 180, color: (def && def.color) || '#a8a08a', kind: 'ring', fade: 1 });
+    }
+
+    exitBuilding() {
+      if (!this._mainStash) { this.returnToMain(); return; }
+      const stash = this._mainStash;
+      this._mainStash = null;
+      this._interiorBox = null;
+      // Restore the cached main-map state — same buildings, portals, and chests
+      // remain exactly where they were before entering.
+      this.features = stash.features;
+      this.zone = stash.zone || { name: 'main', displayName: 'WHISPERING CRYPTS', color: '#b266ff', killsInZone: 0, killsNeeded: 0 };
+      this.zoneTheme = stash.zoneTheme || null;
+      if (!this.zoneTheme) this.applyMainActTheme();
+      this.zoneDifficulty = 1;
+      this.zoneRequiredLevel = 0;
+      this.enemies.live.forEach(function (e) { e._alive = false; });
+      this.enemies.sweep();
+      Spawner.reset();
+      this.hero.x = stash.returnX;
+      this.hero.y = stash.returnY;
+      this.game.paused = false;
+      this.fx.toast('RETURN TO MAIN MAP');
     }
 
     setupObjective() {

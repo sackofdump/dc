@@ -485,6 +485,40 @@ DDI.data = (function () {
   };
 
   // ============================================================
+  // BUILDINGS — explorable structures placed on the main map (NOT in tele-zones).
+  // Walk into the door and you're moved to a small instanced interior with loot
+  // piles, a couple ambush enemies, and an exit door that drops you back where
+  // you entered. Each building type has its own exterior style + interior palette.
+  // ============================================================
+  const BUILDINGS = {
+    ruins: {
+      id: 'ruins', name: 'CRUMBLING RUINS', shortName: 'RUINS',
+      color: '#a8a08a',
+      interiorPalette: { ground: '#2a2418', edge: '#0a0804', accent: '#6a5a3a', fog: 'rgba(120,100,60,0.18)' },
+      chestCount: 4, goldPiles: 8, enemies: 2,
+      lootBias: 'common',
+    },
+    temple: {
+      id: 'temple', name: 'FORGOTTEN TEMPLE', shortName: 'TEMPLE',
+      color: '#ffd966',
+      interiorPalette: { ground: '#1c1430', edge: '#080418', accent: '#ffd966', fog: 'rgba(178,102,255,0.20)' },
+      chestCount: 3, goldPiles: 6, enemies: 3,
+      lootBias: 'rare',
+    },
+    tower: {
+      id: 'tower', name: 'OBSIDIAN TOWER', shortName: 'TOWER',
+      color: '#7a3aff',
+      interiorPalette: { ground: '#0e0a26', edge: '#04020c', accent: '#7a3aff', fog: 'rgba(122,58,255,0.22)' },
+      chestCount: 2, goldPiles: 4, enemies: 4,
+      lootBias: 'epic',
+    },
+  };
+  const BUILDING_KEYS = ['ruins', 'temple', 'tower'];
+  function pickBuilding() {
+    return BUILDING_KEYS[Math.floor(Math.random() * BUILDING_KEYS.length)];
+  }
+
+  // ============================================================
   // TELE-ZONE OBJECTIVES — random per portal entry, gates the boss spawn.
   // Each objective has its own progress + win-check + UI label.
   // ============================================================
@@ -1289,5 +1323,6 @@ DDI.data = (function () {
            CLASSES, META_UPGRADES, metaUpgradeCost, applyMetaUpgrades, ULTS, ZONE_THEMES,
            ACT_THEMES, ACT_ZONE_BOSSES, ACT_BOSS_FINAL, actTheme, actZoneBoss, actFinalBoss,
            OBJECTIVES, OBJECTIVE_KEYS, pickObjective,
+           BUILDINGS, BUILDING_KEYS, pickBuilding,
            accountXpForRank, accountRankFromXp, accountXpForRunStats };
 })();
