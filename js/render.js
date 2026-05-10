@@ -796,6 +796,27 @@ DDI.Renderer = (function () {
       ctx.textAlign = 'center';
       ctx.fillText('ᛟ', f.x, y + h * 0.6);
       ctx.restore();
+      // HP bar — floats above the totem when the defend objective is active.
+      const z = this.app.zone;
+      if (z && z.objective === 'defend' && z.totemHpMax > 0) {
+        const bw = 80, bh = 7;
+        const bx = f.x - bw / 2, by = y - 22;
+        const pct = Math.max(0, z.totemHp / z.totemHpMax);
+        ctx.save();
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
+        // Color shifts red → orange → green as HP drops to communicate urgency
+        const col = pct > 0.6 ? '#6dff9b' : pct > 0.3 ? '#ffd966' : '#ff3d52';
+        ctx.fillStyle = col;
+        ctx.fillRect(bx, by, bw * pct, bh);
+        ctx.strokeStyle = '#ffd966'; ctx.lineWidth = 1;
+        ctx.strokeRect(bx, by, bw, bh);
+        ctx.font = 'bold 9px Cinzel, serif';
+        ctx.fillStyle = '#ffd966';
+        ctx.textAlign = 'center';
+        ctx.fillText('TOTEM', f.x, by - 4);
+        ctx.restore();
+      }
     }
 
     drawRitualCircle(ctx, f, t) {

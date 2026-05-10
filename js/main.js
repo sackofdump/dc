@@ -927,16 +927,41 @@
           if (e._fadeT >= 0.7) e._fadeIn = false;
           return;
         }
-        // Defend objective: a slice of mobs target the totem instead of the
-        // hero — gives the player something to actually defend against.
-        // Tag once on first sight so each enemy keeps its target choice.
+        // Defend objective: a small slice of mobs target the totem instead
+        // of the hero. Tag once on first sight so the choice is sticky.
         if (e._totemTarget == null && self.zone && self.zone.objective === 'defend') {
-          e._totemTarget = Math.random() < 0.30;     // ~30% of mobs go for the totem
+          e._totemTarget = Math.random() < 0.12;     // ~12% of mobs go for the totem
         }
         let tx = h.x, ty = h.y;
         if (e._totemTarget && self.features) {
           const totem = self.features.find(function (f) { return f.type === 'totem'; });
-          if (totem) { tx = totem.x; ty = totem.y; }
+          if (totem) {
+            tx = totem.x; ty = totem.y;
+            // Contact damage to the totem — enemy chips at totem HP while
+            // standing on it.  Per-second tick using its base damage.
+            const ddx = e.x - totem.x, ddy = e.y - totem.y;
+            const tr2 = (e.radius + 28) * (e.radius + 28);
+            if (ddx * ddx + ddy * ddy < tr2 && self.zone.totemHp > 0) {
+              self.zone.totemHp = Math.max(0, self.zone.totemHp - (e.def.dmg || 10) * 0.5 * dt);
+              // Flash chip on the totem when hit
+              if (chance(dt * 6)) {
+                self.particles.spawn({
+                  x: totem.x + (Math.random()-0.5)*30, y: totem.y - 10,
+                  vx: 0, vy: -30,
+                  life: 0.4, color: '#ff8a99', size: 3, kind: 'spark',
+                });
+              }
+              if (self.zone.totemHp <= 0 && !self.zone._totemFellHandled) {
+                self.zone._totemFellHandled = true;
+                self.fx.toast('★  THE TOTEM HAS FALLEN  ★');
+                self.fx.flash('#ff3d52', 0.6);
+                self.fx.shake(18);
+                // Skip straight to the boss arena — defend objective fails;
+                // player can still fight their way out via the boss.
+                if (self.beginBossTransition) self.beginBossTransition();
+              }
+            }
+          }
         }
         const ax = tx - e.x, ay = ty - e.y;
         const len = Math.hypot(ax, ay) || 1;
