@@ -725,22 +725,19 @@
     // ============================================================
     tickEliteAbility(e, dt) {
       if (e._eliteCd == null) {
-        // Quick first cast so the player actually sees the ability before the
-        // elite dies — subsequent casts use the slower rolling cooldown.
-        e._eliteCd = 1.4 + Math.random() * 1.0;
+        // Very quick first cast so even a one-shotted elite gets a telegraph
+        // off — the player has to actually see / fear the ability.
+        e._eliteCd = 0.7 + Math.random() * 0.6;
       }
       e._eliteCd -= dt;
       if (e._eliteCd > 0) return;
-      // Cast as long as the hero is anywhere in the viewport's vicinity. Be
-      // generous — squared-distance check kept the threshold too tight in
-      // narrow phone viewports.
+      // Hero off-screen? Hold the cast (don't burn it into the void).
       const h = this.hero;
       const range = Math.max(this.viewW, this.viewH);
       const range2 = range * range;
-      if (dist2(h.x, h.y, e.x, e.y) > range2) { e._eliteCd = 0.5; return; }
-      // Reset cooldown — 5-8s rolling between casts so a long elite fight
-      // gets multiple casts.
-      e._eliteCd = 5 + Math.random() * 3;
+      if (dist2(h.x, h.y, e.x, e.y) > range2) { e._eliteCd = 0.4; return; }
+      // Rolling cooldown — 4-7s between casts so a long fight gets several.
+      e._eliteCd = 4 + Math.random() * 3;
       this.castEliteAbility(e);
     }
 

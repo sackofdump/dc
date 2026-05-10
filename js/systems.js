@@ -454,6 +454,37 @@ DDI.systems = (function () {
         hits.push({ x: target.x, y: target.y });
         app.combat.dealDamage(target, dmg, def.element, isCrit, from.x, from.y, def.color);
         app.fx.lightning(from.x, from.y, target.x, target.y, def.color);
+        // Soul Drain: spawn ghostly purple wisps that float from the target
+        // toward the hero, plus a violet ring at the target.
+        if (def.id === 'soulDrain') {
+          const wisps = 4;
+          for (let w = 0; w < wisps; w++) {
+            const ang = (w / wisps) * TAU + rand(-0.3, 0.3);
+            const sx = target.x + Math.cos(ang) * 18;
+            const sy = target.y + Math.sin(ang) * 18;
+            // Small purple soul mote drifting up + toward hero
+            const dx = hero.x - sx, dy = hero.y - sy;
+            const len = Math.hypot(dx, dy) || 1;
+            app.particles.spawn({
+              x: sx, y: sy,
+              vx: (dx / len) * 220, vy: (dy / len) * 220 - 30,
+              life: rand(0.5, 0.8),
+              color: w % 2 === 0 ? '#b266ff' : '#d8b3ff',
+              size: 4, kind: 'spark',
+            });
+          }
+          // Soul-extraction ring at the target
+          app.particles.spawn({ x: target.x, y: target.y, life: 0.35, size: 32, color: '#b266ff', kind: 'ring', fade: 1 });
+          // Tiny floating skull-marker at the target (translucent)
+          app.particles.spawn({
+            x: target.x, y: target.y - 14,
+            vx: 0, vy: -25,
+            life: 0.5, size: 26, color: '#fff',
+            kind: 'sprite', sprite: 'skeleton_sheet', spriteFrame: 0,
+            rot: 0, spin: 0, fade: 1,
+            alpha: 0.5,
+          });
+        }
         // Heal back per hit if either lifesteal mode is active
         const heal = lifestealFlat + lifestealPct * dmg;
         if (heal > 0 && hero.hp < hero.maxHp) {
@@ -471,6 +502,51 @@ DDI.systems = (function () {
       const radius = stats.area * hero.areaMult;
       const dmg = stats.damage * hero.damageMult;
       app.fx.nova(hero.x, hero.y, radius, def.color);
+      // Corpse Bomb: chunky green corpse-burst — body parts fly outward,
+      // sickly green smoke + acid drip particles, expanding rotten ring.
+      if (def.id === 'corpseBomb') {
+        // Big slow expanding green ring
+        app.particles.spawn({ x: hero.x, y: hero.y, life: 0.55, size: radius * 0.55, color: '#7faf6d', kind: 'ring', fade: 1 });
+        app.particles.spawn({ x: hero.x, y: hero.y, life: 0.85, size: radius * 0.85, color: '#a8ff66', kind: 'ring', fade: 1 });
+        // Dark sickly smoke puffs
+        for (let i = 0; i < 14; i++) {
+          const a = (i / 14) * TAU + rand(-0.1, 0.1);
+          const sp = rand(70, 180);
+          app.particles.spawn({
+            x: hero.x + Math.cos(a) * 8, y: hero.y + Math.sin(a) * 8,
+            vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 30,
+            life: rand(0.7, 1.1),
+            color: i % 2 === 0 ? 'rgba(80,120,40,0.85)' : 'rgba(40,80,30,0.85)',
+            size: rand(14, 22), kind: 'smoke',
+          });
+        }
+        // Body-part chunks (bones + meat)
+        for (let i = 0; i < 10; i++) {
+          const a = rand(0, TAU);
+          const sp = rand(120, 280);
+          app.particles.spawn({
+            x: hero.x, y: hero.y,
+            vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 100,
+            life: rand(0.5, 0.9),
+            color: i % 3 === 0 ? '#e8dcc0' : (i % 3 === 1 ? '#7a3a3a' : '#a85a4a'),
+            size: rand(3, 5), kind: 'spark',
+            gravity: 320,
+          });
+        }
+        // Acid drip motes — lingering green sparks
+        for (let i = 0; i < 18; i++) {
+          const a = rand(0, TAU);
+          app.particles.spawn({
+            x: hero.x + Math.cos(a) * rand(20, radius * 0.7),
+            y: hero.y + Math.sin(a) * rand(20, radius * 0.7),
+            vx: 0, vy: -rand(15, 35),
+            life: rand(0.5, 1.0),
+            color: '#a8ff66',
+            size: 2, kind: 'spark',
+          });
+        }
+        app.fx.shake(6);
+      }
       // Smoke Bomb: fat grey smoke puffs swirling outward + lingering haze
       if (def.id === 'smokeBomb') {
         for (let i = 0; i < 18; i++) {
@@ -629,8 +705,9 @@ DDI.systems = (function () {
         return;
       }
 
-      // Raise Skeleton: summons a literal skeleton sprite at each nearby foe.
-      // The skeleton claws the target, deals damage, then dissolves into bone shards.
+      // Raise Skeleton: summons a translucent phantom skeleton above the hero,
+      // then strikes each nearby foe with a skeleton sprite.  Mirrors the bat
+      // swarm visual pattern (at-hero flash + at-enemy flash).
       if (def.id === 'raiseSkeleton') {
         const range = stats.range || 320;
         const r2 = range * range;
@@ -641,41 +718,40 @@ DDI.systems = (function () {
         });
         live.sort(function (a, b) { return dist2(hero.x, hero.y, a.x, a.y) - dist2(hero.x, hero.y, b.x, b.y); });
         const targets = live.slice(0, total);
-        // Bone-shard burst at hero on summon
-        for (let i = 0; i < 12; i++) {
-          const a = (i / 12) * TAU;
+        // Phantom skeleton drifts upward over the hero's head, semi-translucent
+        app.particles.spawn({
+          x: hero.x, y: hero.y - 30,
+          vx: 0, vy: -18,
+          life: 0.75, size: 88, color: '#fff',
+          kind: 'sprite', sprite: 'skeleton_sheet', spriteFrame: 0,
+          rot: 0, spin: 0, fade: 1,
+          alpha: 0.55,
+        });
+        // Faint summon halo + dust puff at the hero
+        app.particles.spawn({ x: hero.x, y: hero.y, life: 0.30, size: 70, color: '#9aa3b0', kind: 'ring', fade: 1 });
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * TAU;
           app.particles.spawn({
             x: hero.x, y: hero.y,
-            vx: Math.cos(a) * rand(80, 160), vy: Math.sin(a) * rand(80, 160) - 30,
-            life: rand(0.3, 0.55),
-            color: i % 2 === 0 ? '#e8dcc0' : '#fff5d9',
+            vx: Math.cos(a) * rand(50, 110), vy: Math.sin(a) * rand(50, 110) - 30,
+            life: rand(0.35, 0.55),
+            color: i % 2 === 0 ? '#e8dcc0' : 'rgba(154,163,176,0.8)',
             size: 3, kind: 'streak',
           });
         }
-        app.particles.spawn({ x: hero.x, y: hero.y, life: 0.30, size: 70, color: '#9aa3b0', kind: 'ring', fade: 1 });
         targets.forEach(function (e) {
           const isCrit = hero.rollCrit();
           const dmg = stats.damage * hero.damageMult * (isCrit ? hero.critMult : 1);
           app.combat.dealDamage(e, dmg, def.element, isCrit, hero.x, hero.y, def.color);
-          // Skeleton sprite rises from the ground at the target
+          // Translucent skeleton flashes on the target — matches the at-hero phantom
           app.particles.spawn({
-            x: e.x, y: e.y + 18,            // start slightly below
-            vx: 0, vy: -55,                  // rise upward
-            life: 0.85, size: 64, color: '#fff',
+            x: e.x, y: e.y - 10,
+            vx: 0, vy: -10,
+            life: 0.55, size: 70, color: '#fff',
             kind: 'sprite', sprite: 'skeleton_sheet', spriteFrame: 0,
-            rot: rand(-0.1, 0.1), spin: 0, fade: 1,
+            rot: rand(-0.15, 0.15), spin: 0, fade: 1,
+            alpha: 0.65,
           });
-          // Dust puff at the ground where the skeleton clawed up
-          for (let k = 0; k < 8; k++) {
-            const a = rand(0, TAU);
-            app.particles.spawn({
-              x: e.x + (Math.random() - 0.5) * 14, y: e.y + 14,
-              vx: Math.cos(a) * rand(40, 90), vy: -rand(20, 50),
-              life: rand(0.4, 0.7),
-              color: 'rgba(180,170,150,0.7)',
-              size: 4, kind: 'smoke',
-            });
-          }
           // Bone shards exploding outward on impact
           for (let k = 0; k < 8; k++) {
             const a = rand(0, TAU);

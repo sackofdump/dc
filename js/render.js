@@ -1403,6 +1403,40 @@ DDI.Renderer = (function () {
               ctx.fillStyle = 'rgba(255,80,90,' + (0.7 + Math.sin(t * 6 + k) * 0.3).toFixed(2) + ')';
               ctx.beginPath(); ctx.arc(ex, ey, 3, 0, TAU); ctx.fill();
             }
+          } else if (def.id === 'curse') {
+            // Curse aura — sickly violet/poison-green pulse with floating
+            // candle-flame motes drifting upward around the hero.
+            const pulse = 0.55 + Math.sin(t * 1.8) * 0.20;
+            const rO = hero.radius * 1.7 * (stats.area / (def.base.area || stats.area));
+            const rUse = Math.max(rO, hero.radius * 1.5);
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen';
+            const g1 = ctx.createRadialGradient(hero.x, hero.y, hero.radius * 0.4, hero.x, hero.y, rUse);
+            g1.addColorStop(0, 'rgba(122,58,168,' + (0.45 * pulse).toFixed(2) + ')');
+            g1.addColorStop(0.6, 'rgba(168,255,102,' + (0.18 * pulse).toFixed(2) + ')');
+            g1.addColorStop(1, 'rgba(122,58,168,0)');
+            ctx.fillStyle = g1;
+            ctx.beginPath(); ctx.arc(hero.x, hero.y, rUse, 0, TAU); ctx.fill();
+            ctx.restore();
+            // Outer dashed cursed ring (rotates slowly)
+            ctx.save();
+            ctx.strokeStyle = 'rgba(178,102,255,0.65)';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([6, 8]);
+            ctx.lineDashOffset = -t * 30;
+            ctx.beginPath(); ctx.arc(hero.x, hero.y, rUse - 4, 0, TAU); ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.restore();
+            // Candle-flame motes (5) orbiting + drifting up
+            for (let k = 0; k < 5; k++) {
+              const ang = t * 0.9 + (k / 5) * TAU;
+              const ex = hero.x + Math.cos(ang) * hero.radius * 1.3;
+              const ey = hero.y + Math.sin(ang) * hero.radius * 1.3 - Math.abs(Math.sin(t * 2 + k)) * 4;
+              ctx.fillStyle = 'rgba(178,102,255,0.85)';
+              ctx.beginPath(); ctx.arc(ex, ey, 2.2, 0, TAU); ctx.fill();
+              ctx.fillStyle = 'rgba(255,217,102,0.55)';
+              ctx.beginPath(); ctx.arc(ex, ey - 1.6, 1.2, 0, TAU); ctx.fill();
+            }
           } else if (def.id === 'endurance') {
             // Verdant heal aura — slow pulse green glow with leaf motes
             const pulse = 0.55 + Math.sin(t * 1.6) * 0.20;
@@ -2984,7 +3018,41 @@ DDI.Renderer = (function () {
           ctx.translate(x, y);
           ctx.rotate(ang + Math.PI / 2);
 
-          if (def.id === 'kunaiFan') {
+          if (def.id === 'deathGrip') {
+            // Wreathing skull — bone-white round head with hollow eye sockets
+            // and a violet wisp trail behind it.
+            ctx.globalCompositeOperation = 'screen';
+            const aura = ctx.createRadialGradient(0, 0, 0, 0, 0, 22);
+            aura.addColorStop(0, 'rgba(178,102,255,0.55)'); aura.addColorStop(1, 'rgba(178,102,255,0)');
+            ctx.fillStyle = aura;
+            ctx.beginPath(); ctx.arc(0, 0, 22, 0, TAU); ctx.fill();
+            ctx.globalCompositeOperation = 'source-over';
+            // Skull cranium
+            ctx.fillStyle = '#e8dcc0';
+            ctx.beginPath(); ctx.arc(0, -2, 9, 0, TAU); ctx.fill();
+            ctx.strokeStyle = '#3a2a18'; ctx.lineWidth = 1; ctx.stroke();
+            // Jaw
+            ctx.fillStyle = '#cdb898';
+            ctx.fillRect(-5, 5, 10, 4);
+            ctx.strokeRect(-5, 5, 10, 4);
+            // Teeth (two short notches)
+            ctx.strokeStyle = '#3a2a18';
+            ctx.beginPath(); ctx.moveTo(-2, 5); ctx.lineTo(-2, 9); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo( 2, 5); ctx.lineTo( 2, 9); ctx.stroke();
+            // Eye sockets — dark hollows
+            ctx.fillStyle = '#0a0612';
+            ctx.beginPath(); ctx.arc(-3, -3, 2.2, 0, TAU); ctx.fill();
+            ctx.beginPath(); ctx.arc( 3, -3, 2.2, 0, TAU); ctx.fill();
+            // Glowing violet pupils
+            ctx.fillStyle = '#b266ff';
+            ctx.beginPath(); ctx.arc(-3, -3, 0.9, 0, TAU); ctx.fill();
+            ctx.beginPath(); ctx.arc( 3, -3, 0.9, 0, TAU); ctx.fill();
+            // Nasal cavity
+            ctx.fillStyle = '#0a0612';
+            ctx.beginPath();
+            ctx.moveTo(0, 0); ctx.lineTo(-1.3, 3.5); ctx.lineTo(1.3, 3.5);
+            ctx.closePath(); ctx.fill();
+          } else if (def.id === 'kunaiFan') {
             // Kunai — triangular blade + handle wrap + finger ring at the base
             ctx.globalCompositeOperation = 'screen';
             const aura = ctx.createRadialGradient(0, 0, 0, 0, 0, 18);
@@ -3628,7 +3696,9 @@ DDI.Renderer = (function () {
       this.app.particles.forEach(function (p) {
         if (!p._alive) return;
         const t = p.life / p.maxLife;
-        const a = clamp(1 - t, 0, 1) * p.fade;
+        // p.alpha (0-1) lets a particle render translucent on top of its
+        // life-based fade — used for phantom/spirit sprites like raise-skel.
+        const a = clamp(1 - t, 0, 1) * p.fade * (p.alpha != null ? p.alpha : 1);
         ctx.save();
         ctx.globalAlpha = a;
         if (p.kind === 'sprite' && p.sprite) {

@@ -1544,7 +1544,33 @@ DDI.UI = (function () {
       const into   = Math.max(0, xp - xpThis);
       const span   = Math.max(1, xpNext - xpThis);
       const pct    = Math.min(100, (into / span) * 100);
+      // Current character card — shows who's selected + their starter abilities
+      const charKey = (this.app.save && this.app.save.character) || 'default';
+      const CLASSES = (D && D.CLASSES) || {};
+      const ABILITIES = (D && D.ABILITIES) || {};
+      const klass = CLASSES[charKey] || CLASSES.default || { name: 'Warrior', starters: [] };
+      const starters = (klass.starters || []).map(function (id) {
+        const ad = ABILITIES[id];
+        return ad ? (ad.icon + ' ' + ad.name) : id;
+      }).join(' · ');
+      // Portrait icon — pick a class glyph for the portrait box.  Uses unicode
+      // fallback rather than asset paths so it's never broken.
+      const portraitIcons = {
+        default: '⚔', rogue: '🗡', ranger: '🏹', mage: '🔥',
+        paladin: '🛡', berserker: '🪓', necromancer: '💀',
+      };
+      const portraitIcon = portraitIcons[charKey] || '⚔';
+      const charCard = '' +
+        '<div class="current-char">' +
+          '<div class="cc-portrait">' + portraitIcon + '</div>' +
+          '<div class="cc-body">' +
+            '<div class="cc-label">PLAYING AS</div>' +
+            '<div class="cc-name">' + (klass.name || 'WARRIOR').toUpperCase() + '</div>' +
+            '<div class="cc-abils">' + (starters || '—') + '</div>' +
+          '</div>' +
+        '</div>';
       this.$('title-stats').innerHTML =
+        charCard +
         '<div class="rank-block">' +
           '<div class="rank-row">' +
             '<span class="rank-pill">RANK <b>' + rk + '</b></span>' +

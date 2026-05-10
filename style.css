@@ -1428,6 +1428,57 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
 .ghost-btn { background: transparent; color: var(--ink-dim); border-color: var(--panel-edge); }
 .ghost-btn:hover { color: var(--ink); border-color: var(--accent-violet); }
 
+/* Secondary "primary"-styled action — violet variant for buttons that want
+   to stand out without competing with the main orange DESCEND button. */
+.primary-btn.alt-btn {
+  background: linear-gradient(180deg, #b266ff, #6a2aaa);
+  border-color: #d8b3ff;
+  color: #fff;
+  box-shadow: 0 4px 0 #3a1066, 0 0 14px rgba(178,102,255,0.4);
+}
+.primary-btn.alt-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 0 #3a1066, 0 0 22px rgba(178,102,255,0.7); }
+.primary-btn.alt-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #3a1066; }
+
+/* Current-character info card on the title screen */
+.current-char {
+  display: flex; align-items: center; gap: 10px;
+  margin: 6px auto 12px;
+  padding: 8px 14px;
+  background: linear-gradient(180deg, rgba(178,102,255,0.10), rgba(0,0,0,0.4));
+  border: 1px solid var(--accent-violet);
+  border-radius: 8px;
+  text-align: left;
+  max-width: 360px;
+  box-shadow: 0 0 10px rgba(178,102,255,0.18);
+}
+.current-char .cc-portrait {
+  width: 44px; height: 44px;
+  flex: 0 0 auto;
+  border-radius: 6px;
+  background: radial-gradient(circle at 50% 40%, rgba(178,102,255,0.20), rgba(0,0,0,0.6));
+  border: 1px solid var(--panel-edge);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px;
+  overflow: hidden;
+}
+.current-char .cc-portrait img { width: 100%; height: 100%; object-fit: contain; }
+.current-char .cc-body { display: flex; flex-direction: column; gap: 3px; flex: 1 1 auto; min-width: 0; }
+.current-char .cc-label { font-size: 10px; letter-spacing: 0.18em; color: var(--ink-fade); }
+.current-char .cc-name {
+  font-family: Cinzel, "Cinzel Decorative", serif;
+  font-weight: 800;
+  font-size: 16px;
+  letter-spacing: 0.10em;
+  color: var(--accent-gold);
+  text-shadow: 0 0 10px rgba(255,217,102,0.4);
+}
+.current-char .cc-abils {
+  font-size: 11px;
+  color: var(--ink-dim);
+  letter-spacing: 0.04em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
 /* Revive button — dust-themed violet accent on the death modal */
 .revive-btn {
   background: linear-gradient(180deg, #b266ff, #6a2aaa) !important;

@@ -545,8 +545,9 @@ DDI.data = (function () {
     },
     defend: {
       id: 'defend', name: 'DEFEND THE TOTEM',
-      desc: 'Protect the totem at the heart of the zone — it cannot move.',
+      desc: 'Protect the totem at the heart of the zone — survive the siege.',
       totemHp: 1000,
+      durationSeconds: 75,    // bug fix: without this the zone instantly "won"
     },
     ritual: {
       id: 'ritual', name: 'BREAK THE RITUAL',
