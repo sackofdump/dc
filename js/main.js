@@ -1491,8 +1491,20 @@
           const ddx = h.x - f.doorX, ddy = h.y - f.doorY;
           const dd2 = ddx * ddx + ddy * ddy;
           if (dd2 < 36 * 36 && self.zone.name === 'main' && (!f.cooldown || f.cooldown <= 0)) {
-            f.cooldown = 1.5;
-            self.enterBuilding(f);
+            // Block entry mid-act-boss-fight — slipping into a building wiped
+            // the boss and softlocked the act.
+            const bossActive = !!(self.game && (self.game.actBossActive && self.game.actBossActive._alive));
+            if (bossActive) {
+              if (!f._bossWarned) {
+                f._bossWarned = true;
+                self.fx.toast('★ FINISH THE ACT BOSS FIRST ★');
+              }
+              f.cooldown = 0.8;
+            } else {
+              f._bossWarned = false;
+              f.cooldown = 1.5;
+              self.enterBuilding(f);
+            }
           }
           if (f.cooldown > 0) f.cooldown -= dt;
           return;

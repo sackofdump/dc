@@ -258,9 +258,11 @@ DDI.Renderer = (function () {
         }
       }
 
-      // Enemies (small red dots; capped to first 80 for perf).  Bounty targets
-      // get a bright gold star marker first so they're never lost in the crowd
-      // and never culled by the cap.
+      // Enemies — three layers, drawn priority-first so important targets
+      // are never lost in the red-dot mob:
+      //   1. Bounty targets   -> bright gold star (always on top)
+      //   2. Regular elites   -> red skull-icon marker
+      //   3. Everything else  -> tiny red dots (capped at 80 for perf)
       app.enemies.forEach(function (e) {
         if (!e._alive || !e._bounty) return;
         const ex = e.x * sx, ey = e.y * sy;
@@ -285,10 +287,37 @@ DDI.Renderer = (function () {
         ctx.fill();
         ctx.stroke();
       });
+      // Elites — small red skull icon
+      app.enemies.forEach(function (e) {
+        if (!e._alive || !e.def || !e.def.isElite || e._bounty) return;
+        const ex = e.x * sx, ey = e.y * sy;
+        // Pulsing crimson halo so the eye is drawn to it
+        const pulseT = (performance.now() / 1000);
+        const pulse = 0.55 + Math.sin(pulseT * 4) * 0.30;
+        ctx.save();
+        ctx.fillStyle = 'rgba(255,61,82,' + (0.35 * pulse).toFixed(2) + ')';
+        ctx.beginPath(); ctx.arc(ex, ey, 7, 0, TAU); ctx.fill();
+        ctx.restore();
+        // Skull cranium
+        ctx.fillStyle = '#fff5d9';
+        ctx.beginPath(); ctx.arc(ex, ey - 1, 4, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.stroke();
+        // Jaw
+        ctx.fillStyle = '#fff5d9';
+        ctx.fillRect(ex - 2.5, ey + 2, 5, 2);
+        ctx.strokeRect(ex - 2.5, ey + 2, 5, 2);
+        // Hollow eye sockets
+        ctx.fillStyle = '#000';
+        ctx.beginPath(); ctx.arc(ex - 1.4, ey - 1, 1, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.arc(ex + 1.4, ey - 1, 1, 0, TAU); ctx.fill();
+      });
+      // Regular mobs — tiny red dots
       ctx.fillStyle = '#ff3d52';
       let drawn = 0;
       app.enemies.forEach(function (e) {
-        if (!e._alive || e._bounty || drawn > 80) return;
+        if (!e._alive || e._bounty) return;
+        if (e.def && e.def.isElite) return;     // elites already drawn above
+        if (drawn > 80) return;
         ctx.fillRect(e.x * sx - 1, e.y * sy - 1, 2, 2);
         drawn++;
       });
