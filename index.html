@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=190" />
+  <link rel="stylesheet" href="style.css?v=191" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.50.3/dist/umd/supabase.js"></script>
 </head>
 <body>
@@ -221,8 +221,9 @@
         </div>
         <p class="tagline">Auto-battle. Loot. Become absurd.</p>
         <div id="title-stats"></div>
+        <!-- Saved runs panel — populated dynamically; one row per saved class -->
+        <div id="saved-runs" class="saved-runs hidden"></div>
         <div class="modal-foot title-buttons">
-          <button id="btn-continue-run" class="primary-btn hidden">▶ CONTINUE RUN</button>
           <button id="btn-start" class="primary-btn">DESCEND</button>
           <button id="btn-change-char" class="primary-btn alt-btn">⚔ CHANGE CHARACTER</button>
           <button id="btn-forge" class="ghost-btn">FORGE</button>
@@ -416,19 +417,19 @@
   </div>
 
   <!-- Load order matters. ?v= busts browser cache when files change. -->
-  <script src="js/util.js?v=190"></script>
-  <script src="js/auth.js?v=190"></script>
-  <script src="js/data.js?v=190"></script>
-  <script src="js/save.js?v=190"></script>
-  <script src="js/assets.js?v=190"></script>
-  <script src="js/entities.js?v=190"></script>
-  <script src="js/systems.js?v=190"></script>
-  <script src="js/fx.js?v=190"></script>
-  <script src="js/input.js?v=190"></script>
-  <script src="js/ui.js?v=190"></script>
-  <script src="js/render.js?v=190"></script>
-  <script src="js/hudedit.js?v=190"></script>
-  <script src="js/minimap.js?v=190"></script>
-  <script src="js/main.js?v=190"></script>
+  <script src="js/util.js?v=191"></script>
+  <script src="js/auth.js?v=191"></script>
+  <script src="js/data.js?v=191"></script>
+  <script src="js/save.js?v=191"></script>
+  <script src="js/assets.js?v=191"></script>
+  <script src="js/entities.js?v=191"></script>
+  <script src="js/systems.js?v=191"></script>
+  <script src="js/fx.js?v=191"></script>
+  <script src="js/input.js?v=191"></script>
+  <script src="js/ui.js?v=191"></script>
+  <script src="js/render.js?v=191"></script>
+  <script src="js/hudedit.js?v=191"></script>
+  <script src="js/minimap.js?v=191"></script>
+  <script src="js/main.js?v=191"></script>
 </body>
 </html>

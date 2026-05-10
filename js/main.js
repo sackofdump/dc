@@ -415,6 +415,17 @@
       return best;
     }
 
+    // Continue a saved run by explicit character key — used by the saved-runs
+    // panel rows so the player picks exactly which one they want.
+    continueRunFor(charKey) {
+      this._migrateLegacyRunState();
+      const map = this.save && this.save.runStates;
+      const rs = map && map[charKey];
+      if (!rs) return;
+      if (this.save.character !== charKey) this.save.character = charKey;
+      this._continueRunFromState(rs);
+    }
+
     continueRun() {
       this._migrateLegacyRunState();
       // Prefer the active character's run; otherwise pick the latest across
@@ -427,6 +438,11 @@
       if (rs.character && this.save.character !== rs.character) {
         this.save.character = rs.character;
       }
+      this._continueRunFromState(rs);
+    }
+
+    _continueRunFromState(rs) {
+      if (!rs) return;
       this.ui.hideTitle();
       this.ui.hideDeath();
       // Force-close any leftover modals

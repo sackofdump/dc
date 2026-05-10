@@ -188,11 +188,18 @@ DDI.UI = (function () {
       if (btnSaveQuit) btnSaveQuit.addEventListener('click', function () {
         if (self.app && self.app.saveRun) self.app.saveRun();
       });
-      // Continue Run on title screen — restores the saved snapshot.
-      const btnContinueRun = this.$('btn-continue-run');
-      if (btnContinueRun) btnContinueRun.addEventListener('click', function () {
-        if (self.app && self.app.continueRun) self.app.continueRun();
-      });
+      // Saved-runs panel — delegated click handler so we can rebuild rows
+      // dynamically each time the title is shown.
+      const savedRunsEl = this.$('saved-runs');
+      if (savedRunsEl) {
+        savedRunsEl.addEventListener('click', function (ev) {
+          const row = ev.target && ev.target.closest && ev.target.closest('.sr-row');
+          if (!row) return;
+          const charKey = row.getAttribute('data-char');
+          if (!charKey) return;
+          if (self.app && self.app.continueRunFor) self.app.continueRunFor(charKey);
+        });
+      }
       if (btnPauseSettings) btnPauseSettings.addEventListener('click', function () {
         self.closePause();
         self.openSettings();
@@ -1656,21 +1663,50 @@ DDI.UI = (function () {
             '<div class="cc-abils">' + (starters || '—') + '</div>' +
           '</div>' +
         '</div>';
-      // Show CONTINUE RUN button if any saved run exists. Prefer the active
-      // character's saved run; if only another class has a saved run, label
-      // it so the player knows clicking will swap them.
-      const continueBtn = this.$('btn-continue-run');
-      const hasSaved = !!(this.app && this.app.hasSavedRun && this.app.hasSavedRun());
-      if (continueBtn) {
-        continueBtn.classList.toggle('hidden', !hasSaved);
-        if (hasSaved) {
-          const active = this.app.activeSavedRun ? this.app.activeSavedRun() : null;
-          const savedRun = active || (this.app.latestSavedRun ? this.app.latestSavedRun() : null);
-          const ck = (savedRun && savedRun.character) || (this.app.save && this.app.save.character) || 'default';
-          const klName = (D.CLASSES && D.CLASSES[ck] && D.CLASSES[ck].name) || ck.toUpperCase();
-          continueBtn.textContent = active
-            ? '▶ CONTINUE RUN'
-            : '▶ CONTINUE ' + klName.toUpperCase() + ' RUN';
+      // Saved-runs panel — one row per saved class with progress info.
+      // Each row's data-char attribute is read by the delegated click
+      // handler in init() to dispatch continueRunFor.
+      const savedEl = this.$('saved-runs');
+      const map = (this.app.save && this.app.save.runStates) || {};
+      const rows = [];
+      for (const k in map) if (map[k]) rows.push(map[k]);
+      // Most-recently-saved first
+      rows.sort(function (a, b) { return (b.savedAt || 0) - (a.savedAt || 0); });
+      if (savedEl) {
+        if (!rows.length) {
+          savedEl.classList.add('hidden');
+          savedEl.innerHTML = '';
+        } else {
+          const portraitIcons = {
+            default: '⚔', rogue: '🗡', ranger: '🏹', mage: '🔥',
+            paladin: '🛡', berserker: '🪓', necromancer: '💀',
+          };
+          const fmtTime = function (s) {
+            s = Math.floor(s || 0);
+            const m = Math.floor(s / 60); const ss = s % 60;
+            return m + ':' + (ss < 10 ? '0' : '') + ss;
+          };
+          const html =
+            '<div class="sr-head">SAVED RUNS</div>' +
+            rows.map(function (rs) {
+              const ck = rs.character || 'default';
+              const cls = (D.CLASSES && D.CLASSES[ck]) || { name: ck };
+              const ico = portraitIcons[ck] || '⚔';
+              const t   = (rs.game && rs.game.time) || 0;
+              const lvl = (rs.game && rs.game.level) || 1;
+              const act = (rs.game && rs.game.act) || 1;
+              return '' +
+                '<button class="sr-row" type="button" data-char="' + ck + '">' +
+                  '<span class="sr-ico">' + ico + '</span>' +
+                  '<span class="sr-body">' +
+                    '<span class="sr-class">' + (cls.name || ck).toUpperCase() + '</span>' +
+                    '<span class="sr-stats">ACT ' + act + ' · LV ' + lvl + ' · ' + fmtTime(t) + '</span>' +
+                  '</span>' +
+                  '<span class="sr-cta">▶ CONTINUE</span>' +
+                '</button>';
+            }).join('');
+          savedEl.innerHTML = html;
+          savedEl.classList.remove('hidden');
         }
       }
       // Update DESCEND label to "NEW RUN" when this character has a save.
