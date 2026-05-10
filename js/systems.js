@@ -254,11 +254,19 @@ DDI.systems = (function () {
       const hero = app.hero;
       // Already airborne? Skip — slot will retry next tick.
       if (hero._leapT != null) return;
-      // Pick the closest enemy within range; fall back to leaping forward in facing dir.
-      const range = stats.range || 480;
+      // Pick the closest VALID enemy within range — and ONLY enemies that are
+      // actually on-screen. Spawner places newly-spawned enemies just outside
+      // the shorter screen dimension, so a wide leap range would otherwise
+      // target an off-screen enemy at its just-materialized spawn spot before
+      // the player can see it. Cap range to ~45% of the smaller view dim.
+      // Also exclude fading-in/out enemies (intangible).
+      const viewMin = Math.min(app.viewW || 800, app.viewH || 600);
+      const visibleRange = viewMin * 0.45;
+      const range = Math.min(stats.range || 480, visibleRange);
       let target = null, bestD = range * range;
       app.enemies.forEach(function (e) {
         if (!e._alive) return;
+        if (e._fadeIn || e._fadeOut) return;
         const d = dist2(hero.x, hero.y, e.x, e.y);
         if (d < bestD) { bestD = d; target = e; }
       });
