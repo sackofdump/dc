@@ -1333,7 +1333,12 @@ DDI.data = (function () {
   // ============================================================
   function accountXpForRank(rank) {
     // Cumulative XP needed to reach `rank`.  rank 1 == 0 XP (starting rank).
-    return Math.floor(120 * (rank - 1) + Math.pow(Math.max(0, rank - 1), 1.6) * 25);
+    // Tuned so unlocks feel earned without becoming a grind:
+    //   Rank 2 ≈ 220 XP  (1 strong run)
+    //   Rank 3 ≈ 480 XP  (2 runs)
+    //   Rank 5 ≈ 1070 XP (4-5 runs)
+    //   Rank 8 ≈ 2110 XP (8-10 runs)
+    return Math.floor(180 * (rank - 1) + Math.pow(Math.max(0, rank - 1), 1.6) * 40);
   }
   function accountRankFromXp(xp) {
     let r = 1;
