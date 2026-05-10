@@ -26,6 +26,15 @@ DDI.Input = (function () {
       this.bindJoystick();
       this.bindButtons();
       this.bindCanvasClicks();
+      this.suppressContextMenu();
+    }
+
+    // Browser right-click context menu interferes with gameplay (ghost selections,
+    // canvas focus loss).  Suppress it everywhere inside the game root.  Long-press
+    // still toggles ability slots — see UI.buildSlot.
+    suppressContextMenu() {
+      const root = document.getElementById('game-root') || document.body;
+      root.addEventListener('contextmenu', function (ev) { ev.preventDefault(); });
     }
 
     bindKeys() {

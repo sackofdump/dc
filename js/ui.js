@@ -1268,7 +1268,7 @@ DDI.UI = (function () {
       slot.type = 'button';
       slot.style.borderColor = def.color;
       slot.style.color = def.color;
-      slot.title = def.name + ' — tap for info, long-press / right-click to toggle';
+      slot.title = def.name + ' — tap for info, long-press to toggle';
       slot.innerHTML =
         '<div class="ring"></div>' +
         '<span class="glyph">' + def.icon + '</span>' +
@@ -1293,11 +1293,6 @@ DDI.UI = (function () {
       slot.addEventListener('touchstart', function (ev) { ev.preventDefault(); startPress(); }, { passive: false });
       slot.addEventListener('touchend',   function () { cancelPress(); });
       slot.addEventListener('touchcancel', function () { cancelPress(); });
-      slot.addEventListener('contextmenu', function (ev) {
-        ev.preventDefault();
-        suppressTap = true;
-        self.toggleAbility(ab.id);
-      });
       const tap = function (ev) {
         ev.preventDefault();
         ev.stopPropagation();
