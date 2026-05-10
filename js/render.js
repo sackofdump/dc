@@ -25,7 +25,8 @@ DDI.Renderer = (function () {
       this.ctx = this.cv.getContext('2d');
       this.dpr = Math.min(2, window.devicePixelRatio || 1);
       this.shake = 0;
-      this.shakeDecay = 14;
+      this.shakeDecay = 22;          // recovers to calm faster between bursts
+      this.shakeMax = 22;            // visible cap — a hard ceiling on jitter
       this.flashAlpha = 0;
       this.flashColor = '#fff';
       const self = this;
@@ -45,7 +46,14 @@ DDI.Renderer = (function () {
     }
 
     flash(color, alpha) { this.flashColor = color; this.flashAlpha = alpha != null ? alpha : 0.18; }
-    addShake(amount) { this.shake = Math.min(this.shake + amount, 28); }
+    // Diminishing returns: when current shake is already high, new additions
+    // contribute less. Prevents projectile spam from constantly maxing out the
+    // jitter — each hit still registers, but a barrage doesn't compound.
+    addShake(amount) {
+      const cap = this.shakeMax || 22;
+      const headroom = Math.max(0, 1 - this.shake / cap);
+      this.shake = Math.min(this.shake + amount * headroom, cap);
+    }
 
     draw(dt) {
       const ctx = this.ctx, app = this.app;

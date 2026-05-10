@@ -53,7 +53,7 @@ DDI.FX = (function () {
           size: rand(10, 18), kind: 'smoke',
         });
       }
-      this.app.renderer.addShake(7);
+      this.app.renderer.addShake(5);
     }
 
     // Projectile-on-enemy impact — dramatic burst (matches fireball drama).
@@ -92,8 +92,10 @@ DDI.FX = (function () {
         x: x + rand(-2,2), y: y + rand(-2,2), vx: 0, vy: -20,
         life: 0.45, color: 'rgba(40,20,60,0.45)', size: r * 0.8, kind: 'smoke', fade: 1,
       });
-      // Slight shake on every hit (not just crits)
-      this.app.renderer.addShake(isCrit ? 4 : 2);
+      // Slight shake on every hit (not just crits) — kept small because
+      // hundreds of projectiles a second otherwise rattle the camera. The
+      // diminishing-returns curve in addShake handles the worst spikes.
+      this.app.renderer.addShake(isCrit ? 2 : 1);
     }
 
     hitSpark(x, y, color, isCrit) {
