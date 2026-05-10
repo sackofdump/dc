@@ -397,7 +397,9 @@ DDI.UI = (function () {
       this.$('modal-auth').classList.add('hidden');
       modal.classList.remove('hidden');
       const self = this;
-      this._chosenChar = (this.app.save && this.app.save.character) || null;
+      // Pre-select Mage when the player has never picked — it's the
+      // recommended starter (loud, addictive, easy to read).
+      this._chosenChar = (this.app.save && this.app.save.character) || 'mage';
       // Populate per-card ability badges from CLASSES + ABILITIES so the player
       // sees exactly what each class will play with.
       const CLASSES   = (DDI.data && DDI.data.CLASSES)   || {};

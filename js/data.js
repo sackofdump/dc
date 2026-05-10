@@ -1132,7 +1132,7 @@ DDI.data = (function () {
     },
     mage: {
       name: 'Mage',
-      requiredRank: 4,
+      requiredRank: 1,    // unlocked from the start — recommended starter
       starters: ['fireball', 'chain'],
       pool:     ['fireball', 'chain', 'frostAura', 'poisonNova', 'meteor', 'halo'],
     },
