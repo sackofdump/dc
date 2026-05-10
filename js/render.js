@@ -287,6 +287,8 @@ DDI.Renderer = (function () {
           this.drawXpShrine(ctx, f, t);
         } else if (f.type === 'sprint_juice') {
           this.drawSprintJuice(ctx, f, t);
+        } else if (f.type === 'ult_juice') {
+          this.drawUltJuice(ctx, f, t);
         } else if (f.type === 'shard') {
           this.drawShardFeature(ctx, f, t);
         } else if (f.type === 'totem') {
@@ -316,8 +318,8 @@ DDI.Renderer = (function () {
       if (id === 'tower') {
         // ===== OBSIDIAN TOWER — tall narrow column with crenellated top =====
         const cx = f.x;
-        const baseW = 72, topW = 56, h = 130;
-        const yBase = f.y + 60;
+        const baseW = 110, topW = 88, h = 200;
+        const yBase = f.y + 90;
         const yTop  = yBase - h;
         // Body (stone gradient)
         const grd = ctx.createLinearGradient(cx, yTop, cx, yBase);
@@ -336,141 +338,142 @@ DDI.Renderer = (function () {
         // Stone seams
         ctx.strokeStyle = 'rgba(20,12,40,0.5)';
         ctx.lineWidth = 1;
-        for (let i = 1; i < 4; i++) {
-          const yy = yBase - (h - 14) * i / 4;
+        for (let i = 1; i < 5; i++) {
+          const yy = yBase - (h - 14) * i / 5;
           ctx.beginPath(); ctx.moveTo(cx - baseW/2 + 2, yy); ctx.lineTo(cx + baseW/2 - 2, yy); ctx.stroke();
         }
         // Crenellation
         ctx.fillStyle = '#3a2a55';
-        for (let i = 0; i < 5; i++) {
-          const cx2 = cx - topW/2 + i * (topW / 4) - 6;
-          ctx.fillRect(cx2, yTop, 8, 12);
+        for (let i = 0; i < 7; i++) {
+          const cx2 = cx - topW/2 + i * (topW / 6) - 9;
+          ctx.fillRect(cx2, yTop, 12, 18);
         }
         ctx.strokeStyle = '#0a0612'; ctx.lineWidth = 1;
-        for (let i = 0; i < 5; i++) {
-          const cx2 = cx - topW/2 + i * (topW / 4) - 6;
-          ctx.strokeRect(cx2, yTop, 8, 12);
+        for (let i = 0; i < 7; i++) {
+          const cx2 = cx - topW/2 + i * (topW / 6) - 9;
+          ctx.strokeRect(cx2, yTop, 12, 18);
         }
-        // Glowing windows
+        // Glowing windows (3 stacked)
         ctx.save();
         ctx.globalCompositeOperation = 'screen';
         ctx.fillStyle = 'rgba(122,58,255,' + (0.7 * pulse) + ')';
-        ctx.fillRect(cx - 5, yTop + 30, 10, 14);
-        ctx.fillRect(cx - 5, yTop + 70, 10, 14);
+        ctx.fillRect(cx - 8, yTop + 44, 16, 22);
+        ctx.fillRect(cx - 8, yTop + 96, 16, 22);
+        ctx.fillRect(cx - 8, yTop + 148, 16, 22);
         ctx.restore();
         // Door at the bottom (where doorY lives)
         ctx.fillStyle = '#0a0410';
-        ctx.fillRect(cx - 12, f.doorY - 30, 24, 30);
+        ctx.fillRect(cx - 18, f.doorY - 46, 36, 46);
         ctx.strokeStyle = color; ctx.lineWidth = 2;
-        ctx.strokeRect(cx - 12, f.doorY - 30, 24, 30);
+        ctx.strokeRect(cx - 18, f.doorY - 46, 36, 46);
         // Door arch
         ctx.beginPath();
-        ctx.arc(cx, f.doorY - 30, 12, Math.PI, 0);
+        ctx.arc(cx, f.doorY - 46, 18, Math.PI, 0);
         ctx.stroke();
       } else if (id === 'temple') {
         // ===== FORGOTTEN TEMPLE — colonnaded facade with golden trim =====
         const cx = f.x;
-        const baseW = 130, h = 80;
-        const yBase = f.y + 60;
+        const baseW = 200, h = 130;
+        const yBase = f.y + 90;
         const yTop  = yBase - h;
         // Floor block
         ctx.fillStyle = '#2a2418';
-        ctx.fillRect(cx - baseW/2, yBase - 8, baseW, 8);
+        ctx.fillRect(cx - baseW/2, yBase - 12, baseW, 12);
         ctx.strokeStyle = '#0a0804'; ctx.lineWidth = 2;
-        ctx.strokeRect(cx - baseW/2, yBase - 8, baseW, 8);
+        ctx.strokeRect(cx - baseW/2, yBase - 12, baseW, 12);
         // Pediment (triangle roof)
         ctx.fillStyle = '#7a6a3a';
         ctx.beginPath();
-        ctx.moveTo(cx - baseW/2 + 4, yTop + 18);
-        ctx.lineTo(cx,                yTop - 8);
-        ctx.lineTo(cx + baseW/2 - 4, yTop + 18);
+        ctx.moveTo(cx - baseW/2 + 6, yTop + 28);
+        ctx.lineTo(cx,                yTop - 12);
+        ctx.lineTo(cx + baseW/2 - 6, yTop + 28);
         ctx.closePath();
         ctx.fill();
         ctx.strokeStyle = '#3a2a08'; ctx.lineWidth = 2; ctx.stroke();
         // Pediment gold trim
-        ctx.strokeStyle = color; ctx.lineWidth = 2;
+        ctx.strokeStyle = color; ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.moveTo(cx - baseW/2 + 6, yTop + 16);
-        ctx.lineTo(cx,                yTop - 6);
-        ctx.lineTo(cx + baseW/2 - 6, yTop + 16);
+        ctx.moveTo(cx - baseW/2 + 9, yTop + 25);
+        ctx.lineTo(cx,                yTop - 9);
+        ctx.lineTo(cx + baseW/2 - 9, yTop + 25);
         ctx.stroke();
         // Columns
-        const cols = 4;
-        const colW = 14;
-        const span = baseW - 32;
+        const cols = 5;
+        const colW = 22;
+        const span = baseW - 50;
         for (let i = 0; i < cols; i++) {
           const ccx = cx - span/2 + i * (span / (cols - 1));
-          const cgrd = ctx.createLinearGradient(ccx, yTop + 18, ccx, yBase - 8);
+          const cgrd = ctx.createLinearGradient(ccx, yTop + 28, ccx, yBase - 12);
           cgrd.addColorStop(0, '#c9b8da');
           cgrd.addColorStop(1, '#5a4670');
           ctx.fillStyle = cgrd;
-          ctx.fillRect(ccx - colW/2, yTop + 18, colW, h - 26);
+          ctx.fillRect(ccx - colW/2, yTop + 28, colW, h - 40);
           ctx.strokeStyle = '#1a0e2a'; ctx.lineWidth = 1;
-          ctx.strokeRect(ccx - colW/2, yTop + 18, colW, h - 26);
+          ctx.strokeRect(ccx - colW/2, yTop + 28, colW, h - 40);
           // Capital
           ctx.fillStyle = color;
-          ctx.fillRect(ccx - colW/2 - 2, yTop + 16, colW + 4, 5);
+          ctx.fillRect(ccx - colW/2 - 3, yTop + 24, colW + 6, 7);
         }
-        // Doorway between middle two columns
+        // Doorway centered
         ctx.fillStyle = '#0a0418';
-        ctx.fillRect(cx - 14, f.doorY - 38, 28, 38);
+        ctx.fillRect(cx - 22, f.doorY - 60, 44, 60);
         ctx.strokeStyle = color; ctx.lineWidth = 2;
-        ctx.strokeRect(cx - 14, f.doorY - 38, 28, 38);
+        ctx.strokeRect(cx - 22, f.doorY - 60, 44, 60);
         // Glowing inner light
         ctx.save();
         ctx.globalCompositeOperation = 'screen';
-        const dgrd = ctx.createLinearGradient(cx, f.doorY - 38, cx, f.doorY);
+        const dgrd = ctx.createLinearGradient(cx, f.doorY - 60, cx, f.doorY);
         dgrd.addColorStop(0, 'rgba(255,217,102,' + (0.55 * pulse) + ')');
         dgrd.addColorStop(1, 'rgba(255,217,102,0)');
         ctx.fillStyle = dgrd;
-        ctx.fillRect(cx - 13, f.doorY - 38, 26, 38);
+        ctx.fillRect(cx - 20, f.doorY - 60, 40, 60);
         ctx.restore();
       } else {
         // ===== CRUMBLING RUINS (default) — broken low wall + arched doorway =====
         const cx = f.x;
-        const baseW = 110, h = 60;
-        const yBase = f.y + 60;
+        const baseW = 170, h = 100;
+        const yBase = f.y + 90;
         const yTop  = yBase - h;
         // Wall body (cracked stone)
         ctx.fillStyle = '#5a5040';
-        ctx.fillRect(cx - baseW/2, yTop + 18, baseW, h - 18);
+        ctx.fillRect(cx - baseW/2, yTop + 28, baseW, h - 28);
         ctx.strokeStyle = '#1a1408'; ctx.lineWidth = 2;
-        ctx.strokeRect(cx - baseW/2, yTop + 18, baseW, h - 18);
-        // Broken top — irregular jagged silhouette
+        ctx.strokeRect(cx - baseW/2, yTop + 28, baseW, h - 28);
+        // Broken top — irregular jagged silhouette (scaled to bigger size)
         ctx.fillStyle = '#5a5040';
         ctx.beginPath();
-        ctx.moveTo(cx - baseW/2, yTop + 18);
-        ctx.lineTo(cx - baseW/2 + 8,   yTop + 6);
-        ctx.lineTo(cx - baseW/2 + 22,  yTop + 14);
-        ctx.lineTo(cx - baseW/2 + 38,  yTop - 2);
-        ctx.lineTo(cx - 18,            yTop + 8);
-        ctx.lineTo(cx - 12,            yTop + 28);
-        ctx.lineTo(cx + 12,            yTop + 28);
-        ctx.lineTo(cx + 18,            yTop + 8);
-        ctx.lineTo(cx + baseW/2 - 38,  yTop - 4);
-        ctx.lineTo(cx + baseW/2 - 22,  yTop + 12);
-        ctx.lineTo(cx + baseW/2 - 8,   yTop + 4);
-        ctx.lineTo(cx + baseW/2,       yTop + 18);
+        ctx.moveTo(cx - baseW/2, yTop + 28);
+        ctx.lineTo(cx - baseW/2 + 12,  yTop + 10);
+        ctx.lineTo(cx - baseW/2 + 32,  yTop + 22);
+        ctx.lineTo(cx - baseW/2 + 56,  yTop - 4);
+        ctx.lineTo(cx - 28,            yTop + 12);
+        ctx.lineTo(cx - 18,            yTop + 42);
+        ctx.lineTo(cx + 18,            yTop + 42);
+        ctx.lineTo(cx + 28,            yTop + 12);
+        ctx.lineTo(cx + baseW/2 - 56,  yTop - 6);
+        ctx.lineTo(cx + baseW/2 - 32,  yTop + 18);
+        ctx.lineTo(cx + baseW/2 - 12,  yTop + 6);
+        ctx.lineTo(cx + baseW/2,       yTop + 28);
         ctx.closePath();
         ctx.fill();
         ctx.strokeStyle = '#1a1408'; ctx.lineWidth = 2; ctx.stroke();
         // Stone seams
         ctx.strokeStyle = 'rgba(20,15,5,0.45)';
         ctx.lineWidth = 1;
-        for (let i = 1; i < 3; i++) {
-          const yy = yTop + 18 + (h - 18) * i / 3;
+        for (let i = 1; i < 4; i++) {
+          const yy = yTop + 28 + (h - 28) * i / 4;
           ctx.beginPath(); ctx.moveTo(cx - baseW/2 + 2, yy); ctx.lineTo(cx + baseW/2 - 2, yy); ctx.stroke();
         }
         // Arched doorway
         ctx.fillStyle = '#0a0804';
         ctx.beginPath();
-        ctx.moveTo(cx - 14, f.doorY);
-        ctx.lineTo(cx - 14, f.doorY - 22);
-        ctx.arc(cx, f.doorY - 22, 14, Math.PI, 0);
-        ctx.lineTo(cx + 14, f.doorY);
+        ctx.moveTo(cx - 22, f.doorY);
+        ctx.lineTo(cx - 22, f.doorY - 36);
+        ctx.arc(cx, f.doorY - 36, 22, Math.PI, 0);
+        ctx.lineTo(cx + 22, f.doorY);
         ctx.closePath();
         ctx.fill();
-        ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
+        ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.stroke();
       }
 
       // Floating banner with the building's name + "ENTER" hint when nearby
@@ -771,6 +774,51 @@ DDI.Renderer = (function () {
       ctx.fillStyle = '#a8ff66'; ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
       ctx.strokeText('STAMINA', f.x, f.y - r - 6);
       ctx.fillText('STAMINA', f.x, f.y - r - 6);
+    }
+
+    drawUltJuice(ctx, f, t) {
+      if (f.used) return;
+      const r = 18;
+      const pulse = 0.6 + Math.sin(t * 4) * 0.3;
+      // Orange/gold halo
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const grd = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, r * 2.2);
+      grd.addColorStop(0, 'rgba(255,123,31,' + (0.65 * pulse) + ')');
+      grd.addColorStop(1, 'rgba(255,123,31,0)');
+      ctx.fillStyle = grd;
+      ctx.beginPath(); ctx.arc(f.x, f.y, r * 2.2, 0, TAU); ctx.fill();
+      ctx.restore();
+      // Vial silhouette — taller, narrower than the stamina flask
+      ctx.fillStyle = '#3a1a08';
+      ctx.beginPath();
+      ctx.moveTo(f.x - r * 0.20, f.y - r);
+      ctx.lineTo(f.x + r * 0.20, f.y - r);
+      ctx.lineTo(f.x + r * 0.20, f.y - r * 0.55);
+      ctx.lineTo(f.x + r * 0.50, f.y + r * 0.65);
+      ctx.lineTo(f.x - r * 0.50, f.y + r * 0.65);
+      ctx.lineTo(f.x - r * 0.20, f.y - r * 0.55);
+      ctx.closePath();
+      ctx.fill();
+      // Glowing orange liquid
+      ctx.fillStyle = '#ff7b1f';
+      ctx.beginPath();
+      ctx.moveTo(f.x - r * 0.40, f.y - r * 0.20);
+      ctx.lineTo(f.x + r * 0.40, f.y - r * 0.20);
+      ctx.lineTo(f.x + r * 0.42, f.y + r * 0.55);
+      ctx.lineTo(f.x - r * 0.42, f.y + r * 0.55);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#ffd966'; ctx.lineWidth = 1.5; ctx.stroke();
+      // Sparkle inside the liquid
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      ctx.beginPath(); ctx.arc(f.x - r * 0.18, f.y + r * 0.05, 1.4, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(f.x + r * 0.20, f.y + r * 0.30, 1.0, 0, TAU); ctx.fill();
+      // Floating "ULT" label
+      ctx.font = 'bold 10px Cinzel, "Cinzel Decorative", serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#ff7b1f'; ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+      ctx.strokeText('ULT JUICE', f.x, f.y - r - 6);
+      ctx.fillText('ULT JUICE', f.x, f.y - r - 6);
     }
 
     drawChestFeature(ctx, f, t) {

@@ -505,7 +505,13 @@ DDI.UI = (function () {
     async refreshLeaderboard() {
       const list = this.$('lb-list');
       list.innerHTML = '<div class="lb-loading">Loading…</div>';
-      const rows = await DDI.auth.fetchLeaderboard(this._lbSort, 25);
+      let rows = await DDI.auth.fetchLeaderboard(this._lbSort, 25);
+      // Filter out hidden / banned display names (case-insensitive)
+      const HIDDEN = ['dumpsack'];
+      rows = (rows || []).filter(function (r) {
+        const n = (r.display_name || '').toLowerCase();
+        return HIDDEN.indexOf(n) === -1;
+      });
       const me = (DDI.auth.user && DDI.auth.user()) || null;
       const myId = me && me.id;
       if (!rows.length) {

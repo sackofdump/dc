@@ -357,6 +357,11 @@
         return { type: 'sprint_juice', x, y, used: false, kind: 'sprint_juice' };
       });
 
+      // ULT juice — chops 5s off the current ULT cooldown
+      placeRandom(3, 260, function (x, y) {
+        return { type: 'ult_juice', x, y, used: false, kind: 'ult_juice' };
+      });
+
       // Mob traps — pressure plates that spawn enemies
       placeRandom(6, 280, function (x, y) {
         return { type: 'trap', x, y, triggered: false, kind: 'trap' };
@@ -384,11 +389,11 @@
           const x = 320 + Math.random() * (W - 640);
           const y = 320 + Math.random() * (H - 640);
           // Stay clear of hero start + other features (portals, chests, etc.)
-          if (Math.hypot(x - cx, y - cy) < 360) continue;
+          if (Math.hypot(x - cx, y - cy) < 480) continue;
           let collides = false;
           for (let i = 0; i < this.features.length; i++) {
             const o = this.features[i];
-            const minD = (o.type === 'building' || o.type === 'portal') ? 360 : 220;
+            const minD = (o.type === 'building' || o.type === 'portal') ? 480 : 260;
             if (Math.hypot(x - o.x, y - o.y) < minD) { collides = true; break; }
           }
           if (collides) continue;
@@ -402,8 +407,8 @@
             color: (def && def.color) || '#a8a08a',
             entered: false,
             cooldown: 0,
-            // Door is at the bottom-front of the building — that's the interaction point
-            doorX: x, doorY: y + 56,
+            // Door is at the bottom-front of the (now larger) building
+            doorX: x, doorY: y + 90,
           });
           placed++;
         }
@@ -1152,6 +1157,30 @@
           }
           return;
         }
+
+        if (f.type === 'ult_juice' && !f.used) {
+          if (d2 < 32 * 32) {
+            f.used = true;
+            toRemove.push(f);
+            // Knock 5 seconds off the current ULT cooldown
+            const before = self.ult.cd || 0;
+            self.ult.cd = Math.max(0, before - 5);
+            const shaved = Math.min(5, before).toFixed(1);
+            self.fx.toast('ULT -' + shaved + 's');
+            self.fx.shake(4);
+            self.particles.spawn({ x: f.x, y: f.y, life: 0.45, size: 90, color: '#ff7b1f', kind: 'ring', fade: 1 });
+            self.particles.spawn({ x: f.x, y: f.y, life: 0.65, size: 140, color: '#ffd966', kind: 'ring', fade: 1 });
+            for (let i = 0; i < 14; i++) {
+              const a = (i / 14) * Math.PI * 2;
+              self.particles.spawn({
+                x: f.x, y: f.y,
+                vx: Math.cos(a) * 180, vy: Math.sin(a) * 180 - 40,
+                life: 0.45, color: i % 2 === 0 ? '#ff7b1f' : '#ffd966', size: 3, kind: 'streak',
+              });
+            }
+          }
+          return;
+        }
       });
       this._cleanupFeatures(toRemove);
     }
@@ -1255,8 +1284,10 @@
       // We move the hero to a safe interior spawn and wipe live entities.
       const ix = this.world.width / 2;
       const iy = this.world.height / 2;
+      // Drop the hero near the south wall — exit door at the north wall — so the
+      // player has to traverse the full room to leave.
       this.hero.x = ix;
-      this.hero.y = iy + 80;
+      this.hero.y = iy + 320;
       this.enemies.live.forEach(function (e) { e._alive = false; });
       this.enemies.sweep();
       this.projectiles.live.forEach(function (p) { p._alive = false; });
@@ -1265,13 +1296,13 @@
       // Build the interior features: chests, gold piles, ambush enemies, and
       // the exit door north of the spawn point.
       this.features = [];
-      // Exit door — north of where the hero arrives
+      // Exit door — at the north end of the room, opposite the hero spawn
       this.features.push({
         type: 'exit_door', kind: 'exit_door',
-        x: ix, y: iy - 80,
+        x: ix, y: iy - 340,
       });
-      // Loot piles + chests scattered through a small interior region
-      const ROOM_W = 700, ROOM_H = 500;
+      // Loot piles + chests scattered through a roomy interior region
+      const ROOM_W = 1100, ROOM_H = 800;
       const left = ix - ROOM_W / 2 + 60;
       const right = ix + ROOM_W / 2 - 60;
       const top = iy - ROOM_H / 2 + 60;
@@ -1298,17 +1329,19 @@
         const gy = top  + Math.random() * (bottom - top);
         this.loot.spawn('gold', gx, gy, 30 + Math.floor(Math.random() * 60));
       }
-      // Ambush enemies — pre-spawned, no respawn
-      const enemyCount = (def && def.enemies) || 2;
+      // Ambush enemies — pre-spawned, no respawn. Spread across the room
+      // biased toward the north half so the player walks through them on the
+      // way to the exit.
+      const enemyCount = (def && def.enemies) || 4;
       const ENEMIES = D.ENEMIES;
-      const pool = ['skeleton','zombie','goblin_rogue','imp','cultist','cursed_eye'];
+      const pool = ['skeleton','zombie','goblin_rogue','imp','cultist','cursed_eye','archer'];
       for (let i = 0; i < enemyCount; i++) {
         const id = pool[Math.floor(Math.random() * pool.length)];
         const ed = ENEMIES[id];
         if (!ed) continue;
-        const ang = Math.random() * Math.PI * 2;
-        const ex = ix + Math.cos(ang) * 200;
-        const ey = iy + Math.sin(ang) * 200;
+        // Random position in the upper 80% of the room, away from the hero's spawn
+        const ex = left + 60 + Math.random() * (right - left - 120);
+        const ey = top  + 60 + Math.random() * ((bottom - top) * 0.75);
         const e = this.enemies.spawn(ed, ex, ey, 1.2, 1.0);
         e.level = (this.game.level || 1) + 2;
         e._interior = true;
