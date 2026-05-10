@@ -617,8 +617,9 @@ DDI.UI = (function () {
           secondary = '<span class="label">FLOOR</span> <b>' + r.best_floor + '</b>';
         }
         const tertiary = '<span class="label">DUST</span> <b>' + shortNum(r.total_dust) + '</b>';
-        // Class tag — pulled from the new `character` column.  Falls back to
-        // a neutral dash when the row pre-dates the schema migration.
+        // Class tag — only shown when the row actually has a `character`
+        // value.  Older rows (pre schema migration) and any unknown class
+        // simply omit the chip so we don't render a meaningless placeholder.
         const D = DDI.data || {};
         const ck = (r.character || '').toLowerCase();
         const cls = (D.CLASSES && D.CLASSES[ck]) || null;
@@ -626,9 +627,11 @@ DDI.UI = (function () {
           default: '⚔', rogue: '🗡', ranger: '🏹', mage: '🔥',
           paladin: '🛡', berserker: '🪓', necromancer: '💀',
         };
-        const ico = portraitIcons[ck] || '·';
-        const className = (cls && cls.name) || (ck ? ck.toUpperCase() : '—');
-        const classChip = '<span class="lb-class" title="' + className + '">' + ico + ' ' + className + '</span>';
+        let classChip = '';
+        if (cls && portraitIcons[ck]) {
+          const className = cls.name || ck.toUpperCase();
+          classChip = '<span class="lb-class" title="' + className + '">' + portraitIcons[ck] + ' ' + className + '</span>';
+        }
         const row = document.createElement('div');
         row.className = 'lb-row' + (isMe ? ' me' : '');
         row.innerHTML =
