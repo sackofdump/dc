@@ -193,8 +193,16 @@ DDI.auth = (function () {
       p_total_dust:         stats.totalDust   | 0,
       p_act1_clear_seconds: (stats.act1ClearSeconds == null) ? null : (stats.act1ClearSeconds | 0),
       p_display_name:       name,
+      p_character:          stats.character || null,
     };
     const { error } = await client.rpc('submit_score', args);
+    // SQL migration the user needs to run once on Supabase to enable class
+    // tracking — submitScore degrades gracefully without it (column missing
+    // -> RPC ignores p_character and the row just shows '—' on the board).
+    //   alter table leaderboard add column if not exists character text;
+    //   create or replace function submit_score(p_best_floor int, p_best_act int,
+    //     p_total_dust int, p_act1_clear_seconds int, p_display_name text,
+    //     p_character text default null) ...   (extend existing fn to upsert it)
     if (error) console.error('[auth] submitScore', error);
   }
 
@@ -203,7 +211,7 @@ DDI.auth = (function () {
     if (!client) return [];
     limit = limit || 25;
     let q = client.from('leaderboard')
-      .select('user_id, display_name, best_floor, best_act, total_dust, act1_clear_seconds, updated_at')
+      .select('user_id, display_name, best_floor, best_act, total_dust, act1_clear_seconds, character, updated_at')
       .limit(limit);
     if (sortKey === 'floor') {
       q = q.order('best_floor', { ascending: false }).order('total_dust', { ascending: false });

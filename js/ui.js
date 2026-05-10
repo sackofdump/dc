@@ -207,7 +207,19 @@ DDI.UI = (function () {
       const btnSaveQuit = this.$('btn-save-quit');
       const btnPauseSettings = this.$('btn-pause-settings');
       if (btnResume) btnResume.addEventListener('click', function () { self.closePause(); });
-      if (btnQuit) btnQuit.addEventListener('click', function () { self.quitRun(); });
+      if (btnQuit) btnQuit.addEventListener('click', function () {
+        // Quitting drops the run permanently — confirm before nuking it.
+        self.showConfirm({
+          title: 'QUIT THIS RUN?',
+          message:
+            'You will lose all progress on this run.\n' +
+            '<em class="hl">Tip:</em> use <em class="hl">SAVE & QUIT</em> instead to resume later.',
+          confirmText: 'QUIT RUN',
+          cancelText: 'KEEP PLAYING',
+          danger: true,
+          onConfirm: function () { self.quitRun(); },
+        });
+      });
       if (btnSaveQuit) btnSaveQuit.addEventListener('click', function () {
         if (self.app && self.app.saveRun) self.app.saveRun();
       });
@@ -603,11 +615,23 @@ DDI.UI = (function () {
           secondary = '<span class="label">FLOOR</span> <b>' + r.best_floor + '</b>';
         }
         const tertiary = '<span class="label">DUST</span> <b>' + shortNum(r.total_dust) + '</b>';
+        // Class tag — pulled from the new `character` column.  Falls back to
+        // a neutral dash when the row pre-dates the schema migration.
+        const D = DDI.data || {};
+        const ck = (r.character || '').toLowerCase();
+        const cls = (D.CLASSES && D.CLASSES[ck]) || null;
+        const portraitIcons = {
+          default: '⚔', rogue: '🗡', ranger: '🏹', mage: '🔥',
+          paladin: '🛡', berserker: '🪓', necromancer: '💀',
+        };
+        const ico = portraitIcons[ck] || '·';
+        const className = (cls && cls.name) || (ck ? ck.toUpperCase() : '—');
+        const classChip = '<span class="lb-class" title="' + className + '">' + ico + ' ' + className + '</span>';
         const row = document.createElement('div');
         row.className = 'lb-row' + (isMe ? ' me' : '');
         row.innerHTML =
           '<div class="rank ' + rankCls + '">#' + rank + '</div>' +
-          '<div class="name">' + name + '</div>' +
+          '<div class="name">' + name + ' ' + classChip + '</div>' +
           '<div class="stat">' + primary   + '</div>' +
           '<div class="stat">' + secondary + '</div>' +
           '<div class="stat">' + (sort === 'dust' ? '' : tertiary) + '</div>';

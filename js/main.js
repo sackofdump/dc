@@ -540,6 +540,7 @@
         bestAct:           (this.save && this.save.bestAct)   || 1,
         totalDust:         (this.save && this.save.dust)      || 0,
         act1ClearSeconds:  (extras && extras.act1ClearSeconds) || (this.save && this.save.act1ClearSeconds) || null,
+        character:         (this.save && this.save.character) || null,
       };
       DDI.auth.submitScore(stats);
     }
@@ -998,8 +999,8 @@
           }
           if (e.hp <= 0) Combat.killEnemy(e);
         }
-        // Elites cast unique telegraphed abilities on cooldown
-        if (e._alive && e.def && e.def.isElite && e.def.eliteAbility) {
+        // Elites + bolted-on act bosses cast unique telegraphed abilities on cooldown
+        if (e._alive && e.def && ((e.def.isElite && e.def.eliteAbility) || e._castableAbility)) {
           self.tickEliteAbility(e, dt);
         }
         // Viewport-relative cull: don't kill enemies just because they're off-screen
@@ -1026,14 +1027,17 @@
       const range = Math.max(this.viewW, this.viewH);
       const range2 = range * range;
       if (dist2(h.x, h.y, e.x, e.y) > range2) { e._eliteCd = 0.4; return; }
-      // Tight rolling cooldown — 2.0-3.5s — so elites that survive longer
-      // than a few seconds get multiple casts off, not just the first one.
-      e._eliteCd = 2.0 + Math.random() * 1.5;
+      // Tight rolling cooldown — 2.0-3.5s by default, overridden per enemy
+      // (act bosses use a faster cycle).
+      const cdMin = e._eliteCdMin != null ? e._eliteCdMin : 2.0;
+      const cdMax = e._eliteCdMax != null ? e._eliteCdMax : 3.5;
+      e._eliteCd = cdMin + Math.random() * Math.max(0.1, cdMax - cdMin);
       this.castEliteAbility(e);
     }
 
     castEliteAbility(e) {
-      const ab = e.def && e.def.eliteAbility;
+      // Per-enemy override (act bosses) wins over def.eliteAbility.
+      const ab = e._castableAbility || (e.def && e.def.eliteAbility);
       if (DDI.audio) DDI.audio.play('telegraph');
       switch (ab) {
         case 'holy_beam':    return this.eliteHolyBeam(e);
@@ -2264,18 +2268,35 @@
       const x = Math.max(160, Math.min(this.world.width  - 160, this.hero.x + Math.cos(ang) * dist));
       const y = Math.max(160, Math.min(this.world.height - 160, this.hero.y + Math.sin(ang) * dist));
       const dm = this.getDifficultyMult();
-      // Big, scary — 4× HP, 2× damage relative to a regular boss spawn
-      const e = this.enemies.spawn(def, x, y, 4.0 * dm, 2.0 * dm);
-      e.level = (this.game.level || 1) + 6;
+      // Final-act boss is significantly tougher: 7x HP, 2.6x damage, comes
+      // with an elite-style ability that fires on a cooldown so the fight
+      // is a real climax — telegraph + dodge alongside the melee pressure.
+      const isFinalAct = act >= 5;
+      const hpMul = isFinalAct ? 7.0 : 4.0;
+      const dmgMul = isFinalAct ? 2.6 : 2.0;
+      const e = this.enemies.spawn(def, x, y, hpMul * dm, dmgMul * dm);
+      e.level = (this.game.level || 1) + (isFinalAct ? 12 : 6);
       e._actBoss = true;
-      e._actBossAct = this.game.act || 1;
+      e._actBossAct = act;
+      // Bolt an elite ability on so the final boss has spell variety.
+      // Other acts get one too — boss fights had no abilities before.
+      if (!e.def.eliteAbility) {
+        const pool = isFinalAct
+          ? ['holy_beam','meteor_burst','spore_bloom','toxic_pool','shadow_dash']
+          : ['holy_beam','meteor_burst','toxic_pool'];
+        e._castableAbility = pool[Math.floor(Math.random() * pool.length)];
+        // Faster + heavier rotation on the final boss
+        e._eliteCdMin = isFinalAct ? 1.4 : 2.5;
+        e._eliteCdMax = isFinalAct ? 2.6 : 4.5;
+      }
       this.game.actBossActive = e;
-      this.fx.toast('★  ACT ' + (this.game.act || 1) + ' BOSS  ★');
-      this.fx.flash('#ff3d52', 0.7);
-      this.fx.shake(28);
-      this.particles.spawn({ x: e.x, y: e.y, life: 0.6, size: 280, color: '#ff3d52', kind: 'ring', fade: 1 });
-      this.particles.spawn({ x: e.x, y: e.y, life: 0.9, size: 380, color: '#ffe14d', kind: 'ring', fade: 1 });
-      this.ui.showBoss(def.name + ' · ACT ' + (this.game.act || 1), 1);
+      const tagSuffix = isFinalAct ? '  ·  FINAL  ' : '  ·  ACT ' + act + '  ';
+      this.fx.toast('★  ' + def.name.toUpperCase() + tagSuffix + '★');
+      this.fx.flash('#ff3d52', 0.85);
+      this.fx.shake(isFinalAct ? 36 : 28);
+      this.particles.spawn({ x: e.x, y: e.y, life: 0.6, size: isFinalAct ? 360 : 280, color: '#ff3d52', kind: 'ring', fade: 1 });
+      this.particles.spawn({ x: e.x, y: e.y, life: 1.0, size: isFinalAct ? 480 : 380, color: '#ffe14d', kind: 'ring', fade: 1 });
+      this.ui.showBoss(def.name + (isFinalAct ? ' · FINAL BOSS' : ' · ACT ' + act), 1);
       if (DDI.audio) DDI.audio.play('boss_spawn');
     }
 
@@ -2293,6 +2314,12 @@
       this.particles.spawn({ x: cx, y: cy, life: 1.0, size: 540, color: '#ff7b1f', kind: 'ring', fade: 1 });
       this.game.paused = true;
       const self = this;
+      // Act 5 boss = end of the dungeon. Trigger a "RUN COMPLETE" win path
+      // instead of the usual ACT COMPLETE intermission.
+      if ((this.game.act || 1) >= 5) {
+        setTimeout(function () { self.endRun(true); }, 900);
+        return;
+      }
       setTimeout(function () {
         if (self.ui && self.ui.showActComplete) self.ui.showActComplete(self.game.act || 1);
       }, 700);
