@@ -171,9 +171,18 @@ DDI.UI = (function () {
       // Pause menu
       const btnResume = this.$('btn-resume');
       const btnQuit = this.$('btn-quit-run');
+      const btnSaveQuit = this.$('btn-save-quit');
       const btnPauseSettings = this.$('btn-pause-settings');
       if (btnResume) btnResume.addEventListener('click', function () { self.closePause(); });
       if (btnQuit) btnQuit.addEventListener('click', function () { self.quitRun(); });
+      if (btnSaveQuit) btnSaveQuit.addEventListener('click', function () {
+        if (self.app && self.app.saveRun) self.app.saveRun();
+      });
+      // Continue Run on title screen — restores the saved snapshot.
+      const btnContinueRun = this.$('btn-continue-run');
+      if (btnContinueRun) btnContinueRun.addEventListener('click', function () {
+        if (self.app && self.app.continueRun) self.app.continueRun();
+      });
       if (btnPauseSettings) btnPauseSettings.addEventListener('click', function () {
         self.closePause();
         self.openSettings();
@@ -707,14 +716,29 @@ DDI.UI = (function () {
       this.modalOpen = false;
     }
 
-    // ---- Objective banner — quick FX toast pair on zone entry ----
+    // ---- Objective banner — big centered card on zone entry, stays ~5s ----
     showObjectiveBanner(name, desc) {
-      // Re-uses fx.toast for now — short lived, low-friction.  Could be promoted
-      // to a proper centered banner element later.
-      if (this.app && this.app.fx && desc) {
-        const self = this;
-        setTimeout(function () { self.app.fx.toast(desc); }, 350);
+      let el = document.getElementById('objective-banner');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'objective-banner';
+        el.className = 'hud';
+        document.getElementById('game-root').appendChild(el);
       }
+      el.innerHTML =
+        '<div class="ob-name">' + (name || 'OBJECTIVE') + '</div>' +
+        '<div class="ob-desc">' + (desc || '') + '</div>';
+      el.classList.remove('hidden');
+      el.classList.remove('fading');
+      // Force reflow so the animation restarts cleanly
+      void el.offsetWidth;
+      el.classList.add('visible');
+      clearTimeout(this._objBannerTimer);
+      const self = this;
+      this._objBannerTimer = setTimeout(function () {
+        el.classList.add('fading');
+        setTimeout(function () { el.classList.add('hidden'); el.classList.remove('visible','fading'); }, 800);
+      }, 4500);
     }
 
     // ---- Act Proceed button (after act boss slain — let player loot first) ----
@@ -1569,6 +1593,13 @@ DDI.UI = (function () {
             '<div class="cc-abils">' + (starters || '—') + '</div>' +
           '</div>' +
         '</div>';
+      // Show CONTINUE RUN button only if a saved run snapshot exists
+      const continueBtn = this.$('btn-continue-run');
+      if (continueBtn) continueBtn.classList.toggle('hidden', !(this.app && this.app.hasSavedRun && this.app.hasSavedRun()));
+      // Update DESCEND label to "NEW RUN" when a save is present so the
+      // distinction is obvious.
+      const startBtn = this.$('btn-start');
+      if (startBtn) startBtn.textContent = (this.app && this.app.hasSavedRun && this.app.hasSavedRun()) ? 'NEW RUN' : 'DESCEND';
       this.$('title-stats').innerHTML =
         charCard +
         '<div class="rank-block">' +

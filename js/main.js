@@ -131,6 +131,8 @@
     }
     _startRunInner() {
       if (!this.save) { this.ui.showLogin(); return; }
+      // Starting fresh discards any saved-mid-run state.
+      if (this.save.runState) { this.save.runState = null; this.persist(); }
       this.ui.hideTitle();
       this.ui.hideDeath();
       // Force-close any leftover modals from a previous run
@@ -194,6 +196,8 @@
       if (!this.game.running) return;
       this.game.running = false;
       this.game.paused = true;
+      // Run is over — discard any stale save snapshot.
+      if (this.save && this.save.runState) { this.save.runState = null; }
       const rootEl = document.getElementById('game-root');
       if (rootEl) rootEl.classList.remove('in-game');
       // Dust breakdown — shown in death summary so players see where it came from.
@@ -250,6 +254,184 @@
       if (DDI.save && DDI.save.write) DDI.save.write(this.save);    // local cache
       if (this.isGuest) return;                                       // guests don't sync
       if (DDI.auth && DDI.auth.saveSave) DDI.auth.saveSave(this.save); // throttled remote sync
+    }
+
+    // ============================================================
+    // SAVE & QUIT — snapshots run progress so the player can resume later.
+    // We save game progress + hero stats + abilities + zone + features but
+    // NOT live enemies/projectiles/loot — those repopulate naturally on resume.
+    // Available from the pause menu.  Cleared on a new run / death / win.
+    // ============================================================
+    saveRun() {
+      if (!this.save || !this.game.running) return;
+      const h = this.hero;
+      const heroSnap = {};
+      const HERO_KEYS = [
+        'x','y','hp','maxHp','stamina','maxStamina','staminaRegenBonus',
+        'speed','pickup',
+        'damageMult','areaMult','cooldownMult','durationMult',
+        'projMult','pierceBonus','critChance','critMult',
+        'regen','greed','xpMult','damageReduce',
+      ];
+      for (let i = 0; i < HERO_KEYS.length; i++) heroSnap[HERO_KEYS[i]] = h[HERO_KEYS[i]];
+      this.save.runState = {
+        savedAt: Date.now(),
+        version: 1,
+        game: {
+          time: this.game.time, level: this.game.level, xp: this.game.xp, xpNeed: this.game.xpNeed,
+          kills: this.game.kills, elites: this.game.elites, bosses: this.game.bosses,
+          gold: this.game.gold, floor: this.game.floor, act: this.game.act,
+          zonesCleared: this.game.zonesCleared || {},
+          revivesUsed: this.game.revivesUsed || 0,
+          _dustPaid: this.game._dustPaid || 0, _killsPaid: this.game._killsPaid || 0,
+          _accountXpPaid: this.game._accountXpPaid || 0,
+        },
+        runDifficulty: this.runDifficulty,
+        zoneDifficulty: this.zoneDifficulty,
+        zoneRequiredLevel: this.zoneRequiredLevel || 0,
+        hero: heroSnap,
+        ult: { cd: this.ult.cd, maxCd: this.ult.maxCd },
+        abilities: h.abilities.map(function (a) { return { id: a.id, level: a.level, cd: a.cd || 0, disabled: !!a.disabled }; }),
+        // Snapshot the active zone (objective state etc.)
+        zone: this._serializeZone(this.zone),
+        features: this._serializeFeatures(this.features || []),
+      };
+      this.persist();
+      // Bounce the player back to title — game stops running.
+      this.game.running = false;
+      this.game.paused = true;
+      const rootEl = document.getElementById('game-root');
+      if (rootEl) rootEl.classList.remove('in-game');
+      if (this.ui) {
+        this.ui.pauseOpen = false;
+        const pm = document.getElementById('modal-pause');
+        if (pm) pm.classList.add('hidden');
+        if (this.ui.showTitle) this.ui.showTitle();
+      }
+    }
+
+    _serializeZone(z) {
+      if (!z) return null;
+      // Strip _data refs (ritual circles get rebuilt from primitive state)
+      const out = {};
+      const keys = ['name','displayName','color','killsInZone','killsNeeded','totalSpawned',
+        'itemsCollected','itemsTotal','finalEliteSpawned','fadeOutBegan',
+        'objective','survivalT','bountyKilled','bountyTotal','totemHp','totemHpMax','ritualDone',
+        'interior'];
+      for (let i = 0; i < keys.length; i++) if (z[keys[i]] != null) out[keys[i]] = z[keys[i]];
+      if (z.ritualCircles) {
+        out.ritualCircles = z.ritualCircles.map(function (c) {
+          return { x: c.x, y: c.y, charge: c.charge || 0, done: !!c.done };
+        });
+      }
+      // Don't try to persist live enemy refs; they get rebuilt on continue.
+      return out;
+    }
+
+    _serializeFeatures(arr) {
+      return arr.map(function (f) {
+        const out = { type: f.type, x: f.x, y: f.y };
+        if (f.kind != null) out.kind = f.kind;
+        if (f.opened) out.opened = true;
+        if (f.used) out.used = true;
+        if (f.cleared) out.cleared = true;
+        if (f.entered) out.entered = true;
+        if (f.triggered) out.triggered = true;
+        if (f.rarity) out.rarity = f.rarity;
+        if (f.biome) out.biome = f.biome;
+        if (f.name) out.name = f.name;
+        if (f.color) out.color = f.color;
+        if (f.requiredLevel != null) out.requiredLevel = f.requiredLevel;
+        if (f.buildingId) out.buildingId = f.buildingId;
+        if (f.doorX != null) { out.doorX = f.doorX; out.doorY = f.doorY; }
+        return out;
+      });
+    }
+
+    hasSavedRun() {
+      return !!(this.save && this.save.runState);
+    }
+
+    continueRun() {
+      const rs = this.save && this.save.runState;
+      if (!rs) return;
+      this.ui.hideTitle();
+      this.ui.hideDeath();
+      // Force-close any leftover modals
+      ['modal-levelup','modal-pause','modal-zone','modal-act-complete','modal-forge','modal-settings'].forEach(function (id) {
+        const el = document.getElementById(id); if (el) el.classList.add('hidden');
+      });
+      this.ui.modalOpen = false;
+      this.ui.pauseOpen = false;
+      // Restore game progress
+      Object.assign(this.game, {
+        running: true, paused: false,
+        time: rs.game.time, level: rs.game.level, xp: rs.game.xp, xpNeed: rs.game.xpNeed,
+        pendingLevelUps: 0,
+        kills: rs.game.kills, elites: rs.game.elites, bosses: rs.game.bosses,
+        gold: rs.game.gold, floor: rs.game.floor, act: rs.game.act,
+        zonesCleared: rs.game.zonesCleared || {},
+        pendingActBoss: false, actBossActive: null, pendingActAdvance: false,
+        revivesUsed: rs.game.revivesUsed || 0,
+        _dustPaid: rs.game._dustPaid || 0, _killsPaid: rs.game._killsPaid || 0,
+        _accountXpPaid: rs.game._accountXpPaid || 0,
+        quitFromMenu: false,
+      });
+      this.runDifficulty   = rs.runDifficulty   || 1;
+      this.zoneDifficulty  = rs.zoneDifficulty  || 1;
+      this.zoneRequiredLevel = rs.zoneRequiredLevel || 0;
+      // Wipe live entities
+      Spawner.reset();
+      this.enemies.live.forEach(function (e) { e._alive = false; });   this.enemies.sweep();
+      this.projectiles.live.forEach(function (p) { p._alive = false; }); this.projectiles.sweep();
+      this.loot.live.forEach(function (l) { l._alive = false; });        this.loot.sweep();
+      this.particles.live.forEach(function (p) { p._alive = false; });   this.particles.sweep();
+      this.dmgnums.live.forEach(function (d) { d._alive = false; });    this.dmgnums.sweep();
+      this.hazards = [];
+      // Rebuild hero — base stats first, then overlay saved values
+      this.hero.reset(HERO_BASE, rs.hero.x || this.world.width / 2, rs.hero.y || this.world.height / 2);
+      DDI.data.applyMetaUpgrades(this.hero, this.save.permUpgrades);
+      Object.assign(this.hero, rs.hero);
+      this.hero.iframes = 1.5;     // breathing room on resume
+      this.hero.flash = 0.3;
+      // Rebuild abilities at saved levels
+      this.hero.abilities = [];
+      (rs.abilities || []).forEach((function (a) {
+        Abilities.add(this, a.id);
+        const slot = this.hero.abilities[this.hero.abilities.length - 1];
+        if (slot) {
+          // Bump to saved level
+          for (let i = 1; i < a.level; i++) Abilities.upgrade(this, a.id);
+          slot.cd = a.cd || 0;
+          slot.disabled = !!a.disabled;
+        }
+      }).bind(this));
+      // Restore ult cooldown
+      if (rs.ult) { this.ult.cd = rs.ult.cd || 0; this.ult.maxCd = rs.ult.maxCd || 30; }
+      // Rebuild zone + features
+      const savedZone = rs.zone || { name: 'main' };
+      this.zone = Object.assign({ killsInZone: 0, killsNeeded: 0, finalElite: null }, savedZone);
+      this.zoneTheme = (savedZone.name && savedZone.name !== 'main')
+        ? (DDI.data.ZONE_THEMES && DDI.data.ZONE_THEMES[savedZone.name]) || null
+        : null;
+      if (!this.zoneTheme) this.applyMainActTheme();
+      // Rebuild features from snapshot.  Reattach ritual_circle._data if needed.
+      this.features = (rs.features || []).map(function (f) { return Object.assign({}, f); });
+      if (this.zone.ritualCircles) {
+        const circles = this.zone.ritualCircles;
+        let ci = 0;
+        this.features.forEach(function (f) {
+          if (f.type === 'ritual_circle' && circles[ci]) { f._data = circles[ci]; ci++; }
+        });
+      }
+      // Mark in-run
+      const rootEl = document.getElementById('game-root');
+      if (rootEl) rootEl.classList.add('in-game');
+      // Clear the saved state — we're now running it
+      this.save.runState = null;
+      this.persist();
+      this.fx.toast('★  RESUMED  ★');
+      this.fx.flash('#ffd966', 0.4);
     }
 
     // Push the player's best stats to the leaderboard (idempotent — server keeps
@@ -1137,9 +1319,12 @@
         l.y += l.vy * dt;
 
         const d = dist(h.x, h.y, l.x, l.y);
-        // Chests don't auto-magnet — player has to walk over them.
-        const canAttract = l.kind !== 'chest';
-        if (canAttract && (l.attracted || d < h.pickup)) {
+        // Loot chests now suck in like other loot — same magnet behaviour as
+        // gold/gems, with a wider pull so the player can pick them up from any
+        // angle rather than walking onto them precisely.
+        const canAttract = true;
+        const pullR = (l.kind === 'chest') ? 130 : h.pickup;
+        if (canAttract && (l.attracted || d < pullR)) {
           l.attracted = true;
           const ax = h.x - l.x, ay = h.y - l.y;
           const len = Math.hypot(ax, ay) || 1;

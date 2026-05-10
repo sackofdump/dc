@@ -295,43 +295,43 @@ DDI.data = (function () {
 
     elite_slime: {
       id: 'elite_slime', name: 'Slime Mother', kind: 'elite_slime',
-      radius: 44, hp: 95, dmg: 14, speed: 55, xp: 36, gold: 25,
+      radius: 44, hp: 95, dmg: 14, speed: 90, xp: 36, gold: 25,
       color: '#66ff8c', tier: 3, scale: 1.7, isElite: true,
       eliteAbility: 'shrapnel',     // 8-shard radial volley
     },
     elite_skel: {
       id: 'elite_skel', name: 'Bone Champion', kind: 'elite_skel',
-      radius: 44, hp: 125, dmg: 20, speed: 80, xp: 48, gold: 35,
+      radius: 44, hp: 125, dmg: 20, speed: 120, xp: 48, gold: 35,
       color: '#ffd966', tier: 3, scale: 1.8, isElite: true,
       eliteAbility: 'shrapnel',     // bone shard fan
     },
     elite_zombie: {
       id: 'elite_zombie', name: 'Plagueflesh Hulk', kind: 'elite_zombie',
-      radius: 50, hp: 165, dmg: 26, speed: 50, xp: 60, gold: 45,
+      radius: 50, hp: 165, dmg: 26, speed: 80, xp: 60, gold: 45,
       color: '#9fdf7f', tier: 3, scale: 2.0, isElite: true,
       eliteAbility: 'toxic_pool',   // drops 3 lingering puddles
     },
     elite_imp: {
       id: 'elite_imp', name: 'Imp Lord', kind: 'imp',
-      radius: 36, hp: 105, dmg: 18, speed: 135, xp: 44, gold: 30,
+      radius: 36, hp: 105, dmg: 18, speed: 175, xp: 44, gold: 30,
       color: '#ff7b66', tier: 3, scale: 1.7, isElite: true,
       eliteAbility: 'meteor_burst', // 3 meteors at hero position
     },
     elite_wraith: {
       id: 'elite_wraith', name: 'Wraith Sovereign', kind: 'wraith',
-      radius: 38, hp: 130, dmg: 22, speed: 120, xp: 52, gold: 35,
+      radius: 38, hp: 130, dmg: 22, speed: 160, xp: 52, gold: 35,
       color: '#b266ff', tier: 3, scale: 1.8, isElite: true,
       eliteAbility: 'shadow_dash',  // teleport-strike toward hero
     },
     elite_eye: {
       id: 'elite_eye', name: 'All-Seeing Watcher', kind: 'cursed_eye',
-      radius: 42, hp: 140, dmg: 22, speed: 100, xp: 56, gold: 40,
+      radius: 42, hp: 140, dmg: 22, speed: 140, xp: 56, gold: 40,
       color: '#b266ff', tier: 3, scale: 1.9, isElite: true,
       eliteAbility: 'holy_beam',    // sweeping beam from above — DODGE
     },
     elite_pumpkin: {
       id: 'elite_pumpkin', name: 'Patched King', kind: 'pumpkin',
-      radius: 44, hp: 175, dmg: 24, speed: 55, xp: 60, gold: 45,
+      radius: 44, hp: 175, dmg: 24, speed: 90, xp: 60, gold: 45,
       color: '#ff7b1f', tier: 3, scale: 2.0, isElite: true,
       eliteAbility: 'spore_bloom',  // expanding ring of spores
     },
@@ -499,27 +499,63 @@ DDI.data = (function () {
   const BUILDINGS = {
     ruins: {
       id: 'ruins', name: 'CRUMBLING RUINS', shortName: 'RUINS',
-      color: '#a8a08a',
+      color: '#a8a08a', style: 'ruins',
       interiorPalette: { ground: '#2a2418', edge: '#0a0804', accent: '#6a5a3a', fog: 'rgba(120,100,60,0.18)' },
       chestCount: 6, goldPiles: 14, enemies: 6,
       lootBias: 'common',
     },
     temple: {
       id: 'temple', name: 'FORGOTTEN TEMPLE', shortName: 'TEMPLE',
-      color: '#ffd966',
+      color: '#ffd966', style: 'temple',
       interiorPalette: { ground: '#1c1430', edge: '#080418', accent: '#ffd966', fog: 'rgba(178,102,255,0.20)' },
       chestCount: 5, goldPiles: 12, enemies: 8,
       lootBias: 'rare',
     },
     tower: {
       id: 'tower', name: 'OBSIDIAN TOWER', shortName: 'TOWER',
-      color: '#7a3aff',
+      color: '#7a3aff', style: 'tower',
       interiorPalette: { ground: '#0e0a26', edge: '#04020c', accent: '#7a3aff', fog: 'rgba(122,58,255,0.22)' },
       chestCount: 4, goldPiles: 10, enemies: 10,
       lootBias: 'epic',
     },
+    // Variants — reuse the 3 exterior shapes with distinct palettes + loot mixes.
+    bonecrypt: {
+      id: 'bonecrypt', name: 'BONE CRYPT', shortName: 'CRYPT',
+      color: '#e8dcc0', style: 'ruins',
+      interiorPalette: { ground: '#1a1a26', edge: '#06060e', accent: '#e8dcc0', fog: 'rgba(232,220,192,0.16)' },
+      chestCount: 5, goldPiles: 10, enemies: 7,
+      lootBias: 'rare',
+    },
+    emberforge: {
+      id: 'emberforge', name: 'EMBER FORGE', shortName: 'FORGE',
+      color: '#ff5030', style: 'temple',
+      interiorPalette: { ground: '#2a1208', edge: '#0a0500', accent: '#ff5030', fog: 'rgba(255,80,48,0.22)' },
+      chestCount: 4, goldPiles: 12, enemies: 9,
+      lootBias: 'epic',
+    },
+    frostspire: {
+      id: 'frostspire', name: 'FROSTSPIRE', shortName: 'SPIRE',
+      color: '#66d9ff', style: 'tower',
+      interiorPalette: { ground: '#0e1c2a', edge: '#04101c', accent: '#66d9ff', fog: 'rgba(102,217,255,0.20)' },
+      chestCount: 4, goldPiles: 10, enemies: 9,
+      lootBias: 'epic',
+    },
+    sanctum: {
+      id: 'sanctum', name: 'SUNKEN SANCTUM', shortName: 'SANCTUM',
+      color: '#a8ff66', style: 'temple',
+      interiorPalette: { ground: '#0a1a14', edge: '#040c08', accent: '#a8ff66', fog: 'rgba(168,255,102,0.20)' },
+      chestCount: 5, goldPiles: 11, enemies: 8,
+      lootBias: 'rare',
+    },
+    drowned: {
+      id: 'drowned', name: 'DROWNED VAULT', shortName: 'VAULT',
+      color: '#3aa9ff', style: 'ruins',
+      interiorPalette: { ground: '#0e1620', edge: '#040810', accent: '#3aa9ff', fog: 'rgba(58,169,255,0.20)' },
+      chestCount: 6, goldPiles: 12, enemies: 7,
+      lootBias: 'rare',
+    },
   };
-  const BUILDING_KEYS = ['ruins', 'temple', 'tower'];
+  const BUILDING_KEYS = ['ruins', 'temple', 'tower', 'bonecrypt', 'emberforge', 'frostspire', 'sanctum', 'drowned'];
   function pickBuilding() {
     return BUILDING_KEYS[Math.floor(Math.random() * BUILDING_KEYS.length)];
   }

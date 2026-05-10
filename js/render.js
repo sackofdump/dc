@@ -357,7 +357,9 @@ DDI.Renderer = (function () {
       const D = DDI.data;
       const def = (D && D.BUILDINGS && D.BUILDINGS[f.buildingId]) || null;
       const color = (def && def.color) || '#a8a08a';
-      const id = f.buildingId || 'ruins';
+      // Use def.style to pick the exterior shape so variant buildings
+      // (bonecrypt, emberforge, etc.) reuse one of the 3 base silhouettes.
+      const id = (def && def.style) || f.buildingId || 'ruins';
       const pulse = 0.55 + Math.sin(t * 1.5) * 0.18;
       // Sealed-after-loot visual: skip the bright pulse glow; renderer below uses
       // f._explored to drop saturation so the structure clearly reads as done.
