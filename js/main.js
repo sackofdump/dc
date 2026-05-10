@@ -1313,10 +1313,11 @@
           if (d2 < 32 * 32) {
             f.used = true;
             toRemove.push(f);
-            // Spawn a burst of XP orbs as loot pickups
-            for (let i = 0; i < 12; i++) {
-              const a = (i / 12) * Math.PI * 2;
-              self.loot.spawn('xp', f.x + Math.cos(a) * 8, f.y + Math.sin(a) * 8, 8 + Math.floor(Math.random() * 6));
+            // Spawn a small burst of XP orbs — total ~24-36 xp at low levels
+            // (was 96-156, which jumped the player ~3 levels in one pickup).
+            for (let i = 0; i < 6; i++) {
+              const a = (i / 6) * Math.PI * 2;
+              self.loot.spawn('xp', f.x + Math.cos(a) * 8, f.y + Math.sin(a) * 8, 4 + Math.floor(Math.random() * 3));
             }
             self.fx.toast('+XP SHRINE');
             self.fx.shake(4);
