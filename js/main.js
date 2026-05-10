@@ -14,6 +14,10 @@
       this.viewH = window.innerHeight;
       // Bordered world. Hero clamped to these bounds; features distributed inside.
       this.world = { width: 7200, height: 4800 };
+      // Lingering / telegraphed hazards spawned by elite abilities (toxic pools,
+      // holy beam stripes, expanding spore rings). Updated each frame; hits the
+      // hero only after the active phase begins (telegraph -> strike -> linger).
+      this.hazards = [];
       this.features = [];
       // Zone state: 'main' has portals; biome zones have no portals and a kill goal.
       this.zone = { name: 'main', displayName: 'WHISPERING CRYPTS', color: '#b266ff', killsInZone: 0, killsNeeded: 0 };
@@ -163,6 +167,7 @@
       this.loot.live.forEach(function (l) { l._alive = false; });         this.loot.sweep();
       this.particles.live.forEach(function (p) { p._alive = false; });   this.particles.sweep();
       this.dmgnums.live.forEach(function (d) { d._alive = false; });     this.dmgnums.sweep();
+      this.hazards = [];     // clear lingering elite hazards from a previous run
       this.hero.reset(HERO_BASE, this.world.width / 2, this.world.height / 2);
       this.zone = { name: 'main', displayName: 'WHISPERING CRYPTS', color: '#b266ff', killsInZone: 0, killsNeeded: 0 };
       this.zoneDifficulty = 1;
@@ -703,10 +708,219 @@
           }
           if (e.hp <= 0) Combat.killEnemy(e);
         }
+        // Elites cast unique telegraphed abilities on cooldown
+        if (e._alive && e.def && e.def.isElite && e.def.eliteAbility) {
+          self.tickEliteAbility(e, dt);
+        }
         // Viewport-relative cull: don't kill enemies just because they're off-screen
         const cullR = Math.max(self.viewW, self.viewH) * 2.2 + 600;
         if (dist2(h.x, h.y, e.x, e.y) > cullR * cullR) e._alive = false;
       });
+      // Tick lingering / telegraphed hazards each frame
+      this.updateHazards(dt);
+    }
+
+    // ============================================================
+    // ELITE ABILITIES — each elite type telegraphs a unique attack on cooldown
+    // ============================================================
+    tickEliteAbility(e, dt) {
+      if (e._eliteCd == null) {
+        // Stagger initial cast so multiple elites don't sync up
+        e._eliteCd = 4 + Math.random() * 3;
+      }
+      e._eliteCd -= dt;
+      if (e._eliteCd > 0) return;
+      // Only cast if hero is on-screen — don't burn an ability into the void
+      const h = this.hero;
+      const onScreen = dist2(h.x, h.y, e.x, e.y) < (Math.max(this.viewW, this.viewH) * 0.7) * (Math.max(this.viewW, this.viewH) * 0.7);
+      if (!onScreen) { e._eliteCd = 0.5; return; }
+      // Reset cooldown — between 7-10s with jitter so the player gets breathing room
+      e._eliteCd = 7 + Math.random() * 3;
+      this.castEliteAbility(e);
+    }
+
+    castEliteAbility(e) {
+      const ab = e.def && e.def.eliteAbility;
+      switch (ab) {
+        case 'holy_beam':    return this.eliteHolyBeam(e);
+        case 'shrapnel':     return this.eliteShrapnel(e);
+        case 'toxic_pool':   return this.eliteToxicPool(e);
+        case 'meteor_burst': return this.eliteMeteorBurst(e);
+        case 'shadow_dash':  return this.eliteShadowDash(e);
+        case 'spore_bloom':  return this.eliteSporeBloom(e);
+      }
+    }
+
+    // Holy beam — vertical column of light slams down at the hero's CURRENT
+    // position after a 1.0s telegraph. Player has time to step out of the
+    // circle. Heavy damage if caught.
+    eliteHolyBeam(e) {
+      const h = this.hero;
+      const tx = h.x, ty = h.y;
+      const radius = 90;
+      const dmg = (e.def.dmg || 22) * 1.4;
+      this.fx.toast('★ HOLY BEAM ★');
+      // Telegraph circle that linger-pulses for 1.0s, then strike for 0.4s
+      this.hazards.push({
+        kind: 'holy_beam',
+        x: tx, y: ty, radius,
+        telegraph: 1.0, strike: 0.4, linger: 0.0,
+        damage: dmg,
+        color: '#ffd966',
+        sourceId: e.id,
+        hitOnce: false,
+      });
+    }
+
+    // Shrapnel — 8-shard radial volley from the elite outward
+    eliteShrapnel(e) {
+      const dmg = (e.def.dmg || 18) * 0.9;
+      const speed = 320;
+      const count = 8;
+      this.fx.toast('★ SHRAPNEL ★');
+      for (let i = 0; i < count; i++) {
+        const a = (i / count) * Math.PI * 2 + Math.random() * 0.1;
+        this.projectiles.spawn({
+          x: e.x, y: e.y,
+          vx: Math.cos(a) * speed, vy: Math.sin(a) * speed,
+          life: 1.4, damage: dmg,
+          color: '#e8dcc0', radius: 6, pierce: 0,
+          kind: 'projectile', hostile: true,
+        });
+      }
+    }
+
+    // Toxic pool — drops 3 lingering green puddles around the elite
+    eliteToxicPool(e) {
+      const dmg = (e.def.dmg || 22) * 0.6;     // per-second tick
+      this.fx.toast('★ PLAGUE POOLS ★');
+      for (let i = 0; i < 3; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const dist = 30 + Math.random() * 80;
+        this.hazards.push({
+          kind: 'toxic_pool',
+          x: e.x + Math.cos(a) * dist,
+          y: e.y + Math.sin(a) * dist,
+          radius: 60,
+          telegraph: 0.5, strike: 0.0, linger: 5.5,
+          damage: dmg,
+          color: '#9fdf7f',
+        });
+      }
+    }
+
+    // Meteor burst — 3 falling fireballs that target the hero's leading
+    // position, slight spread
+    eliteMeteorBurst(e) {
+      const h = this.hero;
+      const dmg = (e.def.dmg || 18) * 1.1;
+      this.fx.toast('★ METEOR ★');
+      for (let i = 0; i < 3; i++) {
+        const tx = h.x + (Math.random() - 0.5) * 120;
+        const ty = h.y + (Math.random() - 0.5) * 120;
+        // Spawn a falling hostile projectile (uses meteor render path)
+        this.projectiles.spawn({
+          x: tx, y: ty - 380,
+          vx: 0, vy: 540,
+          life: 1.2, damage: dmg,
+          color: '#ff5030', radius: 22, pierce: 0,
+          kind: 'meteor', hostile: true,
+          spawnY: ty - 380, gravityFall: ty,
+          areaOnHit: 50, delay: i * 0.3,
+        });
+      }
+    }
+
+    // Shadow dash — wraith vanishes and reappears in striking range, slashing
+    eliteShadowDash(e) {
+      const h = this.hero;
+      const dx = h.x - e.x, dy = h.y - e.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const dist = Math.min(len, 360);
+      const tx = e.x + (dx / len) * dist;
+      const ty = e.y + (dy / len) * dist;
+      // Fade-out particles at origin, fade-in at destination
+      this.particles.spawn({ x: e.x, y: e.y, life: 0.4, size: 60, color: '#7a3aff', kind: 'ring', fade: 1 });
+      e.x = tx;
+      e.y = ty;
+      this.particles.spawn({ x: tx, y: ty, life: 0.45, size: 80, color: '#b266ff', kind: 'ring', fade: 1 });
+      // Quick area slash hazard at the destination (small, instant strike)
+      const dmg = (e.def.dmg || 22) * 1.0;
+      this.hazards.push({
+        kind: 'shadow_slash',
+        x: tx, y: ty, radius: 70,
+        telegraph: 0.0, strike: 0.25, linger: 0.0,
+        damage: dmg, color: '#b266ff', hitOnce: false,
+      });
+    }
+
+    // Spore bloom — expanding ring damages once at the leading edge
+    eliteSporeBloom(e) {
+      const dmg = (e.def.dmg || 24) * 0.8;
+      this.fx.toast('★ SPORE BLOOM ★');
+      this.hazards.push({
+        kind: 'spore_bloom',
+        x: e.x, y: e.y, radius: 0, maxRadius: 220,
+        telegraph: 0.0, strike: 0.7, linger: 0.0,
+        damage: dmg, color: '#ff7b1f', hitOnce: false,
+      });
+    }
+
+    // Tick all hazards: advance phase, draw via render, damage hero on overlap
+    updateHazards(dt) {
+      const h = this.hero;
+      const live = [];
+      for (let i = 0; i < this.hazards.length; i++) {
+        const z = this.hazards[i];
+        // Phase machine: telegraph -> strike -> linger
+        if (z.telegraph > 0) {
+          z.telegraph -= dt;
+        } else if (z.strike > 0) {
+          z.strike -= dt;
+          // Active: damage on overlap (once per hazard for instant types,
+          // continuous DPS for lingering puddles handled in linger phase)
+          if (z.kind === 'spore_bloom') {
+            // Ring grows over the strike window
+            const phase = 1 - z.strike / 0.7;
+            z.radius = (z.maxRadius || 220) * phase;
+            // Damage hero if currently inside the leading edge band
+            const d = Math.hypot(h.x - z.x, h.y - z.y);
+            if (Math.abs(d - z.radius) < 30 && !z.hitOnce && h.iframes <= 0) {
+              h.takeDamage(z.damage);
+              z.hitOnce = true;
+              this.fx.shake(8);
+            }
+          } else if (z.kind === 'holy_beam' || z.kind === 'shadow_slash') {
+            const d2 = (h.x - z.x) * (h.x - z.x) + (h.y - z.y) * (h.y - z.y);
+            if (d2 <= z.radius * z.radius && !z.hitOnce && h.iframes <= 0) {
+              h.takeDamage(z.damage);
+              z.hitOnce = true;
+              this.fx.shake(10);
+              this.fx.flash(z.color || '#ff3d52', 0.3);
+            }
+          }
+        } else if (z.linger > 0) {
+          z.linger -= dt;
+          // Continuous DPS hazards (puddles)
+          if (z.kind === 'toxic_pool') {
+            const d2 = (h.x - z.x) * (h.x - z.x) + (h.y - z.y) * (h.y - z.y);
+            if (d2 <= z.radius * z.radius && h.iframes <= 0) {
+              h.takeDamage(z.damage * dt);
+              if (chance(dt * 4)) {
+                this.particles.spawn({
+                  x: h.x + rand(-8, 8), y: h.y - 12,
+                  vx: 0, vy: -30,
+                  life: 0.5, color: '#a8ff66', size: 2, kind: 'spark',
+                });
+              }
+            }
+          }
+        } else {
+          continue;     // expired — drop from list
+        }
+        live.push(z);
+      }
+      this.hazards = live;
     }
 
     fireEnemyProjectile(enemy, hero) {
@@ -1230,6 +1444,7 @@
       this.generateFeatures(biome);
       this.enemies.live.forEach(function (e) { e._alive = false; });
       this.enemies.sweep();
+      this.hazards = [];     // clear lingering elite hazards on zone change
       Spawner.reset();
       this.hero.x = this.world.width / 2;
       this.hero.y = this.world.height / 2;
@@ -1372,6 +1587,7 @@
       this.zoneRequiredLevel = 0;
       this.enemies.live.forEach(function (e) { e._alive = false; });
       this.enemies.sweep();
+      this.hazards = [];     // clear lingering elite hazards on zone change
       Spawner.reset();
       this.hero.x = stash.returnX;
       this.hero.y = stash.returnY;
@@ -1596,6 +1812,7 @@
       this.generateFeatures('main');
       this.enemies.live.forEach(function (e) { e._alive = false; });
       this.enemies.sweep();
+      this.hazards = [];     // clear lingering elite hazards on zone change
       Spawner.reset();
       this.hero.x = this.world.width / 2;
       this.hero.y = this.world.height / 2;

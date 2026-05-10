@@ -75,6 +75,7 @@ DDI.Renderer = (function () {
       this.drawHero(ctx, app.hero);
       this.drawOrbitals(ctx);
       this.drawProjectiles(ctx);
+      this.drawHazards(ctx);
       this.drawParticles(ctx);
       this.drawDmgNums(ctx);
 
@@ -2972,6 +2973,113 @@ DDI.Renderer = (function () {
             ctx.fillStyle = 'rgba(255,255,255,0.4)';
             ctx.fillRect(-1.5, -16, 3, 32);
           }
+          ctx.restore();
+        }
+      }
+    }
+
+    drawHazards(ctx) {
+      const t = performance.now() / 1000;
+      const hazards = this.app.hazards || [];
+      for (let i = 0; i < hazards.length; i++) {
+        const z = hazards[i];
+        if (z.kind === 'holy_beam') {
+          // Telegraph: circle on the ground + warning ring
+          if (z.telegraph > 0) {
+            const phase = 1 - z.telegraph / 1.0;
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen';
+            const aura = ctx.createRadialGradient(z.x, z.y, 0, z.x, z.y, z.radius);
+            aura.addColorStop(0, 'rgba(255,217,102,' + (0.30 + phase * 0.30) + ')');
+            aura.addColorStop(1, 'rgba(255,217,102,0)');
+            ctx.fillStyle = aura;
+            ctx.beginPath(); ctx.arc(z.x, z.y, z.radius, 0, TAU); ctx.fill();
+            ctx.restore();
+            // Pulsing warning ring
+            ctx.save();
+            ctx.strokeStyle = '#ffd966';
+            ctx.lineWidth = 3 + Math.sin(t * 12) * 1.5;
+            ctx.setLineDash([10, 6]);
+            ctx.lineDashOffset = -t * 30;
+            ctx.beginPath(); ctx.arc(z.x, z.y, z.radius, 0, TAU); ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.restore();
+            // Beam buildup column from above (slim, building intensity)
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen';
+            const colW = 14 + phase * 30;
+            const colGrd = ctx.createLinearGradient(z.x, z.y - 600, z.x, z.y);
+            colGrd.addColorStop(0, 'rgba(255,217,102,0)');
+            colGrd.addColorStop(1, 'rgba(255,255,200,' + (0.25 + phase * 0.45) + ')');
+            ctx.fillStyle = colGrd;
+            ctx.fillRect(z.x - colW / 2, z.y - 600, colW, 600);
+            ctx.restore();
+          } else if (z.strike > 0) {
+            // Strike — bright vertical column slamming down
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen';
+            const strikeGrd = ctx.createLinearGradient(z.x, z.y - 600, z.x, z.y);
+            strikeGrd.addColorStop(0, 'rgba(255,255,255,0)');
+            strikeGrd.addColorStop(0.85, 'rgba(255,255,200,0.95)');
+            strikeGrd.addColorStop(1, 'rgba(255,217,102,1)');
+            ctx.fillStyle = strikeGrd;
+            ctx.fillRect(z.x - 60, z.y - 600, 120, 600);
+            // Floor flash
+            const flash = ctx.createRadialGradient(z.x, z.y, 0, z.x, z.y, z.radius);
+            flash.addColorStop(0, 'rgba(255,255,255,0.85)');
+            flash.addColorStop(1, 'rgba(255,217,102,0)');
+            ctx.fillStyle = flash;
+            ctx.beginPath(); ctx.arc(z.x, z.y, z.radius, 0, TAU); ctx.fill();
+            ctx.restore();
+          }
+        } else if (z.kind === 'toxic_pool') {
+          if (z.telegraph > 0) {
+            // Brief landing splash
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen';
+            ctx.fillStyle = 'rgba(159,223,127,0.55)';
+            ctx.beginPath(); ctx.arc(z.x, z.y, z.radius * (1 - z.telegraph / 0.5), 0, TAU); ctx.fill();
+            ctx.restore();
+          } else {
+            // Lingering puddle — bubbling green
+            ctx.save();
+            ctx.fillStyle = 'rgba(80,140,60,0.55)';
+            ctx.beginPath(); ctx.ellipse(z.x, z.y + 4, z.radius, z.radius * 0.55, 0, 0, TAU); ctx.fill();
+            ctx.strokeStyle = 'rgba(159,223,127,0.85)';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.ellipse(z.x, z.y + 4, z.radius, z.radius * 0.55, 0, 0, TAU); ctx.stroke();
+            // Bubbles
+            const bubbles = 5;
+            for (let b = 0; b < bubbles; b++) {
+              const bb = (t * 1.2 + b * 0.7) % 1;
+              const bx = z.x + Math.sin(t * 2 + b) * z.radius * 0.5;
+              const by = z.y + 6 - bb * 14;
+              ctx.fillStyle = 'rgba(168,255,102,' + (0.7 * (1 - bb)) + ')';
+              ctx.beginPath(); ctx.arc(bx, by, 2 + Math.sin(t * 4 + b) * 0.5, 0, TAU); ctx.fill();
+            }
+            ctx.restore();
+          }
+        } else if (z.kind === 'spore_bloom') {
+          // Expanding ring
+          ctx.save();
+          ctx.globalCompositeOperation = 'screen';
+          ctx.strokeStyle = 'rgba(255,123,31,0.9)';
+          ctx.lineWidth = 8;
+          ctx.beginPath(); ctx.arc(z.x, z.y, z.radius, 0, TAU); ctx.stroke();
+          ctx.strokeStyle = 'rgba(255,217,102,0.55)';
+          ctx.lineWidth = 14;
+          ctx.beginPath(); ctx.arc(z.x, z.y, z.radius, 0, TAU); ctx.stroke();
+          ctx.restore();
+        } else if (z.kind === 'shadow_slash') {
+          // Quick violet crescent at the wraith's destination
+          const phase = 1 - z.strike / 0.25;
+          ctx.save();
+          ctx.globalCompositeOperation = 'screen';
+          const sg = ctx.createRadialGradient(z.x, z.y, 0, z.x, z.y, z.radius);
+          sg.addColorStop(0, 'rgba(178,102,255,' + (0.85 * (1 - phase)) + ')');
+          sg.addColorStop(1, 'rgba(178,102,255,0)');
+          ctx.fillStyle = sg;
+          ctx.beginPath(); ctx.arc(z.x, z.y, z.radius, 0, TAU); ctx.fill();
           ctx.restore();
         }
       }
