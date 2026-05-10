@@ -365,7 +365,10 @@ DDI.UI = (function () {
       // If a saved-mid-run snapshot exists and the player picks a DIFFERENT
       // character, warn them — the saved run will be discarded since the
       // ability roster won't match.
-      const doCommit = function (choice) {
+      // Per-character runStates: switching classes no longer discards
+      // saved runs — each class keeps its own snapshot.
+      const commit = function (choice) {
+        if (!choice || !self.app.save) return;
         self.app.save.character = choice;
         self.app.persist();
         modal.classList.add('hidden');
@@ -375,30 +378,6 @@ DDI.UI = (function () {
         if (self.app.fx && self.app.fx.toast) {
           self.app.fx.toast('CHARACTER: ' + choice.toUpperCase());
         }
-      };
-      const commit = function (choice) {
-        if (!choice || !self.app.save) return;
-        const prev = self.app.save.character;
-        const hasSaved = !!(self.app.save.runState);
-        if (hasSaved && prev && prev !== choice) {
-          const prevName = (CLASSES[prev] && CLASSES[prev].name) || prev.toUpperCase();
-          const newName  = (CLASSES[choice] && CLASSES[choice].name) || choice.toUpperCase();
-          self.showConfirm({
-            title: 'DISCARD SAVED RUN?',
-            message:
-              'You have a saved run on <em class="hl">' + prevName.toUpperCase() + '</em>.\n' +
-              'Switching to <em class="hl">' + newName.toUpperCase() + '</em> will permanently discard it.',
-            confirmText: 'DISCARD & SWITCH',
-            cancelText: 'KEEP MY RUN',
-            danger: true,
-            onConfirm: function () {
-              self.app.save.runState = null;
-              doCommit(choice);
-            },
-          });
-          return;
-        }
-        doCommit(choice);
       };
       picks.forEach(function (el) {
         const myChar = el.getAttribute('data-char');
@@ -1677,13 +1656,29 @@ DDI.UI = (function () {
             '<div class="cc-abils">' + (starters || '—') + '</div>' +
           '</div>' +
         '</div>';
-      // Show CONTINUE RUN button only if a saved run snapshot exists
+      // Show CONTINUE RUN button if any saved run exists. Prefer the active
+      // character's saved run; if only another class has a saved run, label
+      // it so the player knows clicking will swap them.
       const continueBtn = this.$('btn-continue-run');
-      if (continueBtn) continueBtn.classList.toggle('hidden', !(this.app && this.app.hasSavedRun && this.app.hasSavedRun()));
-      // Update DESCEND label to "NEW RUN" when a save is present so the
-      // distinction is obvious.
+      const hasSaved = !!(this.app && this.app.hasSavedRun && this.app.hasSavedRun());
+      if (continueBtn) {
+        continueBtn.classList.toggle('hidden', !hasSaved);
+        if (hasSaved) {
+          const active = this.app.activeSavedRun ? this.app.activeSavedRun() : null;
+          const savedRun = active || (this.app.latestSavedRun ? this.app.latestSavedRun() : null);
+          const ck = (savedRun && savedRun.character) || (this.app.save && this.app.save.character) || 'default';
+          const klName = (D.CLASSES && D.CLASSES[ck] && D.CLASSES[ck].name) || ck.toUpperCase();
+          continueBtn.textContent = active
+            ? '▶ CONTINUE RUN'
+            : '▶ CONTINUE ' + klName.toUpperCase() + ' RUN';
+        }
+      }
+      // Update DESCEND label to "NEW RUN" when this character has a save.
       const startBtn = this.$('btn-start');
-      if (startBtn) startBtn.textContent = (this.app && this.app.hasSavedRun && this.app.hasSavedRun()) ? 'NEW RUN' : 'DESCEND';
+      if (startBtn) {
+        const charHasSave = !!(this.app && this.app.activeSavedRun && this.app.activeSavedRun());
+        startBtn.textContent = charHasSave ? 'NEW RUN' : 'DESCEND';
+      }
       this.$('title-stats').innerHTML =
         charCard +
         '<div class="rank-block">' +

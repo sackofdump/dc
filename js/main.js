@@ -138,7 +138,13 @@
     _startRunInner() {
       if (!this.save) { this.ui.showLogin(); return; }
       // Starting fresh discards any saved-mid-run state.
-      if (this.save.runState) { this.save.runState = null; this.persist(); }
+      // Starting fresh discards any saved-mid-run state for THIS character.
+      this._migrateLegacyRunState();
+      const _ck = this.save.character || 'default';
+      if (this.save.runStates && this.save.runStates[_ck]) {
+        delete this.save.runStates[_ck];
+        this.persist();
+      }
       this.ui.hideTitle();
       this.ui.hideDeath();
       // Force-close any leftover modals from a previous run
@@ -203,7 +209,12 @@
       this.game.running = false;
       this.game.paused = true;
       // Run is over — discard any stale save snapshot.
-      if (this.save && this.save.runState) { this.save.runState = null; }
+      // Run is over — discard the saved snapshot for the character that died/won.
+      if (this.save) {
+        this._migrateLegacyRunState();
+        const ck = this.save.character || 'default';
+        if (this.save.runStates && this.save.runStates[ck]) delete this.save.runStates[ck];
+      }
       const rootEl = document.getElementById('game-root');
       if (rootEl) rootEl.classList.remove('in-game');
       // Dust breakdown — shown in death summary so players see where it came from.
@@ -280,9 +291,12 @@
         'regen','greed','xpMult','damageReduce',
       ];
       for (let i = 0; i < HERO_KEYS.length; i++) heroSnap[HERO_KEYS[i]] = h[HERO_KEYS[i]];
-      this.save.runState = {
+      const charKey = (this.save && this.save.character) || 'default';
+      this.save.runStates = this.save.runStates || {};
+      this.save.runStates[charKey] = {
         savedAt: Date.now(),
-        version: 1,
+        version: 2,
+        character: charKey,
         game: {
           time: this.game.time, level: this.game.level, xp: this.game.xp, xpNeed: this.game.xpNeed,
           kills: this.game.kills, elites: this.game.elites, bosses: this.game.bosses,
@@ -354,13 +368,65 @@
       });
     }
 
+    // Migrate legacy single-slot runState into the new per-character map so
+    // existing players keep their saved run on first load after the update.
+    _migrateLegacyRunState() {
+      if (!this.save) return;
+      if (this.save.runState && !this.save.runStates) {
+        const charKey = this.save.character || 'default';
+        this.save.runStates = {};
+        this.save.runStates[charKey] = this.save.runState;
+        this.save.runStates[charKey].character = charKey;
+        delete this.save.runState;
+        this.persist();
+      }
+    }
+
+    // Returns true if ANY character has a saved run. Used by the title screen
+    // to decide whether to show CONTINUE RUN / NEW RUN.
     hasSavedRun() {
-      return !!(this.save && this.save.runState);
+      this._migrateLegacyRunState();
+      const map = this.save && this.save.runStates;
+      if (!map) return false;
+      for (const k in map) if (map[k]) return true;
+      return false;
+    }
+
+    // Returns the saved run for the active character if one exists, or null.
+    activeSavedRun() {
+      this._migrateLegacyRunState();
+      const map = this.save && this.save.runStates;
+      if (!map) return null;
+      const charKey = (this.save && this.save.character) || 'default';
+      return map[charKey] || null;
+    }
+
+    // Returns the most-recently-saved run across ALL characters.
+    latestSavedRun() {
+      this._migrateLegacyRunState();
+      const map = this.save && this.save.runStates;
+      if (!map) return null;
+      let best = null;
+      for (const k in map) {
+        const rs = map[k];
+        if (!rs) continue;
+        if (!best || (rs.savedAt || 0) > (best.savedAt || 0)) best = rs;
+      }
+      return best;
     }
 
     continueRun() {
-      const rs = this.save && this.save.runState;
+      this._migrateLegacyRunState();
+      // Prefer the active character's run; otherwise pick the latest across
+      // characters and silently swap the active class to it.
+      let rs = this.activeSavedRun();
+      if (!rs) rs = this.latestSavedRun();
       if (!rs) return;
+      // Auto-switch the active class to whichever character this saved run
+      // belongs to — keeps the UX dead simple ("CONTINUE RUN just works").
+      if (rs.character && this.save.character !== rs.character) {
+        this.save.character = rs.character;
+      }
       this.ui.hideTitle();
       this.ui.hideDeath();
       // Force-close any leftover modals
@@ -433,8 +499,9 @@
       // Mark in-run
       const rootEl = document.getElementById('game-root');
       if (rootEl) rootEl.classList.add('in-game');
-      // Clear the saved state — we're now running it
-      this.save.runState = null;
+      // Clear the saved snapshot for THIS character — we're now running it.
+      const charKey = (this.save && this.save.character) || 'default';
+      if (this.save.runStates) delete this.save.runStates[charKey];
       this.persist();
       this.fx.toast('★  RESUMED  ★');
       this.fx.flash('#ffd966', 0.4);
