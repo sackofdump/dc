@@ -174,6 +174,28 @@ DDI.Renderer = (function () {
           ctx.closePath();
           ctx.fill();
           ctx.stroke();
+        } else if (f.type === 'ritual_circle') {
+          // Ritual circles — bright blue ring; greyed once cleansed.
+          const c = f._data || { done: false, charge: 0 };
+          if (c.done) {
+            ctx.strokeStyle = 'rgba(120,160,200,0.5)';
+            ctx.lineWidth = 1.5;
+          } else {
+            ctx.strokeStyle = '#3aa9ff';
+            ctx.lineWidth = 2;
+          }
+          ctx.beginPath(); ctx.arc(fx, fy, 6, 0, TAU); ctx.stroke();
+          // Inner dot — tracks channel progress
+          if (!c.done) {
+            ctx.fillStyle = '#66d9ff';
+            ctx.beginPath(); ctx.arc(fx, fy, 1.6, 0, TAU); ctx.fill();
+          }
+        } else if (f.type === 'totem') {
+          // Defend objective: gold rune marker at zone center
+          ctx.fillStyle = '#ffd966';
+          ctx.strokeStyle = '#7a5400';
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.arc(fx, fy, 4, 0, TAU); ctx.fill(); ctx.stroke();
         }
       }
 
@@ -285,23 +307,23 @@ DDI.Renderer = (function () {
       const c = f._data || { charge: 0, done: false };
       const baseR = 90;
       const pulse = 0.6 + Math.sin(t * 2.2) * 0.25;
-      // Floor sigil
+      // Floor sigil — blue while active, faded once cleansed.
       ctx.save();
       ctx.globalCompositeOperation = 'screen';
       const aura = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, baseR);
-      const col = c.done ? 'rgba(109,255,155,' : 'rgba(178,102,255,';
-      aura.addColorStop(0, col + (0.40 * pulse) + ')');
+      const col = c.done ? 'rgba(180,200,220,' : 'rgba(102,217,255,';
+      aura.addColorStop(0, col + (0.45 * pulse) + ')');
       aura.addColorStop(1, col + '0)');
       ctx.fillStyle = aura;
       ctx.beginPath(); ctx.arc(f.x, f.y, baseR, 0, TAU); ctx.fill();
       ctx.restore();
       // Outer ring
       ctx.save();
-      ctx.strokeStyle = c.done ? '#6dff9b' : '#b266ff';
+      ctx.strokeStyle = c.done ? '#9ab8d0' : '#3aa9ff';
       ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(f.x, f.y, baseR, 0, TAU); ctx.stroke();
       // Inner runes (rotating dashes)
-      ctx.strokeStyle = c.done ? 'rgba(109,255,155,0.8)' : 'rgba(178,102,255,0.8)';
+      ctx.strokeStyle = c.done ? 'rgba(180,200,220,0.7)' : 'rgba(102,217,255,0.85)';
       ctx.lineWidth = 2;
       ctx.setLineDash([12, 8]);
       ctx.lineDashOffset = -t * 30;
@@ -313,7 +335,7 @@ DDI.Renderer = (function () {
       // Charge pie — fills clockwise from top as the player channels
       if (!c.done && c.charge > 0) {
         ctx.save();
-        ctx.fillStyle = 'rgba(178,102,255,0.30)';
+        ctx.fillStyle = 'rgba(102,217,255,0.32)';
         ctx.beginPath();
         ctx.moveTo(f.x, f.y);
         const ang = -Math.PI / 2 + (c.charge / 100) * TAU;
@@ -325,7 +347,7 @@ DDI.Renderer = (function () {
       // Charge text
       ctx.save();
       ctx.font = 'bold 12px monospace';
-      ctx.fillStyle = c.done ? '#6dff9b' : '#fff';
+      ctx.fillStyle = c.done ? '#9ab8d0' : '#fff';
       ctx.textAlign = 'center';
       ctx.fillText(c.done ? 'CLEANSED' : Math.floor(c.charge || 0) + '%', f.x, f.y - baseR - 6);
       ctx.restore();
