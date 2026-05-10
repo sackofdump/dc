@@ -386,6 +386,13 @@ DDI.UI = (function () {
             node.title = def.desc || def.name;
             node.innerHTML = '<span class="ico" style="color:' + (def.color || '#fff') + '">' + def.icon + '</span>'
               + '<span class="nm">' + def.name + '</span>';
+            // Tap an ability chip to see what it does — same tooltip as in-game.
+            node.style.cursor = 'pointer';
+            node.addEventListener('click', function (ev) {
+              ev.preventDefault();
+              ev.stopPropagation();    // don't trigger the card's select handler
+              self.showAbilityInfo(node, def);
+            });
             abilEl.appendChild(node);
           });
         }
@@ -1352,6 +1359,33 @@ DDI.UI = (function () {
       // Tapping a slot now only surfaces the info tooltip — abilities auto-cast
       // on cooldown.  No more "tap to shave" or force-cast.
       this.showAbilityTooltip(slotEl, def, ab, stats);
+    }
+
+    // Static ability tooltip — used on the character-select screen where there
+    // is no slot/level state, just a hover info card showing what the ability
+    // will do at level 1.
+    showAbilityInfo(anchorEl, def) {
+      let tip = document.getElementById('ability-tooltip');
+      if (!tip) {
+        tip = document.createElement('div');
+        tip.id = 'ability-tooltip';
+        document.getElementById('game-root').appendChild(tip);
+      }
+      const stats = def.scale ? def.scale(0, def.base) : def.base;
+      const descLine = def.desc_at ? def.desc_at(0, stats) : '';
+      tip.innerHTML =
+        '<div class="tip-head" style="color:' + (def.color || '#fff') + '">' + def.icon + ' ' + def.name + ' <span class="tip-lvl">Lv 1</span></div>' +
+        '<div class="tip-desc">' + (def.desc || '') + '</div>' +
+        (descLine ? '<div class="tip-stats">' + descLine + '</div>' : '');
+      if (anchorEl) {
+        const r = anchorEl.getBoundingClientRect();
+        tip.style.left = (r.left + r.width / 2) + 'px';
+        tip.style.top  = (r.top - 10) + 'px';
+      }
+      tip.classList.add('visible');
+      clearTimeout(this._tooltipTimer);
+      const self = this;
+      this._tooltipTimer = setTimeout(function () { tip.classList.remove('visible'); }, 3000);
     }
 
     showAbilityTooltip(slotEl, def, ab, stats) {
