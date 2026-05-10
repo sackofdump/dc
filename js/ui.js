@@ -140,6 +140,16 @@ DDI.UI = (function () {
         self._charFromTitle = true;
         self.showCharacterSelect();
       });
+      // X-close on the character select modal — only valid when a character
+      // is already chosen (initial pick still needs a class).
+      const btnCharClose = this.$('btn-char-close');
+      if (btnCharClose) btnCharClose.addEventListener('click', function () {
+        if (!self.app.save || !self.app.save.character) return;     // first pick is mandatory
+        self.$('modal-character').classList.add('hidden');
+        self.modalOpen = false;
+        self._charFromTitle = false;
+        self.showTitle();
+      });
       const btnLbBack = this.$('btn-lb-back');
       if (btnLbBack) btnLbBack.addEventListener('click', function () {
         self.hideLeaderboard();
@@ -355,19 +365,7 @@ DDI.UI = (function () {
       // If a saved-mid-run snapshot exists and the player picks a DIFFERENT
       // character, warn them — the saved run will be discarded since the
       // ability roster won't match.
-      const commit = function (choice) {
-        if (!choice || !self.app.save) return;
-        const prev = self.app.save.character;
-        const hasSaved = !!(self.app.save.runState);
-        if (hasSaved && prev && prev !== choice) {
-          const ok = window.confirm(
-            'You have a saved run on ' + (prev || '').toUpperCase() + '.\n\n' +
-            'Switching to ' + choice.toUpperCase() + ' will DISCARD that saved run.\n\n' +
-            'Continue?'
-          );
-          if (!ok) return;
-          self.app.save.runState = null;
-        }
+      const doCommit = function (choice) {
         self.app.save.character = choice;
         self.app.persist();
         modal.classList.add('hidden');
@@ -377,6 +375,30 @@ DDI.UI = (function () {
         if (self.app.fx && self.app.fx.toast) {
           self.app.fx.toast('CHARACTER: ' + choice.toUpperCase());
         }
+      };
+      const commit = function (choice) {
+        if (!choice || !self.app.save) return;
+        const prev = self.app.save.character;
+        const hasSaved = !!(self.app.save.runState);
+        if (hasSaved && prev && prev !== choice) {
+          const prevName = (CLASSES[prev] && CLASSES[prev].name) || prev.toUpperCase();
+          const newName  = (CLASSES[choice] && CLASSES[choice].name) || choice.toUpperCase();
+          self.showConfirm({
+            title: 'DISCARD SAVED RUN?',
+            message:
+              'You have a saved run on <em class="hl">' + prevName.toUpperCase() + '</em>.\n' +
+              'Switching to <em class="hl">' + newName.toUpperCase() + '</em> will permanently discard it.',
+            confirmText: 'DISCARD & SWITCH',
+            cancelText: 'KEEP MY RUN',
+            danger: true,
+            onConfirm: function () {
+              self.app.save.runState = null;
+              doCommit(choice);
+            },
+          });
+          return;
+        }
+        doCommit(choice);
       };
       picks.forEach(function (el) {
         const myChar = el.getAttribute('data-char');
@@ -728,6 +750,40 @@ DDI.UI = (function () {
     hideActComplete() {
       this.$('modal-act-complete').classList.add('hidden');
       this.modalOpen = false;
+    }
+
+    // ---- In-game confirm dialog (replaces window.confirm) ----
+    showConfirm(opts) {
+      // opts: { title, message, confirmText, cancelText, danger, onConfirm, onCancel }
+      const m = this.$('modal-confirm');
+      if (!m) {
+        // Fallback in case the modal HTML is missing (stale cache)
+        if (window.confirm(opts.message || 'Are you sure?')) {
+          if (opts.onConfirm) opts.onConfirm();
+        } else if (opts.onCancel) opts.onCancel();
+        return;
+      }
+      const titleEl = this.$('confirm-title');
+      const msgEl   = this.$('confirm-msg');
+      const yesBtn  = this.$('confirm-yes');
+      const noBtn   = this.$('confirm-no');
+      if (titleEl) titleEl.textContent = (opts.title || 'CONFIRM').toUpperCase();
+      if (msgEl)   msgEl.innerHTML = opts.message || '';
+      if (yesBtn)  yesBtn.textContent = (opts.confirmText || 'CONFIRM').toUpperCase();
+      if (noBtn)   noBtn.textContent  = (opts.cancelText  || 'CANCEL').toUpperCase();
+      m.classList.toggle('danger', !!opts.danger);
+      m.classList.remove('hidden');
+      this.modalOpen = true;
+      const self = this;
+      const cleanup = function () {
+        m.classList.add('hidden');
+        // Don't drop modalOpen if another modal is still up
+        if (!document.querySelector('.modal:not(.hidden)')) self.modalOpen = false;
+        yesBtn && (yesBtn.onclick = null);
+        noBtn  && (noBtn.onclick  = null);
+      };
+      if (yesBtn) yesBtn.onclick = function () { cleanup(); if (opts.onConfirm) opts.onConfirm(); };
+      if (noBtn)  noBtn.onclick  = function () { cleanup(); if (opts.onCancel)  opts.onCancel(); };
     }
 
     // ---- Boot splash — covers the brief auto-login hydrate so title doesn't pop ----

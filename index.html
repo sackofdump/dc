@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=188" />
+  <link rel="stylesheet" href="style.css?v=189" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.50.3/dist/umd/supabase.js"></script>
 </head>
 <body>
@@ -236,6 +236,7 @@
     <!-- Character select — shown right after login if no character chosen yet -->
     <div id="modal-character" class="modal hidden">
       <div class="modal-card char-card">
+        <button id="btn-char-close" class="modal-close-btn" type="button" title="Close">✕</button>
         <h2>CHOOSE YOUR DELVER</h2>
         <p class="tagline">You can change this later from the title screen.</p>
         <div class="char-grid">
@@ -369,6 +370,18 @@
     </div>
 
     <!-- Settings -->
+    <!-- Generic confirm dialog — used in-place of browser window.confirm -->
+    <div id="modal-confirm" class="modal hidden">
+      <div class="modal-card confirm-card">
+        <h2 id="confirm-title">CONFIRM</h2>
+        <p class="confirm-msg" id="confirm-msg"></p>
+        <div class="modal-foot pause-buttons">
+          <button id="confirm-no"  class="ghost-btn">CANCEL</button>
+          <button id="confirm-yes" class="primary-btn">CONFIRM</button>
+        </div>
+      </div>
+    </div>
+
     <div id="modal-settings" class="modal hidden">
       <div class="modal-card">
         <h2>SETTINGS</h2>
@@ -403,19 +416,19 @@
   </div>
 
   <!-- Load order matters. ?v= busts browser cache when files change. -->
-  <script src="js/util.js?v=188"></script>
-  <script src="js/auth.js?v=188"></script>
-  <script src="js/data.js?v=188"></script>
-  <script src="js/save.js?v=188"></script>
-  <script src="js/assets.js?v=188"></script>
-  <script src="js/entities.js?v=188"></script>
-  <script src="js/systems.js?v=188"></script>
-  <script src="js/fx.js?v=188"></script>
-  <script src="js/input.js?v=188"></script>
-  <script src="js/ui.js?v=188"></script>
-  <script src="js/render.js?v=188"></script>
-  <script src="js/hudedit.js?v=188"></script>
-  <script src="js/minimap.js?v=188"></script>
-  <script src="js/main.js?v=188"></script>
+  <script src="js/util.js?v=189"></script>
+  <script src="js/auth.js?v=189"></script>
+  <script src="js/data.js?v=189"></script>
+  <script src="js/save.js?v=189"></script>
+  <script src="js/assets.js?v=189"></script>
+  <script src="js/entities.js?v=189"></script>
+  <script src="js/systems.js?v=189"></script>
+  <script src="js/fx.js?v=189"></script>
+  <script src="js/input.js?v=189"></script>
+  <script src="js/ui.js?v=189"></script>
+  <script src="js/render.js?v=189"></script>
+  <script src="js/hudedit.js?v=189"></script>
+  <script src="js/minimap.js?v=189"></script>
+  <script src="js/main.js?v=189"></script>
 </body>
 </html>

@@ -1046,6 +1046,75 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
   position: relative;
   z-index: 1;
 }
+/* ===== Modal close (✕) button — top-right corner ===== */
+.modal-close-btn {
+  position: absolute;
+  top: 10px; right: 10px;
+  width: 32px; height: 32px;
+  padding: 0;
+  background: rgba(28,18,48,0.85);
+  border: 1px solid var(--accent-violet);
+  border-radius: 50%;
+  color: var(--ink-dim);
+  font-size: 16px;
+  font-family: inherit;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 4;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.1s, color 0.1s, border-color 0.1s, box-shadow 0.12s;
+}
+.modal-close-btn:hover {
+  transform: scale(1.10);
+  color: #ff8a99;
+  border-color: #ff6477;
+  box-shadow: 0 0 12px rgba(255,100,119,0.55);
+}
+.modal-close-btn:active { transform: scale(0.95); }
+.char-card { position: relative; }
+
+/* ===== Confirm dialog — replaces window.confirm() ===== */
+#modal-confirm .confirm-card {
+  max-width: 460px;
+  text-align: center;
+}
+#modal-confirm h2 {
+  font-size: 22px;
+  letter-spacing: 0.22em;
+  color: var(--accent-gold);
+  margin-bottom: 14px;
+  text-shadow: 0 0 12px rgba(255,217,102,0.4);
+}
+#modal-confirm .confirm-msg {
+  font-size: 14px;
+  color: var(--ink);
+  line-height: 1.55;
+  letter-spacing: 0.04em;
+  margin: 6px 0 18px;
+  white-space: pre-line;
+}
+#modal-confirm .modal-foot {
+  justify-content: center;
+  gap: 12px;
+}
+#modal-confirm .modal-foot button {
+  min-width: 130px;
+  padding: 12px 18px;
+  font-size: 13px;
+}
+#modal-confirm.danger #confirm-yes {
+  background: linear-gradient(180deg, #ff3d52, #aa1828);
+  border-color: #ff8a99;
+  color: #fff;
+  box-shadow: 0 4px 0 #5a0410, 0 0 18px rgba(255,61,82,0.55);
+}
+#modal-confirm em.hl {
+  color: var(--accent-gold);
+  font-style: normal;
+  font-weight: 800;
+}
+
 /* Game logo — replaces the gamertag title text on title + auth screens. */
 .game-logo {
   display: block;
