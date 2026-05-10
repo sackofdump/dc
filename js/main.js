@@ -687,8 +687,8 @@
           }
         }
         e.facing = ax >= 0 ? 1 : -1;
-        e.knockX *= Math.max(0, 1 - dt * 6);
-        e.knockY *= Math.max(0, 1 - dt * 6);
+        e.knockX *= Math.max(0, 1 - dt * 10);
+        e.knockY *= Math.max(0, 1 - dt * 10);
         e.bobT += dt * (e.def.kind === 'slime' ? 5 : 3);
         // Animation advances only while actually walking — ranged enemies who are
         // standing still to shoot stop their leg cycle.

@@ -107,9 +107,20 @@ DDI.entities = (function () {
       this.hp -= amount;
       this.flash = 0.12;
       const a = angle(fromX, fromY, this.x, this.y);
-      const k = isCrit ? 32 : 14;
+      // Knockback halved (was 14/32). Hits still register with a bump but
+      // multi-projectile spam (orbitals, multishot, etc.) won't fling elites
+      // off the screen. Tougher tiers resist more so they stay engaged.
+      let k = isCrit ? 16 : 7;
+      if (this.def && this.def.isBoss)  k *= 0.20;
+      else if (this.def && this.def.isElite) k *= 0.50;
       this.knockX += Math.cos(a) * k;
       this.knockY += Math.sin(a) * k;
+      // Cap accumulated knock so a flood of hits can't sustain a runaway push.
+      const KMAX = 160;
+      if (this.knockX > KMAX) this.knockX = KMAX;
+      else if (this.knockX < -KMAX) this.knockX = -KMAX;
+      if (this.knockY > KMAX) this.knockY = KMAX;
+      else if (this.knockY < -KMAX) this.knockY = -KMAX;
     }
     applySlow(amount, duration) {
       if (amount > this.slow || this.slowT < duration) {
