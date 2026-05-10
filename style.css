@@ -1915,6 +1915,27 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
 #ability-tooltip .tip-lvl { font-size: 11px; color: var(--accent-gold); margin-left: 4px; }
 #ability-tooltip .tip-desc { font-size: 11px; color: var(--ink-dim); margin-top: 4px; line-height: 1.35; }
 #ability-tooltip .tip-stats { font-size: 11px; color: var(--ink); margin-top: 4px; font-weight: 700; }
+#ability-tooltip .tip-state {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.10em;
+  padding: 1px 6px;
+  border-radius: 3px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+#ability-tooltip .tip-state.on  { color: var(--accent-green); border: 1px solid var(--accent-green); background: rgba(109,255,155,0.10); }
+#ability-tooltip .tip-state.off { color: #ff8a99; border: 1px solid #ff6477; background: rgba(255,100,119,0.12); }
+#ability-tooltip .tip-hint {
+  margin-top: 6px;
+  padding-top: 5px;
+  border-top: 1px dashed rgba(178,102,255,0.35);
+  font-size: 10px;
+  color: var(--accent-gold);
+  letter-spacing: 0.08em;
+  text-align: center;
+}
 
 /* ===== HUD Edit Mode (drag bars to reposition) ===== */
 body.hud-edit .hud-draggable {

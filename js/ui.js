@@ -1268,7 +1268,7 @@ DDI.UI = (function () {
       slot.type = 'button';
       slot.style.borderColor = def.color;
       slot.style.color = def.color;
-      slot.title = def.name + ' — tap for info, long-press to toggle';
+      slot.title = def.name + ' — tap for info, right-click or long-press to toggle on/off';
       slot.innerHTML =
         '<div class="ring"></div>' +
         '<span class="glyph">' + def.icon + '</span>' +
@@ -1287,7 +1287,16 @@ DDI.UI = (function () {
         }, 480);
       };
       const cancelPress = function () { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } };
-      slot.addEventListener('mousedown', startPress);
+      slot.addEventListener('mousedown', function (ev) {
+        // Right mouse button → toggle directly (cleaner than waiting on long-press)
+        if (ev.button === 2) {
+          ev.preventDefault();
+          suppressTap = true;
+          self.toggleAbility(ab.id);
+          return;
+        }
+        startPress();
+      });
       slot.addEventListener('mouseup', cancelPress);
       slot.addEventListener('mouseleave', cancelPress);
       slot.addEventListener('touchstart', function (ev) { ev.preventDefault(); startPress(); }, { passive: false });
@@ -1345,10 +1354,14 @@ DDI.UI = (function () {
         document.getElementById('game-root').appendChild(tip);
       }
       const descLine = def.desc_at ? def.desc_at(ab.level - 1, stats) : def.desc;
+      const stateTag = ab.disabled
+        ? '<span class="tip-state off">DISABLED</span>'
+        : '<span class="tip-state on">ACTIVE</span>';
       tip.innerHTML =
-        '<div class="tip-head" style="color:' + def.color + '">' + def.icon + ' ' + def.name + ' <span class="tip-lvl">Lv ' + ab.level + '</span></div>' +
+        '<div class="tip-head" style="color:' + def.color + '">' + def.icon + ' ' + def.name + ' <span class="tip-lvl">Lv ' + ab.level + '</span> ' + stateTag + '</div>' +
         '<div class="tip-desc">' + def.desc + '</div>' +
-        '<div class="tip-stats">' + descLine + '</div>';
+        '<div class="tip-stats">' + descLine + '</div>' +
+        '<div class="tip-hint">RIGHT-CLICK or LONG-PRESS to ' + (ab.disabled ? 'enable' : 'disable') + '</div>';
       // Position above the slot
       if (slotEl) {
         const r = slotEl.getBoundingClientRect();
