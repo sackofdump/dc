@@ -2358,8 +2358,9 @@
       this.game.zonesCleared = {};
       this.game.actBossActive = null;
       this.game.pendingActBoss = false;
-      // Big difficulty jump for the new act
-      this.runDifficulty = (this.runDifficulty || 1) + 1.0;
+      // Difficulty bump per act — was +1.0 (doubled act 2) which one-shot
+      // fresh heroes. +0.5 is still a meaningful spike without being lethal.
+      this.runDifficulty = (this.runDifficulty || 1) + 0.5;
       // Persist best-act + first-act-1-clear time for the leaderboard
       if (this.save) {
         if ((this.save.bestAct || 1) < this.game.act) this.save.bestAct = this.game.act;

@@ -1001,10 +1001,17 @@ DDI.systems = (function () {
         if (e._fadeOut || e._fadeIn) return;     // intangible during transition
         const r = e.radius + hero.radius - 4;
         if (dist2(hero.x, hero.y, e.x, e.y) < r * r) {
-          // Enemy-level vs hero-level scales contact damage. +/-8% per level diff, capped 0.5..3x.
+          // Enemy-level vs hero-level scales contact damage. +/-8% per level diff, capped 0.5..2x
+          // (was 3x — that combined with act scaling could one-shot a fresh hero).
           const eLvl = e.level || 1;
-          const lvlScale = Math.max(0.5, Math.min(3, 1 + (eLvl - heroLvl) * 0.08));
-          const dealt = hero.takeDamage(e.dmg * lvlScale);
+          const lvlScale = Math.max(0.5, Math.min(2, 1 + (eLvl - heroLvl) * 0.08));
+          let raw = e.dmg * lvlScale;
+          // Hard cap: a single contact hit can never take more than 55% of
+          // the hero's max HP.  Bosses + elites can still pressure you, but
+          // not snap-kill from full health.
+          const maxBite = hero.maxHp * 0.55;
+          if (raw > maxBite) raw = maxBite;
+          const dealt = hero.takeDamage(raw);
           if (dealt > 0) {
             app.fx.heroHit(hero.x, hero.y);
             app.fx.shake(3);
