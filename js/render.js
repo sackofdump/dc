@@ -165,31 +165,46 @@ DDI.Renderer = (function () {
         if (f.type === 'chest') {
           ctx.fillStyle = f.opened ? 'rgba(120,90,40,0.5)' : '#ffd966';
           ctx.fillRect(fx - 3, fy - 3, 6, 6);
-        } else if (f.type === 'trap') {
-          ctx.fillStyle = f.triggered ? 'rgba(80,30,30,0.5)' : '#ff3d52';
-          ctx.beginPath();
-          ctx.moveTo(fx, fy - 4);
-          ctx.lineTo(fx + 4, fy + 3);
-          ctx.lineTo(fx - 4, fy + 3);
-          ctx.closePath();
-          ctx.fill();
         } else if (f.type === 'portal') {
           const heroLvl = (app.game && app.game.level) || 1;
           const ok = heroLvl >= f.requiredLevel;
           if (f.cleared) {
-            ctx.strokeStyle = '#3a2a3a';
-            ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.arc(fx, fy, 6, 0, TAU); ctx.stroke();
+            // Cleared: dim cross-X badge so it's clearly done
+            ctx.fillStyle = 'rgba(20,12,30,0.85)';
+            ctx.beginPath(); ctx.arc(fx, fy, 8, 0, TAU); ctx.fill();
             ctx.strokeStyle = '#5a4a6a';
-            ctx.beginPath(); ctx.moveTo(fx - 4, fy - 4); ctx.lineTo(fx + 4, fy + 4); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(fx - 4, fy + 4); ctx.lineTo(fx + 4, fy - 4); ctx.stroke();
+            ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.arc(fx, fy, 8, 0, TAU); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(fx - 5, fy - 5); ctx.lineTo(fx + 5, fy + 5); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(fx - 5, fy + 5); ctx.lineTo(fx + 5, fy - 5); ctx.stroke();
           } else {
-            ctx.strokeStyle = ok ? f.color : '#666';
+            const ringColor = ok ? f.color : '#666';
+            const textColor = ok ? '#fff' : '#ff8a99';
+            // Soft glow halo (only when reachable)
+            if (ok) {
+              ctx.save();
+              ctx.fillStyle = f.color;
+              ctx.globalAlpha = 0.22;
+              ctx.beginPath(); ctx.arc(fx, fy, 12, 0, TAU); ctx.fill();
+              ctx.restore();
+            }
+            // Filled disc background — darker than the minimap so the number reads
+            ctx.fillStyle = 'rgba(8,4,18,0.92)';
+            ctx.beginPath(); ctx.arc(fx, fy, 9, 0, TAU); ctx.fill();
+            // Outer ring in the portal's color (locked = grey)
+            ctx.strokeStyle = ringColor;
             ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.arc(fx, fy, 6, 0, TAU); ctx.stroke();
-            ctx.fillStyle = ok ? '#a8ff66' : '#ff8a99';
-            ctx.font = 'bold 9px sans-serif';
+            ctx.beginPath(); ctx.arc(fx, fy, 9, 0, TAU); ctx.stroke();
+            // Inner highlight ring
+            ctx.strokeStyle = ok ? 'rgba(255,255,255,0.30)' : 'rgba(255,138,153,0.25)';
+            ctx.lineWidth = 0.8;
+            ctx.beginPath(); ctx.arc(fx, fy, 7, 0, TAU); ctx.stroke();
+            // Number — bigger, bolder, with a subtle shadow for legibility
+            ctx.font = 'bold 11px Cinzel, "Cinzel Decorative", serif';
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = 'rgba(0,0,0,0.85)';
+            ctx.fillText(f.requiredLevel, fx, fy + 2);
+            ctx.fillStyle = textColor;
             ctx.fillText(f.requiredLevel, fx, fy + 1);
           }
         } else if (f.type === 'shard' && !f.used) {

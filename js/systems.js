@@ -61,18 +61,22 @@ DDI.systems = (function () {
     },
 
     // Compute the level an enemy should spawn at, given context.
-    // Main zone: roughly hero level ± a couple. Biome zones: portal-required + zone bonus.
+    // Main zone: roughly hero level ± a couple. Biome zones: pinned to the
+    // portal's required level so a "Lv 12 tele zone" actually fields lv-12
+    // mobs regardless of the hero's level (no +4, no hero scaling).
     computeEnemyLevel: function (app, modifier) {
       modifier = modifier || 0;
       const heroLvl = (app.game && app.game.level) || 1;
       const inZone = app.zone && app.zone.name !== 'main';
       let base;
+      let jitter;
       if (inZone) {
-        base = (app.zoneRequiredLevel || 5) + 4;
+        base = (app.zoneRequiredLevel || 5);
+        jitter = 0;     // exact pin — the portal's level IS the zone's level
       } else {
         base = heroLvl + Math.floor(((app.runDifficulty || 1) - 1) * 5);
+        jitter = Math.floor((Math.random() - 0.5) * 4);
       }
-      const jitter = Math.floor((Math.random() - 0.5) * 4);
       return Math.max(1, base + jitter + modifier);
     },
 

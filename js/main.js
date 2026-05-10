@@ -1647,7 +1647,7 @@
       if (!def) return;
       const dm = this.getDifficultyMult();
       const e = this.enemies.spawn(def, cfg.x, cfg.y, 2.0 * dm, 1.4 * dm);
-      e.level = (this.zoneRequiredLevel || 5) + 4;
+      e.level = (this.zoneRequiredLevel || 5) + 1;     // bounty is a notch above the zone level
       e._bounty = true;
       e._bountyName = cfg.name;
       // Cinematic announcement — players notice a new bounty appearing
