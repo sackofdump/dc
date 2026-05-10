@@ -1026,8 +1026,9 @@
       const range = Math.max(this.viewW, this.viewH);
       const range2 = range * range;
       if (dist2(h.x, h.y, e.x, e.y) > range2) { e._eliteCd = 0.4; return; }
-      // Rolling cooldown — 4-7s between casts so a long fight gets several.
-      e._eliteCd = 4 + Math.random() * 3;
+      // Tight rolling cooldown — 2.0-3.5s — so elites that survive longer
+      // than a few seconds get multiple casts off, not just the first one.
+      e._eliteCd = 2.0 + Math.random() * 1.5;
       this.castEliteAbility(e);
     }
 
