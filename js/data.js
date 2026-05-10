@@ -103,19 +103,18 @@ DDI.data = (function () {
     },
     boneSpear: {
       id: 'boneSpear', name: 'Bone Spear', icon: '🦴', element: 'physical', color: '#e8dcc0',
-      desc: 'Launches a piercing spear in the facing direction.',
+      desc: 'Launches a heavy spear that shatters on the first foe.',
       type: 'projectile', maxLevel: 8,
-      base: { cooldown: 1.4, damage: 28, count: 1, speed: 520, pierce: 4, area: 10, life: 1.6 },
+      base: { cooldown: 1.4, damage: 36, count: 1, speed: 520, pierce: 0, area: 14, life: 1.6 },
       scale: function (lvl, b) {
         return Object.assign({}, b, {
-          damage:   b.damage   * (1 + 0.20 * lvl),
+          damage:   b.damage   * (1 + 0.22 * lvl),
           count:    b.count    + Math.floor((lvl + 1) / 3),
-          pierce:   b.pierce   + lvl,
           area:     b.area     * (1 + 0.12 * lvl),     // grow per level
           cooldown: b.cooldown * (1 - 0.04 * lvl),
         });
       },
-      desc_at: function (lvl, s) { return s.count + ' spear' + (s.count>1?'s':'') + ' · ' + Math.round(s.damage) + ' dmg · pierces ' + s.pierce; },
+      desc_at: function (lvl, s) { return s.count + ' spear' + (s.count>1?'s':'') + ' · ' + Math.round(s.damage) + ' dmg'; },
     },
     meteor: {
       id: 'meteor', name: 'Meteor', icon: '☄️', element: 'fire', color: '#ff5030',
@@ -688,18 +687,17 @@ DDI.data = (function () {
   // ============================================================
   ABILITIES.boneLance = {
     id: 'boneLance', name: 'Bone Lance', icon: '🦴', element: 'physical', color: '#e8dcc0',
-    desc: 'Hurls a piercing bone lance — splinters fly behind it.',
+    desc: 'Hurls a heavy bone lance — splinters fly on impact.',
     type: 'projectile', maxLevel: 8,
-    base: { cooldown: 1.0, damage: 18, count: 1, speed: 460, pierce: 2, area: 14, life: 1.2 },
+    base: { cooldown: 1.0, damage: 24, count: 1, speed: 460, pierce: 0, area: 14, life: 1.2 },
     scale: function (lvl, b) {
       return Object.assign({}, b, {
-        damage:   b.damage   * (1 + 0.20 * lvl),
+        damage:   b.damage   * (1 + 0.22 * lvl),
         count:    b.count    + Math.floor(lvl / 3),
         cooldown: b.cooldown * (1 - 0.05 * lvl),
-        pierce:   b.pierce   + Math.floor(lvl / 2),
       });
     },
-    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · pierces ' + s.pierce + ' · ' + s.count + ' shots'; },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · ' + s.count + ' shot' + (s.count > 1 ? 's' : ''); },
   };
   ABILITIES.raiseSkeleton = {
     id: 'raiseSkeleton', name: 'Raise Skeleton', icon: '💀', element: 'physical', color: '#cdd5e0',

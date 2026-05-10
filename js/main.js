@@ -885,13 +885,14 @@
             Combat.dealDamage(e, p.damage, p.element, p.crit, cx, cy, p.color);
             if (p.dotDps > 0) e.applyDot(p.dotDps, p.dotDur);
             if (p.slowAmt > 0) e.applySlow(p.slowAmt, p.slowDur);
+            // Impact visual on EVERY enemy hit — same satisfying landing as the
+            // fireball, regardless of whether the projectile pierces or stops.
+            if (p.element === 'fire' && self.fx.fireballImpact) {
+              self.fx.fireballImpact(cx, cy, p.radius, p.crit);
+            } else {
+              self.fx.impactBurst(cx, cy, p.color, p.radius, p.crit);
+            }
             if (p.pierce <= 0) {
-              // Element-specific landing: fire = animated explosion, else generic burst
-              if (p.element === 'fire' && self.fx.fireballImpact) {
-                self.fx.fireballImpact(cx, cy, p.radius, p.crit);
-              } else {
-                self.fx.impactBurst(cx, cy, p.color, p.radius, p.crit);
-              }
               p.x = cx; p.y = cy;
               p._alive = false;
             } else {
