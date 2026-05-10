@@ -61,11 +61,11 @@ DDI.data = (function () {
       id: 'frostAura', name: 'Frost Aura', icon: '❄️', element: 'frost', color: '#66d9ff',
       desc: 'Freezes nearby foes; chills slow enemies.',
       type: 'aura', maxLevel: 8,
-      base: { cooldown: 0.5, damage: 6, area: 130, slow: 0.4 },
+      base: { cooldown: 0.5, damage: 6, area: 200, slow: 0.4 },
       scale: function (lvl, b) {
         return Object.assign({}, b, {
           damage: b.damage * (1 + 0.20 * lvl),
-          area:   b.area   * (1 + 0.10 * lvl),
+          area:   b.area   * (1 + 0.12 * lvl),
           slow:   Math.min(0.85, b.slow + 0.04 * lvl),
         });
       },
