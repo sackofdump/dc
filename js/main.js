@@ -725,17 +725,22 @@
     // ============================================================
     tickEliteAbility(e, dt) {
       if (e._eliteCd == null) {
-        // Stagger initial cast so multiple elites don't sync up
-        e._eliteCd = 4 + Math.random() * 3;
+        // Quick first cast so the player actually sees the ability before the
+        // elite dies — subsequent casts use the slower rolling cooldown.
+        e._eliteCd = 1.4 + Math.random() * 1.0;
       }
       e._eliteCd -= dt;
       if (e._eliteCd > 0) return;
-      // Only cast if hero is on-screen — don't burn an ability into the void
+      // Cast as long as the hero is anywhere in the viewport's vicinity. Be
+      // generous — squared-distance check kept the threshold too tight in
+      // narrow phone viewports.
       const h = this.hero;
-      const onScreen = dist2(h.x, h.y, e.x, e.y) < (Math.max(this.viewW, this.viewH) * 0.7) * (Math.max(this.viewW, this.viewH) * 0.7);
-      if (!onScreen) { e._eliteCd = 0.5; return; }
-      // Reset cooldown — between 7-10s with jitter so the player gets breathing room
-      e._eliteCd = 7 + Math.random() * 3;
+      const range = Math.max(this.viewW, this.viewH);
+      const range2 = range * range;
+      if (dist2(h.x, h.y, e.x, e.y) > range2) { e._eliteCd = 0.5; return; }
+      // Reset cooldown — 5-8s rolling between casts so a long elite fight
+      // gets multiple casts.
+      e._eliteCd = 5 + Math.random() * 3;
       this.castEliteAbility(e);
     }
 
@@ -1455,6 +1460,12 @@
       this.generateFeatures(biome);
       this.enemies.live.forEach(function (e) { e._alive = false; });
       this.enemies.sweep();
+      // Wipe leftover loot + projectiles from the main zone so the player can't
+      // pull main-map gold/gems with their first Greed Pulse inside a tele zone.
+      this.loot.live.forEach(function (l) { l._alive = false; });
+      this.loot.sweep();
+      this.projectiles.live.forEach(function (p) { p._alive = false; });
+      this.projectiles.sweep();
       this.hazards = [];     // clear lingering elite hazards on zone change
       Spawner.reset();
       this.hero.x = this.world.width / 2;
@@ -1523,6 +1534,11 @@
       this.enemies.sweep();
       this.projectiles.live.forEach(function (p) { p._alive = false; });
       this.projectiles.sweep();
+      // Wipe leftover main-map loot so the first Greed Pulse inside doesn't
+      // pull stuff from the world we just left.
+      this.loot.live.forEach(function (l) { l._alive = false; });
+      this.loot.sweep();
+      this.hazards = [];
       Spawner.reset();
       // Build the interior features: chests, gold piles, ambush enemies, and
       // the exit door north of the spawn point.
@@ -1598,6 +1614,12 @@
       this.zoneRequiredLevel = 0;
       this.enemies.live.forEach(function (e) { e._alive = false; });
       this.enemies.sweep();
+      // Drop ungrabbed interior loot + projectiles so they don't follow
+      // the hero back outside.
+      this.loot.live.forEach(function (l) { l._alive = false; });
+      this.loot.sweep();
+      this.projectiles.live.forEach(function (p) { p._alive = false; });
+      this.projectiles.sweep();
       this.hazards = [];     // clear lingering elite hazards on zone change
       Spawner.reset();
       this.hero.x = stash.returnX;
@@ -1852,6 +1874,12 @@
       this.generateFeatures('main');
       this.enemies.live.forEach(function (e) { e._alive = false; });
       this.enemies.sweep();
+      // Drop ungrabbed loot + in-flight projectiles when leaving the zone so
+      // nothing leaks back into the main map.
+      this.loot.live.forEach(function (l) { l._alive = false; });
+      this.loot.sweep();
+      this.projectiles.live.forEach(function (p) { p._alive = false; });
+      this.projectiles.sweep();
       this.hazards = [];     // clear lingering elite hazards on zone change
       Spawner.reset();
       this.hero.x = this.world.width / 2;
