@@ -938,6 +938,13 @@ DDI.UI = (function () {
       } else {
         // Modal was opened from pause; will resume when that closes
       }
+      // Defensive: if the game is supposed to be running, make sure the
+      // game-root .in-game class is present so the HUD comes back after
+      // returning from pause/settings.
+      if (this.app && this.app.game && this.app.game.running) {
+        const root = document.getElementById('game-root');
+        if (root) root.classList.add('in-game');
+      }
     }
     quitRun() {
       this.pauseOpen = false;
@@ -1273,6 +1280,16 @@ DDI.UI = (function () {
 
     refreshHUD() {
       const a = this.app;
+      // Belt-and-suspenders: keep the .in-game class in sync with game.running.
+      // Catches any code path that drifts the class state out of sync (e.g.
+      // settings/pause juggling) and makes the HUD reappear automatically.
+      const _root = document.getElementById('game-root');
+      if (_root) {
+        const want = !!(a.game && a.game.running);
+        const has = _root.classList.contains('in-game');
+        if (want && !has)      _root.classList.add('in-game');
+        else if (!want && has) _root.classList.remove('in-game');
+      }
       const hp = Math.max(0, a.hero.hp);
       const max = a.hero.maxHp || 1;
       const pct = clamp(hp / max, 0, 1);
