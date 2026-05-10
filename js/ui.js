@@ -825,6 +825,16 @@ DDI.UI = (function () {
       this.$('modal-title').classList.add('hidden');
       this.$('modal-act-complete').classList.add('hidden');
       this.$('modal-forge').classList.remove('hidden');
+      // Adjust the back-button copy to match where we came from. Mid-run flows
+      // (zone clear / act complete) read as a continuation; from the title it's
+      // just "BACK".
+      const backBtn = this.$('btn-forge-back');
+      if (backBtn) {
+        const inRun = !!(this._forgeFromZone || this._forgeFromActComplete);
+        backBtn.textContent = inRun ? 'CONTINUE YOUR DESCENT ▼' : 'BACK';
+        backBtn.classList.toggle('primary-btn', inRun);
+        backBtn.classList.toggle('ghost-btn', !inRun);
+      }
       this.renderForge();
     }
     closeForge() {
