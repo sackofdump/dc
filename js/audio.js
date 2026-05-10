@@ -155,10 +155,10 @@ DDI.audio = (function () {
       noise({ dur: 0.28, cutoff: 900, cutoffEnd: 380, Q: 0.6, vol: 0.32 });
       tone({ freq: 220, sweepTo: 330, dur: 0.32, vol: 0.10, type: 'triangle' });
     },
-    // Level up — soft upward swept noise + warm triangle slide.
+    // Level up — quiet warm "lift" with no clear pitch (no chime/jingle
+    // character, just a brief upward filter sweep on filtered noise).
     levelup:    function () {
-      noise({ dur: 0.32, cutoff: 700, cutoffEnd: 2200, Q: 0.8, vol: 0.18 });
-      tone({ freq: 220, sweepTo: 660, dur: 0.42, vol: 0.14, type: 'triangle' });
+      noise({ dur: 0.55, cutoff: 320, cutoffEnd: 1100, Q: 0.5, vol: 0.10 });
     },
     // Generic ability cast — short whoosh.
     cast:       function () { noise({ dur: 0.08, cutoff: 1400, cutoffEnd: 600, Q: 1.2, vol: 0.10 }); },
