@@ -2531,6 +2531,72 @@ body.hud-edit .hud-draggable::after {
 .tier-godkill    #game-root::after { box-shadow: inset 0 0 240px rgba(255,217,102,0.6); animation: godPulse 0.6s infinite; }
 @keyframes godPulse { 0%,100% { opacity:0.7;} 50% { opacity:1;} }
 
+/* ===== Gear acquired banner — rarity-colored, drops from top ===== */
+#gear-toast {
+  position: fixed;
+  top: -120px;     /* hidden above viewport */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 65;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 2px;
+  padding: 12px 28px;
+  min-width: 280px; max-width: 90vw;
+  background: linear-gradient(180deg, rgba(28,18,48,0.96), rgba(10,6,18,0.96));
+  border: 2px solid var(--rarity-color, #fff);
+  border-radius: 10px;
+  box-shadow:
+    0 10px 36px rgba(0,0,0,0.7),
+    0 0 28px var(--rarity-color, #fff),
+    inset 0 0 18px color-mix(in srgb, var(--rarity-color, #fff) 30%, transparent);
+  pointer-events: none;
+  transition: top 0.42s cubic-bezier(.2, 1.4, .4, 1);
+  font-family: inherit;
+}
+#gear-toast.shown { top: 84px; animation: gearTossPulse 0.9s ease-out; }
+@keyframes gearTossPulse {
+  0%   { transform: translateX(-50%) scale(1.0); }
+  18%  { transform: translateX(-50%) scale(1.06); }
+  40%  { transform: translateX(-50%) scale(1.0); }
+}
+#gear-toast .gt-rarity {
+  color: var(--rarity-color, #fff);
+  font-size: 11px;
+  letter-spacing: 0.42em;
+  font-weight: 800;
+  text-shadow: 0 0 8px var(--rarity-color, #fff);
+}
+#gear-toast .gt-name {
+  color: var(--ink);
+  font-size: 19px;
+  letter-spacing: 0.05em;
+  font-weight: 800;
+  text-shadow:
+    0 0 12px var(--rarity-color, #fff),
+    0 2px 0 rgba(0,0,0,0.7);
+}
+#gear-toast .gt-slot {
+  color: var(--ink-fade);
+  font-size: 10px;
+  letter-spacing: 0.32em;
+  margin-top: 2px;
+}
+/* Legendary+ get an additional pulsing aura halo so they really pop */
+#gear-toast.rarity-legendary,
+#gear-toast.rarity-mythic,
+#gear-toast.rarity-primal {
+  animation: gearAura 1.2s ease-in-out infinite;
+}
+@keyframes gearAura {
+  0%, 100% { box-shadow: 0 10px 36px rgba(0,0,0,0.7), 0 0 28px var(--rarity-color, #fff), inset 0 0 18px color-mix(in srgb, var(--rarity-color, #fff) 30%, transparent); }
+  50%      { box-shadow: 0 10px 36px rgba(0,0,0,0.7), 0 0 56px var(--rarity-color, #fff), inset 0 0 30px color-mix(in srgb, var(--rarity-color, #fff) 50%, transparent); }
+}
+@media (max-width: 480px) {
+  #gear-toast { padding: 10px 18px; min-width: 220px; }
+  #gear-toast .gt-name { font-size: 15px; }
+  #gear-toast .gt-rarity { font-size: 10px; }
+}
+
 /* ===== FRIENDS widget (Phase 1 social — always-on, top-right) ===== */
 #friends-widget {
   position: fixed;
@@ -2543,6 +2609,14 @@ body.hud-edit .hud-draggable::after {
 }
 /* In-game: shift below the currency bar (top-right) so they don't overlap */
 #game-root.in-game #friends-widget { top: 56px; }
+/* On the title menu: move the pill to top-LEFT so it doesn't crowd the
+   centered logo + card.  Panel hangs down from that corner. */
+body.on-title #friends-widget {
+  top: 14px; right: auto; left: 14px;
+}
+body.on-title #friends-panel {
+  right: auto; left: 0;
+}
 #friends-toggle {
   display: inline-flex;
   align-items: center;
@@ -2716,15 +2790,85 @@ body.hud-edit .hud-draggable::after {
   #friends-panel { width: calc(100vw - 16px); right: -2px; }
 }
 
+/* "pending friend request from X" banner — drops in from the top edge
+   when someone adds you.  Click to open the friends panel. */
+#friend-added-banner {
+  position: fixed;
+  top: -80px;     /* hidden above the viewport by default */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 70;     /* above modals + friends widget */
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px 10px 14px;
+  background: linear-gradient(180deg, #2a1830 0%, #150a22 100%);
+  border: 2px solid var(--accent-violet);
+  border-radius: 999px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.7), 0 0 26px rgba(178,102,255,0.55);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: top 0.4s cubic-bezier(.2,1.2,.4,1);
+  white-space: nowrap;
+}
+#friend-added-banner.shown { top: 16px; }
+#friend-added-banner .fab-glyph {
+  color: var(--accent-gold);
+  font-size: 16px;
+  filter: drop-shadow(0 0 6px var(--accent-gold));
+  animation: fabSpin 2.4s linear infinite;
+}
+@keyframes fabSpin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+#friend-added-banner .fab-text { font-weight: 600; }
+#friend-added-banner .fab-text b {
+  color: var(--accent-violet);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+#friend-added-banner .fab-text em {
+  color: var(--accent-gold);
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+#friend-added-banner .fab-close {
+  width: 22px; height: 22px;
+  margin-left: 6px;
+  border: 1px solid rgba(255,255,255,0.25);
+  background: transparent;
+  color: var(--ink-fade);
+  border-radius: 50%;
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 11px;
+  cursor: pointer;
+  line-height: 1;
+}
+#friend-added-banner .fab-close:hover { color: #ff8a99; border-color: #ff6477; }
+@media (max-width: 480px) {
+  #friend-added-banner {
+    font-size: 11px;
+    padding: 8px 12px;
+    max-width: calc(100vw - 16px);
+    white-space: normal;
+    text-align: center;
+  }
+}
+
 /* ===== MEGA Potion bar (per-run, 3 slots) ===== */
 #potion-bar {
   position: absolute;
-  bottom: 96px;
-  /* Anchor just above the right-side action buttons but not overlapping
-     the ult button.  Adjusts down on small screens. */
-  right: 14px;
+  /* Sit directly on top of the ability bar so the two read as one stacked
+     toolbar.  ability-bar bottom = safe-area + 16, height ~76px → potion
+     bar bottom = safe-area + 96 keeps a clean 4px gap between them. */
+  bottom: calc(env(safe-area-inset-bottom, 20px) + 96px);
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
   display: flex;
-  gap: 8px;
+  gap: 6px;
   z-index: 12;
   pointer-events: none;
 }

@@ -232,6 +232,40 @@ DDI.FX = (function () {
       clearTimeout(this._toastTimer);
       this._toastTimer = setTimeout(function () { t.classList.add('hidden'); }, 1600);
     }
+
+    // Big rarity-colored "GEAR ACQUIRED" banner that drops in from the top
+    // and lingers a few seconds.  Replaces the tiny generic toast that was
+    // easy to miss in the middle of combat — players were looking right
+    // through item drops.
+    gearToast(item) {
+      if (!item) return;
+      const RAR = (DDI.data && DDI.data.RARITY) || {};
+      const rd = RAR[item.rarity] || { color: '#fff', name: '' };
+      let banner = document.getElementById('gear-toast');
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'gear-toast';
+        banner.innerHTML =
+          '<span class="gt-rarity"></span>' +
+          '<span class="gt-name"></span>' +
+          '<span class="gt-slot"></span>';
+        document.body.appendChild(banner);
+      }
+      const rarityName = (rd.name || item.rarity || '').toUpperCase();
+      banner.querySelector('.gt-rarity').textContent = rarityName + ' DROP';
+      banner.querySelector('.gt-name').textContent   = item.name || 'Gear';
+      banner.querySelector('.gt-slot').textContent   = (item.slotName || item.slot || '').toUpperCase();
+      banner.style.setProperty('--rarity-color', rd.color);
+      // Higher tier → louder banner: longer dwell + bigger glow
+      const dwell = (rd.beam >= 0.85) ? 5500 : (rd.beam >= 0.6) ? 4200 : 3000;
+      banner.className = 'rarity-' + (item.rarity || 'common');
+      // Reflow so the animation always replays from the start, even on
+      // back-to-back drops
+      void banner.offsetWidth;
+      banner.classList.add('shown');
+      clearTimeout(this._gearToastTimer);
+      this._gearToastTimer = setTimeout(function () { banner.classList.remove('shown'); }, dwell);
+    }
   }
   return FX;
 })();

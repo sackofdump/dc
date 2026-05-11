@@ -25,6 +25,7 @@ DDI.social = (function () {
   // status, character}.  Updated by the auth.onPresenceChange callback.
   let _presenceByUser = {};
   let _unsubscribePresence = null;
+  let _unsubscribeFriendAdded = null;
 
   function $(id) { return document.getElementById(id); }
 
@@ -111,6 +112,24 @@ DDI.social = (function () {
         _renderBadge();
       });
     }
+    // Subscribe to friend-added events — fires when someone adds us as a
+    // friend, regardless of whether the panel is open.  Shows a banner toast
+    // + refreshes the list so the new friend appears immediately.
+    if (DDI.auth.subscribeFriendChanges) {
+      try { await DDI.auth.subscribeFriendChanges(); } catch (e) {}
+    }
+    if (!_unsubscribeFriendAdded && DDI.auth.onFriendAdded) {
+      _unsubscribeFriendAdded = DDI.auth.onFriendAdded(async function (newFriendUserId) {
+        // Look up their display name so the toast actually reads humanly.
+        let name = 'Someone';
+        if (DDI.auth.fetchProfileName) {
+          try { name = (await DDI.auth.fetchProfileName(newFriendUserId)) || 'Someone'; }
+          catch (e) {}
+        }
+        _showFriendAddedBanner(name);
+        refreshFriends();
+      });
+    }
     await refreshFriends();
   }
 
@@ -120,13 +139,52 @@ DDI.social = (function () {
     const panel = $('friends-panel');
     if (panel) panel.classList.add('hidden');
     if (_unsubscribePresence) { _unsubscribePresence(); _unsubscribePresence = null; }
+    if (_unsubscribeFriendAdded) { _unsubscribeFriendAdded(); _unsubscribeFriendAdded = null; }
     if (DDI.auth && DDI.auth.leavePresence) {
       try { DDI.auth.leavePresence(); } catch (e) {}
+    }
+    if (DDI.auth && DDI.auth.unsubscribeFriendChanges) {
+      try { DDI.auth.unsubscribeFriendChanges(); } catch (e) {}
     }
     _friends = [];
     _presenceByUser = {};
     _renderList();
     _renderBadge();
+  }
+
+  // Floating "pending friend request" banner — drops down from the top of
+  // the screen for a few seconds, dismissible by click.  Open-add means
+  // they're already mutual; this just lets the receiver KNOW it happened.
+  function _showFriendAddedBanner(name) {
+    let banner = document.getElementById('friend-added-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'friend-added-banner';
+      banner.innerHTML =
+        '<span class="fab-glyph">★</span>' +
+        '<span class="fab-text"><b>pending friend request</b> from <em></em></span>' +
+        '<button class="fab-close" type="button" title="Dismiss">✕</button>';
+      document.body.appendChild(banner);
+      banner.querySelector('.fab-close').addEventListener('click', function () {
+        banner.classList.remove('shown');
+      });
+      banner.addEventListener('click', function (e) {
+        if (e.target && e.target.classList && e.target.classList.contains('fab-close')) return;
+        // Click body → open the friends panel so the user can confirm
+        const widget = document.getElementById('friends-widget');
+        const panel  = document.getElementById('friends-panel');
+        if (widget) widget.classList.remove('hidden');
+        if (panel)  panel.classList.remove('hidden');
+        refreshFriends();
+        banner.classList.remove('shown');
+      });
+    }
+    const em = banner.querySelector('em');
+    if (em) em.textContent = name;
+    banner.classList.add('shown');
+    // Auto-hide after 6s (long enough to read; short enough not to nag)
+    clearTimeout(banner._timer);
+    banner._timer = setTimeout(function () { banner.classList.remove('shown'); }, 6000);
   }
 
   async function refreshFriends() {

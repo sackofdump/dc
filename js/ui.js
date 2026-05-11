@@ -2233,6 +2233,9 @@ DDI.UI = (function () {
       this.$('modal-title').classList.remove('hidden');
       this.$('modal-tutorial').classList.add('hidden');
       this.$('modal-death').classList.add('hidden');
+      // Mark body.on-title so CSS can reposition floating widgets (the
+      // friends pill moves to top-left here so it doesn't crowd the title card).
+      document.body.classList.add('on-title');
       this.$('modal-levelup').classList.add('hidden');
       this.$('modal-forge').classList.add('hidden');
       this.$('modal-settings').classList.add('hidden');
@@ -2356,7 +2359,11 @@ DDI.UI = (function () {
           '<span><span class="label">SOUL DUST</span> <b>' + shortNum(this.app.save.dust || 0) + '</b></span>' +
         '</div>';
     }
-    hideTitle() { this.$('modal-title').classList.add('hidden'); this.modalOpen = false; }
+    hideTitle() {
+      this.$('modal-title').classList.add('hidden');
+      this.modalOpen = false;
+      document.body.classList.remove('on-title');
+    }
 
     showDeath(summary) {
       const a = this.app;

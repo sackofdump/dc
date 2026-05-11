@@ -186,3 +186,13 @@ end; $$;
 
 revoke all on function public.remove_friend(uuid) from public;
 grant execute on function public.remove_friend(uuid) to authenticated;
+
+-- Enable Realtime on the friends table so clients can subscribe to INSERTs
+-- and show "X added you as a friend" toasts in real time.  Idempotent:
+-- the do-block swallows the duplicate error if the table is already in the
+-- publication.
+do $$
+begin
+  alter publication supabase_realtime add table public.friends;
+exception when duplicate_object then null;
+end $$;

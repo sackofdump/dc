@@ -115,9 +115,10 @@ DDI.auth = (function () {
 
   async function signOut() {
     if (!client) return;
-    // Leave the presence channel BEFORE blowing away the session so other
+    // Leave realtime channels BEFORE blowing away the session so other
     // clients see us drop off cleanly rather than detecting a stale ref.
     try { await leavePresence(); } catch (e) {}
+    try { await unsubscribeFriendChanges(); } catch (e) {}
     await client.auth.signOut();
     currentUser    = null;
     currentProfile = null;
@@ -279,22 +280,45 @@ DDI.auth = (function () {
   // FRIENDS (Phase 1 social) — open-add, mutual rows.
   // ============================================================
 
-  // List the current user's friends with display names joined from profiles.
-  // Returns [{ user_id, display_name }, ...] or [] on error.
+  // List the current user's friends with display names.
+  // Two-query approach: friends.friend_user_id FKs to auth.users (not
+  // profiles), so PostgREST can't auto-embed the profiles join.  Fetch IDs
+  // first, then bulk-fetch profile rows with IN.
   async function listFriends() {
     if (!client || !currentUser) return [];
-    const { data, error } = await client
+    const { data: rows, error } = await client
       .from('friends')
-      .select('friend_user_id, profiles:friend_user_id ( display_name )')
+      .select('friend_user_id')
       .eq('user_id', currentUser.id);
-    if (error) { console.error('[auth] listFriends', error); return []; }
-    return (data || []).map(function (row) {
-      return {
-        user_id: row.friend_user_id,
-        display_name: (row.profiles && row.profiles.display_name) || 'Unknown',
-      };
+    if (error) {
+      console.error('[auth] listFriends (friends)', error);
+      // 42P01 = relation doesn't exist — surface a one-time hint about the
+      // missing migration so the user knows what to do.
+      if (error.code === '42P01' && !_friendsMigrationWarned) {
+        _friendsMigrationWarned = true;
+        console.warn('[auth] friends table missing — run the SQL migration from supabase-setup.sql');
+      }
+      return [];
+    }
+    const ids = (rows || []).map(function (r) { return r.friend_user_id; }).filter(Boolean);
+    if (!ids.length) return [];
+    const { data: profs, error: pErr } = await client
+      .from('profiles')
+      .select('id, display_name')
+      .in('id', ids);
+    if (pErr) {
+      console.error('[auth] listFriends (profiles)', pErr);
+      // Still return the IDs with a fallback name so the user at least
+      // sees that they have friends, even if the name lookup tripped.
+      return ids.map(function (id) { return { user_id: id, display_name: 'Friend' }; });
+    }
+    const nameById = {};
+    (profs || []).forEach(function (p) { nameById[p.id] = p.display_name; });
+    return ids.map(function (id) {
+      return { user_id: id, display_name: nameById[id] || 'Unknown' };
     });
   }
+  let _friendsMigrationWarned = false;
 
   // Add a friend by display name.  Mutual — both sides see each other
   // immediately.  Returns { ok: true } or { error: { message } }.
@@ -404,8 +428,67 @@ DDI.auth = (function () {
     };
   }
 
+  // ---------- Friend-added notifications (Realtime postgres changes) ----------
+  // Subscribes to INSERTs on public.friends WHERE user_id = me.  Each event
+  // means someone just added me as a friend — fires the registered callback
+  // with the new friend's user_id so the UI can pop a toast.
+  let _friendsChangesChannel = null;
+  const _friendAddedListeners = [];
+
+  function onFriendAdded(fn) {
+    if (typeof fn !== 'function') return function () {};
+    _friendAddedListeners.push(fn);
+    return function () {
+      const i = _friendAddedListeners.indexOf(fn);
+      if (i >= 0) _friendAddedListeners.splice(i, 1);
+    };
+  }
+
+  async function subscribeFriendChanges() {
+    if (!client || !currentUser) return;
+    if (_friendsChangesChannel) return;
+    _friendsChangesChannel = client
+      .channel('friend-inserts:' + currentUser.id)
+      .on('postgres_changes', {
+        event:  'INSERT',
+        schema: 'public',
+        table:  'friends',
+        filter: 'user_id=eq.' + currentUser.id,
+      }, function (payload) {
+        const newRow = payload && payload.new;
+        if (!newRow) return;
+        _friendAddedListeners.forEach(function (fn) {
+          try { fn(newRow.friend_user_id); } catch (e) { console.error('[auth] onFriendAdded fn', e); }
+        });
+      })
+      .subscribe(function (status) {
+        if (status === 'CHANNEL_ERROR') {
+          console.warn('[auth] friend-changes channel error — Realtime on friends table may need to be enabled');
+        }
+      });
+  }
+
+  async function unsubscribeFriendChanges() {
+    if (!_friendsChangesChannel) return;
+    try { await client.removeChannel(_friendsChangesChannel); } catch (e) {}
+    _friendsChangesChannel = null;
+  }
+
+  // Fetch a single profile by user_id — used by the friend-added toast
+  // to translate a UUID into a display name.
+  async function fetchProfileName(userId) {
+    if (!client || !userId) return null;
+    const { data, error } = await client
+      .from('profiles')
+      .select('display_name')
+      .eq('id', userId)
+      .maybeSingle();
+    if (error) { console.error('[auth] fetchProfileName', error); return null; }
+    return data ? data.display_name : null;
+  }
+
   // Clean up presence on tab close so we don't leave ghost online entries.
-  addEventListener('beforeunload', function () { leavePresence(); });
+  addEventListener('beforeunload', function () { leavePresence(); unsubscribeFriendChanges(); });
 
   return {
     init, isConfigured,
@@ -417,5 +500,7 @@ DDI.auth = (function () {
     // Social — Phase 1
     listFriends, addFriend, removeFriend,
     joinPresence, leavePresence, setPresenceStatus, onPresenceChange,
+    subscribeFriendChanges, unsubscribeFriendChanges, onFriendAdded,
+    fetchProfileName,
   };
 })();

@@ -1789,7 +1789,8 @@
           const rdef = RAR[it.rarity] || RAR.common || { color: '#fff', beam: 0 };
           const stashed = DDI.gear && DDI.gear.pickupItem ? DDI.gear.pickupItem(this, it) : false;
           if (stashed) {
-            this.fx.toast('+ ' + (it.name || 'GEAR') + ' (' + (it.rarity || '').toUpperCase() + ')');
+            // Big rarity-tinted banner instead of the easy-to-miss toast
+            this.fx.gearToast(it);
           } else {
             const gold = (DDI.gear && DDI.gear.salvageValue) ? DDI.gear.salvageValue(it) : 0;
             this.game.gold += gold;
