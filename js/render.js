@@ -1818,14 +1818,20 @@ DDI.Renderer = (function () {
       const t = hero.walkT || 0;
       const moving = !!hero.moving;
       const sprinting = !!hero.sprinting;
-      // BIG, obvious walk dynamics
-      const stepBob = Math.sin(t) * (moving ? (sprinting ? 14 : 10) : 2.5);
-      const sxAmt   = moving ? 0.16 : 0.04;
-      const syAmt   = moving ? 0.20 : 0.05;
+      // Walk dynamics. Previous tuning leaned ±9° per step plus a ±4px lateral
+      // shift, which read as "wobbling around." Now: bob is upward-only per
+      // foot-plant (abs of sin), squash/stretch is roughly half-amplitude, the
+      // lean follows direction of travel instead of oscillating, and the
+      // lateral shift is removed.
+      const stepBob = Math.abs(Math.sin(t)) * (moving ? (sprinting ? 7 : 5) : 1.2);
+      const sxAmt   = moving ? 0.07 : 0.02;
+      const syAmt   = moving ? 0.09 : 0.025;
       const sxx = 1 + Math.cos(t) * sxAmt;
       const syy = 1 - Math.cos(t) * syAmt;
-      const lean = Math.sin(t * 2) * (moving ? 0.16 : 0.02);
-      const sideShift = moving ? Math.cos(t) * 4 : 0;
+      const dirSign  = (hero.lastMoveX || 0) >= 0 ? 1 : -1;
+      const fwdLean  = moving ? 0.05 * dirSign * (sprinting ? 1.3 : 1) : 0;
+      const microSway = Math.sin(t * 2) * (moving ? 0.025 : 0.01);
+      const lean = fwdLean + microSway;
       const flash = hero.flash > 0 ? Math.min(1, hero.flash * 4) : 0;
       const flipX = hero.lastMoveX < 0;
       const d = hero.radius * 3.2;
@@ -1839,9 +1845,9 @@ DDI.Renderer = (function () {
       ctx.fill();
       ctx.restore();
 
-      // Painterly squash/stretch + lean transform around the hero centre
+      // Squash/stretch + forward-lean transform around the hero centre
       ctx.save();
-      ctx.translate(hero.x + sideShift, hero.y - Math.abs(stepBob));
+      ctx.translate(hero.x, hero.y - stepBob);
       ctx.rotate(lean);
       ctx.scale((flipX ? -sxx : sxx), syy);
 
@@ -1926,13 +1932,24 @@ DDI.Renderer = (function () {
       pi.y = pi.y + (targetY - pi.y) * lerp;
 
       const px = pi.x, py = pi.y;
-      const t = (performance.now() / 1000);
+      const t = (performance.now() / 1000) * 8;     // walk-cycle phase, matches local hero range
       // Estimate motion based on broadcast vx/vy — used purely for the
       // walk-cycle visual.
       const speed = Math.hypot(ps.vx || 0, ps.vy || 0);
       const moving = speed > 5;
-      const stepBob = Math.sin(t * 8) * (moving ? 10 : 2.5);
+      const sprinting = speed > 260;
+      // Match the local hero's natural walk: upward-only bob, gentle squash,
+      // forward-direction lean instead of side-to-side rocking.
+      const stepBob = Math.abs(Math.sin(t)) * (moving ? (sprinting ? 7 : 5) : 1.2);
+      const sxAmt   = moving ? 0.07 : 0.02;
+      const syAmt   = moving ? 0.09 : 0.025;
+      const sxx = 1 + Math.cos(t) * sxAmt;
+      const syy = 1 - Math.cos(t) * syAmt;
       const flipX   = (ps.vx || 0) < 0;
+      const dirSign = flipX ? -1 : 1;
+      const fwdLean  = moving ? 0.05 * dirSign * (sprinting ? 1.3 : 1) : 0;
+      const microSway = Math.sin(t * 2) * (moving ? 0.025 : 0.01);
+      const lean = fwdLean + microSway;
       const d       = 16 * 3.2;     // matches local hero size — radius * 3.2
 
       // Shadow
@@ -1945,8 +1962,9 @@ DDI.Renderer = (function () {
 
       // Sprite — same key system as the local hero
       ctx.save();
-      ctx.translate(px, py - Math.abs(stepBob));
-      ctx.scale(flipX ? -1 : 1, 1);
+      ctx.translate(px, py - stepBob);
+      ctx.rotate(lean);
+      ctx.scale((flipX ? -sxx : sxx), syy);
       const charPick = ps.character || 'default';
       const heroKey = charPick === 'mage'        ? 'hero_mage'
                     : charPick === 'rogue'       ? 'hero_rogue'

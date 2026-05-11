@@ -3360,13 +3360,14 @@ body.on-title #party-hud {
 /* ===== MEGA Potion bar (per-run, 3 slots) ===== */
 #potion-bar {
   position: absolute;
-  /* Center column (XP bar / hud-top / ability bar) is fully occupied —
-     park the potion bar off to the bottom-right corner, level with the
-     ability bar.  Action-buttons are display:none on desktop so this is
-     empty space.  Mobile override below puts it top-left. */
+  /* Anchor just to the right of the centred ability bar (the "main toolbar"),
+     not flush in the screen corner.  Offset is roughly half of the widest
+     ability bar (~6 slots) + a small gap so it sits adjacent without
+     overlapping when the bar is full.  Mobile override below puts it
+     top-left, since action-buttons take the bottom-right column there. */
   bottom: calc(env(safe-area-inset-bottom, 20px) + 20px);
-  right: 18px;
-  left: auto;
+  left: calc(50% + 230px);
+  right: auto;
   top: auto;
   transform: none;
   display: flex;
