@@ -116,6 +116,23 @@ DDI.Renderer = (function () {
       for (let y = oy; y <= oy + h; y += tile) { ctx.moveTo(ox, y); ctx.lineTo(ox + w, y); }
       ctx.stroke();
       ctx.restore();
+
+      // ============================================================
+      // Deterministic floor scatter — pebbles, cracks, moss patches.
+      // Positions are hashed off the integer tile coordinates so the
+      // same chunk always looks the same (doesn't shimmer as the camera
+      // moves) but the floor never feels repeating.  Each tile spawns
+      // 0-3 elements depending on a hash bucket.  Only tiles within the
+      // viewport get drawn, so cost stays bounded regardless of world
+      // size.  Skip in building interiors — the cleared room reads
+      // better as a flat plane.
+      // ============================================================
+      if (!(app.zone && app.zone.interior)) {
+        this._drawFloorScatter(ctx, ox, oy, w, h, tile, palette, camX, camY);
+        // Subtle drifting dust motes — 12 per frame, screen-blended, so
+        // the air around the player feels lived in instead of static.
+        this._drawDustMotes(ctx, camX, camY, palette);
+      }
       // Building interior — draw walls around the cached room rectangle so the
       // player sees they're in a contained space.
       if (app.zone && app.zone.interior && app._interiorBox) {
@@ -138,6 +155,101 @@ DDI.Renderer = (function () {
         ctx.strokeRect(box.left + 4, box.top + 4, box.right - box.left - 8, box.bottom - box.top - 8);
         ctx.restore();
       }
+    }
+
+    // Stable per-tile pseudo-random — 32-bit integer hash mixer.  Returns
+    // a value in [0,1).  Same inputs always give the same output so the
+    // floor scatter stays put as the camera pans.
+    _hash01(a, b) {
+      let h = (a | 0) * 374761393 + (b | 0) * 668265263;
+      h = (h ^ (h >>> 13)) * 1274126177;
+      h = h ^ (h >>> 16);
+      return ((h >>> 0) % 100000) / 100000;
+    }
+    _drawFloorScatter(ctx, ox, oy, w, h, tile, palette, camX, camY) {
+      ctx.save();
+      const accent = palette.accent || '#7a5a3a';
+      const dark   = palette.edge   || '#1a0e2a';
+      const sub    = palette.ground || '#2a1a3a';
+      // Pre-compute viewport bounds for a quick "is this tile worth drawing" cull.
+      const left = camX - this.app.viewW * 1.05;
+      const right = camX + this.app.viewW * 1.05;
+      const top = camY - this.app.viewH * 1.05;
+      const bot = camY + this.app.viewH * 1.05;
+      for (let tx = ox; tx <= ox + w; tx += tile) {
+        if (tx < left - tile || tx > right) continue;
+        for (let ty = oy; ty <= oy + h; ty += tile) {
+          if (ty < top - tile || ty > bot) continue;
+          const ti = Math.round(tx / tile);
+          const tj = Math.round(ty / tile);
+          const r1 = this._hash01(ti, tj);
+          const r2 = this._hash01(ti + 7919, tj + 104729);
+          const r3 = this._hash01(ti + 31337, tj + 271);
+          // Bucket — most tiles get nothing, a minority get scattered art
+          const bucket = Math.floor(r1 * 10);
+          if (bucket >= 7) {
+            // 2-3 small pebbles
+            const n = 2 + (bucket - 7);
+            ctx.fillStyle = accent;
+            ctx.globalAlpha = 0.20;
+            for (let k = 0; k < n; k++) {
+              const px = tx + this._hash01(ti, tj + k) * tile;
+              const py = ty + this._hash01(ti + k, tj) * tile;
+              const ps = 1 + this._hash01(ti + k * 13, tj + k * 17) * 2.5;
+              ctx.beginPath(); ctx.ellipse(px, py, ps, ps * 0.55, 0, 0, TAU); ctx.fill();
+            }
+          } else if (bucket === 4 || bucket === 5) {
+            // Hairline crack — short polyline across the tile
+            ctx.strokeStyle = dark;
+            ctx.globalAlpha = 0.32;
+            ctx.lineWidth = 1;
+            const sx = tx + r2 * tile;
+            const sy = ty + r3 * tile;
+            const len = 18 + r2 * 28;
+            const ang = r3 * TAU;
+            ctx.beginPath();
+            ctx.moveTo(sx, sy);
+            const mx = sx + Math.cos(ang) * len * 0.55 + (r1 - 0.5) * 8;
+            const my = sy + Math.sin(ang) * len * 0.55 + (r2 - 0.5) * 8;
+            const ex = sx + Math.cos(ang) * len;
+            const ey = sy + Math.sin(ang) * len;
+            ctx.lineTo(mx, my);
+            ctx.lineTo(ex, ey);
+            ctx.stroke();
+          } else if (bucket === 6) {
+            // Moss / stain patch — soft elliptical blob, tinted slightly green
+            ctx.fillStyle = sub;
+            ctx.globalAlpha = 0.18;
+            const px = tx + r2 * tile;
+            const py = ty + r3 * tile;
+            ctx.beginPath();
+            ctx.ellipse(px, py, 14 + r1 * 10, 7 + r2 * 6, r3 * TAU, 0, TAU);
+            ctx.fill();
+          }
+        }
+      }
+      ctx.restore();
+    }
+    // Drifting dust motes — pure cosmetic, regenerated each frame.  Tiny
+    // count keeps it cheap.  Positions are randomized inside the viewport
+    // and a tiny vertical drift gives them life.
+    _drawDustMotes(ctx, camX, camY, palette) {
+      const app = this.app;
+      const t = performance.now() / 1000;
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const tint = palette.accent || '#c9b8da';
+      for (let i = 0; i < 14; i++) {
+        // Each mote has a stable seed so it drifts coherently across frames
+        const seed = i * 137.508;
+        const px = camX + Math.cos(t * 0.3 + seed) * app.viewW * 0.55 + Math.sin(t * 0.7 + seed * 1.3) * 40;
+        const py = camY + Math.sin(t * 0.4 + seed * 1.7) * app.viewH * 0.45 - (t * 14 + seed * 31) % (app.viewH * 0.9);
+        const a = 0.20 + Math.sin(t * 1.6 + seed) * 0.10;
+        ctx.fillStyle = tint;
+        ctx.globalAlpha = Math.max(0, a);
+        ctx.beginPath(); ctx.arc(px, py, 1.4, 0, TAU); ctx.fill();
+      }
+      ctx.restore();
     }
 
     drawMinimap() {
@@ -421,6 +533,65 @@ DDI.Renderer = (function () {
       }
     }
 
+    // Animated torch — flickering flame on a small wall bracket.  Used by
+    // every building style to flank the doorway so the structure reads
+    // less like a flat shape and more like a place someone lives (or
+    // recently died in).  Cheap: 4 triangles + 3 particles per frame.
+    _drawTorch(ctx, cx, cy, t, seed) {
+      // Bracket — small dark trapezoid bolted to the wall
+      ctx.fillStyle = '#2a1a08';
+      ctx.beginPath();
+      ctx.moveTo(cx - 4, cy);
+      ctx.lineTo(cx + 4, cy);
+      ctx.lineTo(cx + 3, cy + 8);
+      ctx.lineTo(cx - 3, cy + 8);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#0a0400'; ctx.lineWidth = 1;
+      ctx.stroke();
+      // Flame — three nested teardrops with per-frame jitter
+      const flick = Math.sin(t * 14 + seed * 7) * 1.4 + Math.sin(t * 23 + seed) * 0.6;
+      const ah = 16 + flick;
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      // Outer halo glow
+      const halo = ctx.createRadialGradient(cx, cy - 4, 0, cx, cy - 4, 38);
+      halo.addColorStop(0, 'rgba(255,170,60,0.55)');
+      halo.addColorStop(1, 'rgba(255,80,20,0)');
+      ctx.fillStyle = halo;
+      ctx.beginPath(); ctx.arc(cx, cy - 4, 38, 0, TAU); ctx.fill();
+      // Flame body
+      ctx.fillStyle = '#ff7b1f';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - ah);
+      ctx.quadraticCurveTo(cx + 5, cy - ah * 0.4, cx + 3, cy);
+      ctx.quadraticCurveTo(cx, cy + 2, cx - 3, cy);
+      ctx.quadraticCurveTo(cx - 5, cy - ah * 0.4, cx, cy - ah);
+      ctx.closePath(); ctx.fill();
+      // Inner hot core
+      ctx.fillStyle = '#ffe14d';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - ah * 0.7);
+      ctx.quadraticCurveTo(cx + 2.5, cy - ah * 0.3, cx + 1.5, cy - 2);
+      ctx.quadraticCurveTo(cx, cy - 1, cx - 1.5, cy - 2);
+      ctx.quadraticCurveTo(cx - 2.5, cy - ah * 0.3, cx, cy - ah * 0.7);
+      ctx.closePath(); ctx.fill();
+      // White-hot pinpoint
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(cx, cy - ah * 0.45, 1.4, 0, TAU); ctx.fill();
+      ctx.restore();
+      // Rising sparks (random, screen-blended)
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      for (let i = 0; i < 2; i++) {
+        const px = cx + (Math.random() - 0.5) * 6;
+        const py = cy - ah - (Math.random() * 14);
+        ctx.fillStyle = 'rgba(255,200,80,' + (0.5 + Math.random() * 0.3) + ')';
+        ctx.beginPath(); ctx.arc(px, py, 0.8 + Math.random(), 0, TAU); ctx.fill();
+      }
+      ctx.restore();
+    }
+
     drawBuildingFeature(ctx, f, t) {
       const D = DDI.data;
       const def = (D && D.BUILDINGS && D.BUILDINGS[f.buildingId]) || null;
@@ -467,13 +638,37 @@ DDI.Renderer = (function () {
         ctx.fill();
         ctx.strokeStyle = '#0a0612'; ctx.lineWidth = 2;
         ctx.stroke();
-        // Stone seams
-        ctx.strokeStyle = 'rgba(20,12,40,0.5)';
+        // Stone block courses — horizontal seams + staggered vertical mortar
+        // lines turn the flat slab into recognizable masonry.  The
+        // alternating offset (i % 2) is what sells the brickwork.
+        ctx.strokeStyle = 'rgba(20,12,40,0.55)';
         ctx.lineWidth = 1;
-        for (let i = 1; i < 5; i++) {
-          const yy = yBase - (h - 14) * i / 5;
+        const courseH = (h - 14) / 8;
+        for (let i = 1; i < 8; i++) {
+          const yy = yBase - courseH * i;
           ctx.beginPath(); ctx.moveTo(cx - baseW/2 + 2, yy); ctx.lineTo(cx + baseW/2 - 2, yy); ctx.stroke();
+          // Two vertical mortar joints per course, offset every other row
+          const offset = (i % 2 === 0) ? 0 : courseH * 0.5;
+          for (let v = -1; v <= 1; v += 2) {
+            const vx = cx + v * baseW * 0.18 + (offset * 0);
+            ctx.beginPath();
+            ctx.moveTo(vx, yy);
+            ctx.lineTo(vx, yy + courseH);
+            ctx.stroke();
+          }
         }
+        // Cracks — three deterministic hairlines across the tower face
+        ctx.strokeStyle = 'rgba(10,6,18,0.65)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(cx - baseW/2 + 16, yTop + 30);
+        ctx.lineTo(cx - baseW/2 + 24, yTop + 70);
+        ctx.lineTo(cx - baseW/2 + 18, yTop + 110);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(cx + baseW/2 - 22, yTop + 50);
+        ctx.lineTo(cx + baseW/2 - 16, yTop + 100);
+        ctx.stroke();
         // Crenellation
         ctx.fillStyle = '#3a2a55';
         for (let i = 0; i < 7; i++) {
@@ -502,17 +697,29 @@ DDI.Renderer = (function () {
         ctx.beginPath();
         ctx.arc(cx, f.doorY - 46, 18, Math.PI, 0);
         ctx.stroke();
+        // Twin torches flanking the doorway — only when not explored, so
+        // the visual cue of "still active" matches the gameplay state.
+        if (!explored) {
+          this._drawTorch(ctx, cx - 32, f.doorY - 30, t, 1.7);
+          this._drawTorch(ctx, cx + 32, f.doorY - 30, t, 4.3);
+        }
       } else if (id === 'temple') {
         // ===== FORGOTTEN TEMPLE — colonnaded facade with golden trim =====
         const cx = f.x;
         const baseW = 200, h = 130;
         const yBase = f.y + 90;
         const yTop  = yBase - h;
-        // Floor block
+        // Floor block — visible stone slabs (vertical mortar joints every 32px)
         ctx.fillStyle = '#2a2418';
         ctx.fillRect(cx - baseW/2, yBase - 12, baseW, 12);
         ctx.strokeStyle = '#0a0804'; ctx.lineWidth = 2;
         ctx.strokeRect(cx - baseW/2, yBase - 12, baseW, 12);
+        ctx.strokeStyle = 'rgba(10,8,4,0.6)';
+        ctx.lineWidth = 1;
+        for (let i = 1; i < 7; i++) {
+          const sx = cx - baseW/2 + (baseW * i / 7);
+          ctx.beginPath(); ctx.moveTo(sx, yBase - 12); ctx.lineTo(sx, yBase); ctx.stroke();
+        }
         // Pediment (triangle roof)
         ctx.fillStyle = '#7a6a3a';
         ctx.beginPath();
@@ -589,12 +796,34 @@ DDI.Renderer = (function () {
         ctx.closePath();
         ctx.fill();
         ctx.strokeStyle = '#1a1408'; ctx.lineWidth = 2; ctx.stroke();
-        // Stone seams
-        ctx.strokeStyle = 'rgba(20,15,5,0.45)';
+        // Stone block courses + staggered mortar joints
+        ctx.strokeStyle = 'rgba(20,15,5,0.50)';
         ctx.lineWidth = 1;
-        for (let i = 1; i < 4; i++) {
-          const yy = yTop + 28 + (h - 28) * i / 4;
+        const courseHr = (h - 28) / 5;
+        for (let i = 1; i < 5; i++) {
+          const yy = yTop + 28 + courseHr * i;
           ctx.beginPath(); ctx.moveTo(cx - baseW/2 + 2, yy); ctx.lineTo(cx + baseW/2 - 2, yy); ctx.stroke();
+          // Vertical joints — alternate offset per course so it reads as masonry
+          const stagger = (i % 2 === 0) ? 0 : courseHr * 0.5;
+          for (let v = -2; v <= 2; v += 1) {
+            const vx = cx + v * (baseW / 6) + (stagger * 0);
+            if (vx <= cx - baseW/2 + 2 || vx >= cx + baseW/2 - 2) continue;
+            ctx.beginPath();
+            ctx.moveTo(vx, yy);
+            ctx.lineTo(vx, yy + courseHr);
+            ctx.stroke();
+          }
+        }
+        // Weather streaks running down from the broken top — vertical
+        // grime trails that make the stone feel ancient.
+        ctx.strokeStyle = 'rgba(10,8,4,0.32)';
+        ctx.lineWidth = 1.5;
+        for (let i = 0; i < 4; i++) {
+          const sx = cx - baseW/2 + 28 + i * ((baseW - 56) / 3);
+          ctx.beginPath();
+          ctx.moveTo(sx, yTop + 30);
+          ctx.lineTo(sx + (Math.sin(i) * 3), yTop + 30 + (h - 28) * 0.85);
+          ctx.stroke();
         }
         // Arched doorway with depth
         const drx = cx, dry = f.doorY - 36;
@@ -626,6 +855,11 @@ DDI.Renderer = (function () {
           ctx.fillStyle = dgrd;
           ctx.fillRect(cx - 20, dry - 22, 40, 60);
           ctx.restore();
+          // Torches mounted in the doorway recess on either side of the
+          // arch.  Adds a heart-of-the-ruin focal point and animates while
+          // the player approaches.
+          this._drawTorch(ctx, cx - 38, f.doorY - 24, t, 2.1);
+          this._drawTorch(ctx, cx + 38, f.doorY - 24, t, 5.9);
         }
         // Hanging moss / vines on the broken top — slow sway
         ctx.strokeStyle = 'rgba(60,120,40,0.65)';
@@ -1837,9 +2071,18 @@ DDI.Renderer = (function () {
         ctx.save();
         ctx.globalAlpha = fadeAlpha;
 
-        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        // Soft contact shadow — radial gradient instead of solid ellipse so
+        // the enemy reads as "standing on the ground" rather than pasted on.
+        const shY = e.y + e.radius * 0.85;
+        const shRx = e.radius * 1.05;
+        const shRy = e.radius * 0.36;
+        const shGrd = ctx.createRadialGradient(e.x, shY, 0, e.x, shY, shRx);
+        shGrd.addColorStop(0,   'rgba(0,0,0,0.55)');
+        shGrd.addColorStop(0.7, 'rgba(0,0,0,0.25)');
+        shGrd.addColorStop(1,   'rgba(0,0,0,0)');
+        ctx.fillStyle = shGrd;
         ctx.beginPath();
-        ctx.ellipse(e.x, e.y + e.radius * 0.85, e.radius * 0.95, e.radius * 0.32, 0, 0, TAU);
+        ctx.ellipse(e.x, shY, shRx, shRy, 0, 0, TAU);
         ctx.fill();
 
         // Elite / Boss glow halo (drawn under the sprite so it reads as aura)
@@ -3907,6 +4150,126 @@ DDI.Renderer = (function () {
           ctx.globalCompositeOperation = 'screen';
           ctx.fillStyle = '#66d9ff';
           ctx.beginPath(); ctx.arc(l.x, l.y + bob, 4, 0, TAU); ctx.fill();
+        } else if (l.kind === 'potion') {
+          // Procedural potion bottle — bulbous body + neck + glowing liquid.
+          // Tint comes from l.color (red/gold/cyan per slot).  Easy swap for
+          // a PNG sprite later: replace this block with ctx.drawImage().
+          const slot = l.rarity;
+          const tint = l.color || '#fff';
+          // Soft pulsing glow halo on the ground
+          ctx.save();
+          ctx.globalAlpha = 0.40 + 0.20 * Math.sin(t * 4 + l.x * 0.01);
+          ctx.fillStyle = tint;
+          ctx.beginPath(); ctx.ellipse(l.x, l.y + bob + 7, 12, 4, 0, 0, TAU); ctx.fill();
+          ctx.restore();
+          // Bottle body
+          ctx.save();
+          ctx.translate(l.x, l.y + bob);
+          // Glass body
+          ctx.fillStyle = 'rgba(20,12,28,0.85)';
+          ctx.strokeStyle = '#0a0612';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(-4, -2);
+          ctx.lineTo(-4, -7);
+          ctx.lineTo(4, -7);
+          ctx.lineTo(4, -2);
+          // Round body
+          ctx.quadraticCurveTo(8, 0, 6, 5);
+          ctx.lineTo(-6, 5);
+          ctx.quadraticCurveTo(-8, 0, -4, -2);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+          // Liquid (inner fill, tinted)
+          ctx.fillStyle = tint;
+          ctx.beginPath();
+          ctx.moveTo(-3, -1);
+          ctx.quadraticCurveTo(6, 1, 5, 4);
+          ctx.lineTo(-5, 4);
+          ctx.quadraticCurveTo(-6, 1, -3, -1);
+          ctx.closePath();
+          ctx.fill();
+          // Cork
+          ctx.fillStyle = '#5a3a1a';
+          ctx.fillRect(-3, -10, 6, 3);
+          // Highlight gleam
+          ctx.fillStyle = 'rgba(255,255,255,0.5)';
+          ctx.beginPath(); ctx.ellipse(-2, 1, 1.2, 2, -0.4, 0, TAU); ctx.fill();
+          ctx.restore();
+          // Slot glyph label below the bottle
+          const glyph = slot === 'hp' ? '♥' : slot === 'ult' ? '★' : '⚡';
+          ctx.save();
+          ctx.font = '700 11px "Segoe UI", system-ui, sans-serif';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+          ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+          ctx.fillStyle = tint;
+          ctx.strokeText(glyph, l.x, l.y + bob + 8);
+          ctx.fillText(glyph, l.x, l.y + bob + 8);
+          ctx.restore();
+        } else if (l.kind === 'gear') {
+          // Gear drop — rarity-tinted placeholder icon (filled diamond with
+          // outline + slot glyph in the centre).  Easy to swap for PNG sprites
+          // later: just replace the diamond block with ctx.drawImage().
+          const RAR = (window.DDI && DDI.data && DDI.data.RARITY) || {};
+          const rd = RAR[l.rarity] || { color: '#fff', beam: 0 };
+          const item = l.item;
+          // Beam-pillar for legendary+ so the player notices the drop from
+          // across the screen.  Vertical translucent gradient, screen-blended.
+          if (rd.beam >= 0.7) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen';
+            const grad = ctx.createLinearGradient(l.x, l.y - 220, l.x, l.y + 8);
+            grad.addColorStop(0,    'rgba(0,0,0,0)');
+            grad.addColorStop(0.65, rd.color + '');
+            grad.addColorStop(1,    rd.color + '');
+            ctx.globalAlpha = 0.18 + 0.10 * Math.sin(t * 3.0);
+            ctx.fillStyle = grad;
+            ctx.fillRect(l.x - 14, l.y - 220, 28, 230);
+            ctx.restore();
+          }
+          // Ground glow ring — pulses softly so the eye lands on it
+          ctx.save();
+          ctx.globalAlpha = 0.45 + 0.20 * Math.sin(t * 4.0 + l.x * 0.01);
+          ctx.fillStyle = rd.color;
+          ctx.beginPath(); ctx.ellipse(l.x, l.y + bob + 6, 14, 5, 0, 0, TAU); ctx.fill();
+          ctx.restore();
+          // Diamond icon (placeholder — swap for ctx.drawImage(spriteForSlot))
+          ctx.save();
+          ctx.translate(l.x, l.y + bob);
+          ctx.rotate(Math.PI / 4);
+          ctx.fillStyle = rd.color;
+          ctx.fillRect(-7, -7, 14, 14);
+          ctx.lineWidth = 1.5; ctx.strokeStyle = '#0a0612';
+          ctx.strokeRect(-7, -7, 14, 14);
+          // Tiny inner highlight so it doesn't read as a flat block
+          ctx.fillStyle = 'rgba(255,255,255,0.55)';
+          ctx.fillRect(-5, -5, 4, 4);
+          ctx.restore();
+          // Slot glyph centered on top (rendered upright, not rotated)
+          const glyph = item && item.slotIcon ? item.slotIcon : '✦';
+          ctx.save();
+          ctx.font = '700 11px "Segoe UI", system-ui, sans-serif';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillStyle = '#0a0612';
+          ctx.fillText(glyph, l.x, l.y + bob + 1);
+          ctx.restore();
+          // Floating name label — fades after a couple seconds so the world
+          // doesn't get cluttered, but still gives a clear "ooh, fresh drop".
+          const showLabelFor = 4.5;
+          if (l.life < showLabelFor && item) {
+            const fade = 1 - Math.max(0, (l.life - showLabelFor + 1.5) / 1.5);
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, fade);
+            ctx.font = '700 11px "Segoe UI", system-ui, sans-serif';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+            ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+            ctx.fillStyle = rd.color;
+            const label = item.name || '';
+            ctx.strokeText(label, l.x, l.y + bob - 14);
+            ctx.fillText(label, l.x, l.y + bob - 14);
+            ctx.restore();
+          }
         }
         ctx.restore();
         l.bobT += 0.12;

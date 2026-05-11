@@ -112,7 +112,12 @@ DDI.entities = (function () {
       this._actBoss = false;
       this._interior = false;
       this._castableAbility = null;
-      this._eliteCd = 0;
+      // null (not 0) so tickEliteAbility's warm-up randomization actually
+      // kicks in.  When this stayed 0, freshly spawned elites would cast
+      // their telegraphed ability on the very next frame — looking like
+      // "abilities firing before the mob spawned" because the cast lined
+      // up with the fade-in animation finishing.
+      this._eliteCd = null;
       this._eliteCdMin = null;
       this._eliteCdMax = null;
       // Zone serial — overwritten by the Pool factory immediately after this
@@ -175,6 +180,11 @@ DDI.entities = (function () {
       this.animOffset = 0;         // random phase per-projectile so cycles desync
       this.noGlow = false;         // skip the radial glow under sprite projectiles
       this.shape = null;            // 'spear' | null — procedural shape override
+      // Owner reference for hostile projectiles spawned by elite/boss
+      // abilities.  If the source dies / fades out, we cancel the projectile
+      // in updateProjectiles so cinematic meteors don't land after the caster
+      // is already dust on the floor.
+      this.source = null;
     }
     reset(opts) {
       this._alive = true;
@@ -200,6 +210,7 @@ DDI.entities = (function () {
       this.slowDur = opts.slowDur || 0;
       this.areaOnHit = opts.areaOnHit || 0;
       this.hostile = !!opts.hostile;
+      this.source = opts.source || null;
       this._zs = opts._zs != null ? opts._zs : 0;
       this.sprite = opts.sprite || null;
       this.spriteFrame = opts.spriteFrame != null ? opts.spriteFrame : 0;
@@ -226,8 +237,11 @@ DDI.entities = (function () {
       this.color = '#fff'; this.bobT = 0;
       this.attracted = false; this.life = 0; this.maxLife = 60;
       this.spawnPop = 0;
+      // Gear-drops attach the full item descriptor here so the pickup
+      // handler can push the exact rolled affixes into runGear.stash.
+      this.item = null;
     }
-    reset(kind, x, y, value, rarity) {
+    reset(kind, x, y, value, rarity, item) {
       this._alive = true;
       this.kind = kind;
       this.x = x; this.y = y;
@@ -239,12 +253,27 @@ DDI.entities = (function () {
       this.rarity = rarity || 'common';
       this.attracted = false;
       this.life = 0;
-      this.maxLife = kind === 'chest' ? 9999 : 30;
+      // Chests + gear + potions sit indefinitely; consumable pickups despawn after 30s.
+      this.maxLife = (kind === 'chest' || kind === 'gear' || kind === 'potion') ? 9999 : 30;
       this.spawnPop = 0.001;
+      this.item = (kind === 'gear') ? (item || null) : null;
+      // For potions, the 'rarity' field is repurposed as the slot key:
+      // 'hp' | 'ult' | 'stam'.  We tint the ground icon accordingly so the
+      // player can read the drop from a glance.
       if      (kind === 'gold') this.color = '#ffd966';
       else if (kind === 'gem')  this.color = '#b266ff';
       else if (kind === 'xp')   this.color = '#66d9ff';
       else if (kind === 'chest')this.color = '#ffaa55';
+      else if (kind === 'gear') {
+        // Pick rarity-tinted ground glow so loot beams read at a glance.
+        const RAR = (window.DDI && DDI.data && DDI.data.RARITY) || {};
+        this.color = (RAR[this.rarity] && RAR[this.rarity].color) || '#fff';
+      }
+      else if (kind === 'potion') {
+        this.color = (this.rarity === 'hp')   ? '#ff3d52'
+                   : (this.rarity === 'ult')  ? '#ffd966'
+                                              : '#66d9ff';     // 'stam'
+      }
       else                       this.color = '#fff';
     }
   }

@@ -36,7 +36,7 @@
       const _app = this;
       this.enemies     = new Pool(function () { return new Enemy(); },     function (o, def, x, y, hpS, dmgS) { o.reset(def, x, y, hpS, dmgS); o._zs = _app._zoneSerial; });
       this.projectiles = new Pool(function () { return new Projectile(); },function (o, opts) { o.reset(opts); });
-      this.loot        = new Pool(function () { return new Loot(); },      function (o, kind, x, y, value, rarity) { o.reset(kind, x, y, value, rarity); });
+      this.loot        = new Pool(function () { return new Loot(); },      function (o, kind, x, y, value, rarity, item) { o.reset(kind, x, y, value, rarity, item); });
       this.particles   = new Pool(function () { return new Particle(); },  function (o, opts) { o.reset(opts); });
       this.dmgnums     = new Pool(function () { return new DmgNum(); },    function (o, x, y, v, c, crit) { o.reset(x, y, v, c, crit); });
 
@@ -51,6 +51,15 @@
 
       // ULT — Cataclysm. Long cooldown, massive damage screen-clear.
       this.ult = { cd: 0, maxCd: 30 };
+
+      // Per-run gear. Lives here until endRun / startRun wipes it. Snapshotted
+      // alongside the run state for save-and-resume. See gear.js for shape.
+      this.runGear = (DDI.gear && DDI.gear.makeRunGear) ? DDI.gear.makeRunGear() : { equipped: {}, stash: [], maxStash: 32 };
+
+      // Per-run MEGA potions — 3 stack-counted slots: hp / ult / stam.
+      // Drop from chests + elite/boss kills.  Hotkeys 1 / 2 / 3 consume one
+      // and apply the effect.  Cap at 3 of each so the bar shows a clean count.
+      this.potions = { hp: 0, ult: 0, stam: 0, max: 3 };
 
       this.fx = new DDI.FX(this);
       this.renderer = new DDI.Renderer(this);
@@ -95,21 +104,26 @@
       requestAnimationFrame(function (t) { self.loop(t); });
     }
 
-    // Local-only play — no Supabase calls, no leaderboard, save lives in localStorage.
-    // Guests always get the character-select right away, even if a previous guest
-    // session left a character pinned — the user explicitly wants to re-pick.
+    // Local-only play — no Supabase calls, no leaderboard, save lives in a
+    // SEPARATE localStorage slot so it never touches a logged-in user's
+    // profile data.  Previously playAsGuest() loaded the active profile and
+    // wiped its `character` field, corrupting the real save when a user
+    // toggled into guest mode and back.
     playAsGuest() {
       this.isGuest = true;
-      this.save = (DDI.save && DDI.save.load) ? DDI.save.load() : null;
-      if (!this.save) {
-        // Bootstrap a default profile so the rest of the code that expects save fields works.
-        if (DDI.save && DDI.save.createProfile) {
-          DDI.save.createProfile('Guest');
-          this.save = DDI.save.load();
-        }
-      }
-      // Force guests through character select on every entry
-      if (this.save) this.save.character = null;
+      // Read the guest save (if any) from its dedicated key.  Fall back to
+      // DDI.save.defaults() so the rest of the game has every field it
+      // expects (settings, keybinds, etc.).
+      const baseDefaults = (DDI.save && DDI.save.defaults) ? DDI.save.defaults() : {};
+      let stored = null;
+      try {
+        const raw = localStorage.getItem('ddi_guest_save_v1');
+        if (raw) stored = JSON.parse(raw);
+      } catch (e) {}
+      this.save = Object.assign({}, baseDefaults, stored || {});
+      // Force guests through character select on every entry — user prefers
+      // the explicit pick over silently reusing the last guest pick.
+      this.save.character = null;
       if (this.ui && this.ui.hideAuth) this.ui.hideAuth();
       if (this.ui && this.ui.showCharacterSelect) this.ui.showCharacterSelect();
       else if (this.ui && this.ui.showTitle) this.ui.showTitle();
@@ -204,6 +218,22 @@
       this.generateFeatures('main');
       // Apply Forge meta-upgrades (permanent, account-wide)
       DDI.data.applyMetaUpgrades(this.hero, this.save.permUpgrades);
+      // GEAR BETA — opt-in mode triggered from the title screen "GEAR BETA"
+      // button.  Main runs never touch the gear system; only beta runs see
+      // drops, the inventory modal, the HUD button, etc.  Flag is set on the
+      // App by _startBetaRun and consumed here once per run.
+      this.game.gearBeta = !!this._enterBetaNext;
+      this._enterBetaNext = false;
+      this.runGear = (DDI.gear && DDI.gear.makeRunGear) ? DDI.gear.makeRunGear() : { equipped: {}, stash: [], maxStash: 32 };
+      if (this.game.gearBeta && DDI.gear && DDI.gear.applyAllToHero) {
+        DDI.gear.applyAllToHero(this.hero, this.runGear.equipped);
+      }
+      // Show / hide the inventory HUD button so it only appears in beta runs.
+      const invBtn = document.getElementById('btn-inventory');
+      if (invBtn) invBtn.classList.toggle('hidden', !this.game.gearBeta);
+      // Fresh potion stack — wiped between runs (per-run consumables, no carry).
+      this.potions = { hp: 0, ult: 0, stam: 0, max: 3 };
+      if (this.ui && this.ui.updatePotionBar) this.ui.updatePotionBar();
       // Start with class-appropriate abilities — mage gets magic, warrior gets physical
       const charKey = (this.save && this.save.character) || 'default';
       const klass = (CLASSES && CLASSES[charKey]) || CLASSES.default;
@@ -229,6 +259,11 @@
         const ck = this.save.character || 'default';
         if (this.save.runStates && this.save.runStates[ck]) delete this.save.runStates[ck];
       }
+      // Drop per-run gear — roguelite reset, no carry-over.
+      this.runGear = (DDI.gear && DDI.gear.makeRunGear) ? DDI.gear.makeRunGear() : { equipped: {}, stash: [], maxStash: 32 };
+      // Same for MEGA potions — leftover stash from a dead run does not carry.
+      this.potions = { hp: 0, ult: 0, stam: 0, max: 3 };
+      if (this.ui && this.ui.updatePotionBar) this.ui.updatePotionBar();
       const rootEl = document.getElementById('game-root');
       if (rootEl) rootEl.classList.remove('in-game');
       // Dust breakdown — shown in death summary so players see where it came from.
@@ -284,8 +319,14 @@
 
     persist(immediate) {
       if (!this.save) return;
+      // Guests live in their own localStorage slot so they never overwrite
+      // a logged-in user's profile (which was happening when playAsGuest
+      // routed through DDI.save.write → active profile).
+      if (this.isGuest) {
+        try { localStorage.setItem('ddi_guest_save_v1', JSON.stringify(this.save)); } catch (e) {}
+        return;
+      }
       if (DDI.save && DDI.save.write) DDI.save.write(this.save);    // local cache
-      if (this.isGuest) return;                                       // guests don't sync
       if (DDI.auth && DDI.auth.saveSave) DDI.auth.saveSave(this.save, !!immediate); // remote sync (throttled or forced)
     }
 
@@ -313,6 +354,7 @@
         savedAt: Date.now(),
         version: 2,
         character: charKey,
+        gearBeta: !!this.game.gearBeta,     // mark beta runs so resume re-enables gear
         game: {
           time: this.game.time, level: this.game.level, xp: this.game.xp, xpNeed: this.game.xpNeed,
           kills: this.game.kills, elites: this.game.elites, bosses: this.game.bosses,
@@ -321,6 +363,7 @@
           revivesUsed: this.game.revivesUsed || 0,
           _dustPaid: this.game._dustPaid || 0, _killsPaid: this.game._killsPaid || 0,
           _accountXpPaid: this.game._accountXpPaid || 0,
+          gearBeta: !!this.game.gearBeta,
         },
         runDifficulty: this.runDifficulty,
         zoneDifficulty: this.zoneDifficulty,
@@ -331,6 +374,16 @@
         // Snapshot the active zone (objective state etc.)
         zone: this._serializeZone(this.zone),
         features: this._serializeFeatures(this.features || []),
+        // Per-run gear — equipped + stash, so resume puts the player back with
+        // the exact same loadout.  Stats are already baked into heroSnap, so
+        // we DON'T re-apply on resume; we just restore the inventory so future
+        // equips/unequips work correctly.
+        runGear: this._serializeRunGear(),
+        // Potions snapshot — plain counts, easy to round-trip
+        potions: { hp: (this.potions && this.potions.hp) || 0,
+                   ult: (this.potions && this.potions.ult) || 0,
+                   stam: (this.potions && this.potions.stam) || 0,
+                   max: (this.potions && this.potions.max) || 3 },
       };
       this.persist();
       // Bounce the player back to title — game stops running.
@@ -362,6 +415,18 @@
       }
       // Don't try to persist live enemy refs; they get rebuilt on continue.
       return out;
+    }
+
+    // Strip runGear to a clean JSON-safe shape for persistence.  Items are
+    // already plain data; we just deep-clone so live mutations don't leak
+    // back into the snapshot.
+    _serializeRunGear() {
+      const rg = this.runGear || { equipped: {}, stash: [] };
+      const clone = function (item) { return item ? JSON.parse(JSON.stringify(item)) : null; };
+      const equipped = {};
+      Object.keys(rg.equipped || {}).forEach(function (k) { equipped[k] = clone(rg.equipped[k]); });
+      const stash = (rg.stash || []).map(clone);
+      return { equipped: equipped, stash: stash, maxStash: rg.maxStash || 32 };
     }
 
     _serializeFeatures(arr) {
@@ -522,7 +587,31 @@
       // Rebuild hero — base stats first, then overlay saved values
       this.hero.reset(HERO_BASE, rs.hero.x || this.world.width / 2, rs.hero.y || this.world.height / 2);
       DDI.data.applyMetaUpgrades(this.hero, this.save.permUpgrades);
+      // Beta flag — only beta runs resume with the gear system active.  The
+      // snapshot stores the flag at the top level AND inside game.* (belt-
+      // and-suspenders for older snapshots that only had one or the other).
+      this.game.gearBeta = !!(rs.gearBeta || (rs.game && rs.game.gearBeta));
+      // Restore per-run gear BEFORE the hero overlay.  The saved heroSnap
+      // already includes gear stat contributions baked in, so we don't re-
+      // apply equipped items here — the overlay below is authoritative for
+      // stats.  We only need the runGear inventory restored so subsequent
+      // equip/unequip ops continue working correctly mid-run.
+      this.runGear = (DDI.gear && DDI.gear.makeRunGear) ? DDI.gear.makeRunGear() : { equipped: {}, stash: [], maxStash: 32 };
+      if (this.game.gearBeta && rs.runGear) {
+        const clone = function (item) { return item ? JSON.parse(JSON.stringify(item)) : null; };
+        const eq = rs.runGear.equipped || {};
+        const target = this.runGear.equipped;
+        Object.keys(eq).forEach(function (k) { target[k] = clone(eq[k]); });
+        this.runGear.stash = (rs.runGear.stash || []).map(clone);
+        if (rs.runGear.maxStash) this.runGear.maxStash = rs.runGear.maxStash;
+      }
       Object.assign(this.hero, rs.hero);
+      // HUD inventory button visibility tracks beta mode (same as newRun)
+      const invBtn2 = document.getElementById('btn-inventory');
+      if (invBtn2) invBtn2.classList.toggle('hidden', !this.game.gearBeta);
+      // Restore potion stash
+      this.potions = Object.assign({ hp: 0, ult: 0, stam: 0, max: 3 }, rs.potions || {});
+      if (this.ui && this.ui.updatePotionBar) this.ui.updatePotionBar();
       this.hero.iframes = 1.5;     // breathing room on resume
       this.hero.flash = 0.3;
       // Rebuild abilities at saved levels. Abilities.add doubles as the
@@ -949,11 +1038,16 @@
       const wantSprint = !!this.input.sprintHeld && h.moving && h.stamina > 0.02;
       h.sprinting = wantSprint;
       const sprintMult = wantSprint ? 1.6 : 1;
-      // Stamina drains while sprinting, refills otherwise
+      // Stamina drains while sprinting, refills otherwise.
+      // MEGA stamina potion buff (_staminaRushT) triples regen and halves
+      // drain for its duration.
+      const rush = (h._staminaRushT || 0) > 0;
+      if (rush) h._staminaRushT = Math.max(0, h._staminaRushT - dt);
       if (wantSprint) {
-        h.stamina = Math.max(0, h.stamina - dt * 0.45);
+        h.stamina = Math.max(0, h.stamina - dt * (rush ? 0.18 : 0.45));
       } else {
-        const regen = 0.30 + (h.staminaRegenBonus || 0);
+        const baseRegen = 0.30 + (h.staminaRegenBonus || 0);
+        const regen = rush ? baseRegen * 3 : baseRegen;
         h.stamina = Math.min(h.maxStamina, h.stamina + dt * regen);
       }
 
@@ -1178,6 +1272,7 @@
         telegraph: 1.0, strike: 0.4, linger: 0.0,
         damage: dmg,
         color: '#ffd966',
+        source: e,
         sourceId: e.id,
         hitOnce: false,
         _zs: this._zoneSerial,
@@ -1198,6 +1293,7 @@
           life: 1.4, damage: dmg,
           color: '#e8dcc0', radius: 6, pierce: 0,
           kind: 'projectile', hostile: true,
+          source: e,
           _zs: this._zoneSerial,
         });
       }
@@ -1218,6 +1314,7 @@
           telegraph: 0.5, strike: 0.0, linger: 5.5,
           damage: dmg,
           color: '#9fdf7f',
+          source: e,
           _zs: this._zoneSerial,
         });
       }
@@ -1241,6 +1338,7 @@
           kind: 'meteor', hostile: true,
           spawnY: ty - 380, gravityFall: ty,
           areaOnHit: 50, delay: i * 0.3,
+          source: e,
           _zs: this._zoneSerial,
         });
       }
@@ -1266,6 +1364,7 @@
         x: tx, y: ty, radius: 70,
         telegraph: 0.0, strike: 0.25, linger: 0.0,
         damage: dmg, color: '#b266ff', hitOnce: false,
+        source: e,
         _zs: this._zoneSerial,
       });
     }
@@ -1279,6 +1378,7 @@
         x: e.x, y: e.y, radius: 0, maxRadius: 220,
         telegraph: 0.0, strike: 0.7, linger: 0.0,
         damage: dmg, color: '#ff7b1f', hitOnce: false,
+        source: e,
         _zs: this._zoneSerial,
       });
     }
@@ -1292,6 +1392,17 @@
         const z = this.hazards[i];
         // Stale — left over from a previous zone. Drop without ticking.
         if (z._zs != null && z._zs !== zs) continue;
+        // Owner dead / fading out — cancel any in-flight ability so the
+        // strike never lands.  This is the fix for "meteors keep dropping
+        // from elites that are already dead" — previously a hazard's source
+        // was untracked and the strike fired regardless of caster state.
+        // Lingering puddles (already-active toxic_pool) are allowed to
+        // finish their linger so a player can't trivialize them by killing
+        // the caster mid-puddle, but telegraph + strike phases abort.
+        if (z.source && (!z.source._alive || z.source._fadeOut)) {
+          const inLinger = (z.telegraph <= 0 && z.strike <= 0 && z.linger > 0);
+          if (!inLinger) continue;
+        }
         // Phase machine: telegraph -> strike -> linger
         if (z.telegraph > 0) {
           z.telegraph -= dt;
@@ -1375,6 +1486,9 @@
         if (p.hostile) {
           // Stale projectile from a previous zone — drop without applying.
           if (p._zs != null && p._zs !== self._zoneSerial) { p._alive = false; return; }
+          // Source dead — drop the projectile mid-flight so meteors / shrapnel
+          // don't land after the elite caster is already a corpse.
+          if (p.source && (!p.source._alive || p.source._fadeOut)) { p._alive = false; return; }
           p.x += p.vx * dt;
           p.y += p.vy * dt;
           const r = h.radius + p.radius * 0.6;
@@ -1562,7 +1676,10 @@
         // gold/gems, with a wider pull so the player can pick them up from any
         // angle rather than walking onto them precisely.
         const canAttract = true;
-        const pullR = (l.kind === 'chest') ? 130 : h.pickup;
+        const pullR = (l.kind === 'chest')  ? 130
+                    : (l.kind === 'gear')   ? 140
+                    : (l.kind === 'potion') ? 130
+                    : h.pickup;
         if (canAttract && (l.attracted || d < pullR)) {
           l.attracted = true;
           const ax = h.x - l.x, ay = h.y - l.y;
@@ -1609,6 +1726,54 @@
         this.fx.toast('+' + gold + ' GOLD');
         this.fx.shake(4);
         if (DDI.audio) DDI.audio.play('pickup_chest');
+      } else if (l.kind === 'potion') {
+        // Top up the matching potion slot.  l.rarity stores the slot key.
+        const slot = l.rarity;
+        const tint = (slot === 'hp') ? '#ff3d52' : (slot === 'ult') ? '#ffd966' : '#66d9ff';
+        const labels = { hp: 'HEALTH', ult: 'CATACLYSM JUICE', stam: 'STAMINA' };
+        const added = this.addPotion(slot);
+        if (added) {
+          this.fx.toast('+ MEGA ' + (labels[slot] || 'POTION') + ' POTION');
+        }
+        // Pickup sparks (rarity-tinted regardless of cap hit so the player
+        // sees the drop register, even on overflow refund).
+        for (let i = 0; i < 12; i++) {
+          const a = rand(0, Math.PI * 2);
+          this.particles.spawn({ x: l.x, y: l.y, vx: Math.cos(a)*160, vy: Math.sin(a)*160,
+            life: 0.5, color: tint, size: 3, kind: 'spark' });
+        }
+        if (DDI.audio) DDI.audio.play('pickup_gem');
+      } else if (l.kind === 'gear') {
+        // Gear pickup — push to stash, fall back to auto-salvage if full so
+        // players don't lose drops when the bag is jammed.  Legendary+ gets
+        // a screen flash so the player FEELS the moment.
+        const it = l.item;
+        if (it) {
+          const RAR = (DDI.data && DDI.data.RARITY) || {};
+          const rdef = RAR[it.rarity] || RAR.common || { color: '#fff', beam: 0 };
+          const stashed = DDI.gear && DDI.gear.pickupItem ? DDI.gear.pickupItem(this, it) : false;
+          if (stashed) {
+            this.fx.toast('+ ' + (it.name || 'GEAR') + ' (' + (it.rarity || '').toUpperCase() + ')');
+          } else {
+            const gold = (DDI.gear && DDI.gear.salvageValue) ? DDI.gear.salvageValue(it) : 0;
+            this.game.gold += gold;
+            this.fx.toast('STASH FULL · +' + gold + ' GOLD');
+          }
+          // Pickup VFX scaled to rarity
+          for (let i = 0; i < 18; i++) {
+            const a = rand(0, Math.PI * 2);
+            this.particles.spawn({ x: l.x, y: l.y, vx: Math.cos(a)*180, vy: Math.sin(a)*180,
+              life: 0.55, color: rdef.color, size: 3, kind: 'spark' });
+          }
+          if (rdef.beam >= 0.85) {
+            this.fx.flash(rdef.color, 0.25);
+            this.fx.shake(6);
+          } else {
+            this.fx.shake(3);
+          }
+          if (DDI.audio) DDI.audio.play(rdef.beam >= 0.85 ? 'pickup_chest' : 'pickup_gold');
+          this.persist();
+        }
       }
     }
 
@@ -1675,6 +1840,38 @@
             }
             if (f.rarity === 'epic' || f.rarity === 'legendary') {
               self.loot.spawn('gem', f.x, f.y, 5 + Math.floor(Math.random() * 10), f.rarity);
+            }
+            // Roll a MEGA potion from the chest — higher-tier chests have
+            // better odds.  This is main-game (not beta), per user request.
+            const potChance =
+              f.rarity === 'legendary' ? 0.95 :
+              f.rarity === 'epic'      ? 0.65 :
+              f.rarity === 'rare'      ? 0.40 :
+              f.rarity === 'magic'     ? 0.22 :
+                                         0.10;
+            if (Math.random() < potChance) {
+              const slot = self.rollPotionSlot({ hp: 3, ult: 1, stam: 2 });
+              if (slot) {
+                self.loot.spawn('potion',
+                  f.x + (Math.random() - 0.5) * 28,
+                  f.y + (Math.random() - 0.5) * 28,
+                  1, slot, null);
+              }
+            }
+            // Roll a gear item using the chest's rarity to pick the source
+            // table. Higher-tier chests have wildly better odds of epic+.
+            // BETA ONLY — gear drops never appear in main runs.
+            if (self.game && self.game.gearBeta && DDI.gear && DDI.gear.generateForSource) {
+              const tableByRarity = {
+                common:    'chest_common',
+                magic:     'chest_magic',
+                rare:      'chest_rare',
+                epic:      'chest_epic',
+                legendary: 'chest_legendary',
+              };
+              const tk = tableByRarity[f.rarity] || 'chest_common';
+              const gItem = DDI.gear.generateForSource(tk, { act: self.game && self.game.act });
+              if (gItem) self.loot.spawn('gear', f.x + (Math.random()-0.5)*20, f.y + (Math.random()-0.5)*20, 1, gItem.rarity, gItem);
             }
             // Mark this chest for removal — disappear from world + minimap
             toRemove.push(f);
@@ -2634,6 +2831,87 @@
         d.vy += 220 * dt;
         d.vx *= Math.max(0, 1 - dt * 1.5);
       });
+    }
+
+    // ============================================================
+    // MEGA POTIONS — per-run consumables
+    //   hp   : restores 60% max HP, on-pickup small heal too
+    //   ult  : clears 100% of ult cooldown (ready-to-fire)
+    //   stam : refills stamina + 2s buff that doubles regen
+    // ============================================================
+    addPotion(slot) {
+      if (!this.potions) this.potions = { hp: 0, ult: 0, stam: 0, max: 3 };
+      if (slot !== 'hp' && slot !== 'ult' && slot !== 'stam') return false;
+      const cap = this.potions.max || 3;
+      if (this.potions[slot] >= cap) {
+        // Overflow case — refund a tiny bit of gold so the drop still feels good
+        this.game.gold = (this.game.gold || 0) + 12;
+        if (this.fx && this.fx.toast) this.fx.toast('POTIONS FULL · +12 GOLD');
+        return false;
+      }
+      this.potions[slot]++;
+      if (this.ui && this.ui.updatePotionBar) this.ui.updatePotionBar({ flashSlot: slot });
+      return true;
+    }
+    usePotion(slot) {
+      if (!this.game.running || this.game.paused) return false;
+      if (!this.potions || !this.potions[slot]) return false;
+      const h = this.hero;
+      if (slot === 'hp') {
+        const heal = Math.round(h.maxHp * 0.60);
+        h.hp = Math.min(h.maxHp, h.hp + heal);
+        this.fx.toast('+' + heal + ' HP');
+        this.fx.flash('#ff8a99', 0.18);
+        // Crimson burst around the hero
+        for (let i = 0; i < 16; i++) {
+          const a = (i / 16) * Math.PI * 2;
+          this.particles.spawn({ x: h.x, y: h.y, vx: Math.cos(a)*180, vy: Math.sin(a)*180 - 60,
+            life: 0.55, color: '#ff3d52', size: 3, kind: 'spark' });
+        }
+        this.particles.spawn({ x: h.x, y: h.y, life: 0.35, size: 70, color: '#ff8a99', kind: 'ring', fade: 1 });
+      } else if (slot === 'ult') {
+        this.ult.cd = 0;
+        this.fx.toast('★ CATACLYSM READY ★');
+        this.fx.flash('#ffd966', 0.25);
+        for (let i = 0; i < 22; i++) {
+          const a = (i / 22) * Math.PI * 2;
+          this.particles.spawn({ x: h.x, y: h.y, vx: Math.cos(a)*220, vy: Math.sin(a)*220 - 40,
+            life: 0.55, color: '#ffd966', size: 3, kind: 'streak' });
+        }
+        this.particles.spawn({ x: h.x, y: h.y, life: 0.35, size: 90, color: '#ffe14d', kind: 'ring', fade: 1 });
+      } else if (slot === 'stam') {
+        h.stamina = h.maxStamina;
+        // 4-second adrenaline window — stamina regen tripled.  Stored on the
+        // hero so updateHero can read it (regen tick already multiplies by
+        // staminaRegenBonus; we layer an extra _staminaRush window).
+        h._staminaRushT = 4.0;
+        this.fx.toast('★ ADRENALINE ★');
+        this.fx.flash('#66d9ff', 0.20);
+        for (let i = 0; i < 20; i++) {
+          const a = (i / 20) * Math.PI * 2;
+          this.particles.spawn({ x: h.x, y: h.y, vx: Math.cos(a)*200, vy: Math.sin(a)*200 - 50,
+            life: 0.55, color: '#66d9ff', size: 3, kind: 'streak' });
+        }
+        this.particles.spawn({ x: h.x, y: h.y, life: 0.35, size: 80, color: '#66d9ff', kind: 'ring', fade: 1 });
+      } else {
+        return false;
+      }
+      this.potions[slot]--;
+      if (DDI.audio) DDI.audio.play('pickup_gem');
+      if (this.ui && this.ui.updatePotionBar) this.ui.updatePotionBar();
+      this.persist();
+      return true;
+    }
+    // Roll a MEGA potion from a chest open or boss kill.  weights is a {hp,ult,stam}
+    // object; missing weights default to equal.  Returns 'hp' | 'ult' | 'stam' | null.
+    rollPotionSlot(weights) {
+      weights = weights || { hp: 1, ult: 1, stam: 1 };
+      const total = (weights.hp || 0) + (weights.ult || 0) + (weights.stam || 0);
+      if (total <= 0) return null;
+      let r = Math.random() * total;
+      if ((r -= (weights.hp   || 0)) <= 0) return 'hp';
+      if ((r -= (weights.ult  || 0)) <= 0) return 'ult';
+      return 'stam';
     }
 
     loop(now) {

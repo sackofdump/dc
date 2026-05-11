@@ -1359,10 +1359,12 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
   font-size: 11px; font-weight: 800; letter-spacing: 0.10em;
 }
 .char-recommend {
-  /* Sits at the top INSIDE the card so the modal's overflow:auto can't clip
-     it. Spans the card so it reads as a banner. */
-  align-self: stretch;
-  margin: -4px -4px 4px;
+  /* Floats above the card without contributing to flex layout — otherwise
+     the mage card sits ~25px taller than the rest of the grid and the
+     portraits / names go out of alignment. */
+  position: absolute;
+  top: -10px; left: 50%;
+  transform: translateX(-50%);
   padding: 3px 10px;
   background: linear-gradient(180deg, #ffe89a, #f0c850);
   border: 1px solid #fff;
@@ -1376,6 +1378,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
   text-align: center;
   box-shadow: 0 2px 8px rgba(0,0,0,0.55), 0 0 12px rgba(255,217,102,0.55);
   z-index: 2;
+  pointer-events: none;
 }
 .char-pick { position: relative; }
 .char-portrait {
@@ -2520,6 +2523,276 @@ body.hud-edit .hud-draggable::after {
 .tier-godkill    #game-root::after { box-shadow: inset 0 0 240px rgba(255,217,102,0.6); animation: godPulse 0.6s infinite; }
 @keyframes godPulse { 0%,100% { opacity:0.7;} 50% { opacity:1;} }
 
+/* ===== MEGA Potion bar (per-run, 3 slots) ===== */
+#potion-bar {
+  position: absolute;
+  bottom: 96px;
+  /* Anchor just above the right-side action buttons but not overlapping
+     the ult button.  Adjusts down on small screens. */
+  right: 14px;
+  display: flex;
+  gap: 8px;
+  z-index: 12;
+  pointer-events: none;
+}
+.potion-slot {
+  pointer-events: auto;
+  position: relative;
+  width: 46px; height: 46px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(22,16,31,0.92), rgba(10,6,18,0.92));
+  border: 2px solid var(--panel-edge);
+  color: var(--ink-dim);
+  font-family: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.08s, box-shadow 0.12s, border-color 0.12s, filter 0.12s;
+}
+.potion-slot[data-slot="hp"]   { border-color: rgba(255,61,82,0.55);  color: #ff8a99; }
+.potion-slot[data-slot="ult"]  { border-color: rgba(255,217,102,0.6); color: var(--accent-gold); }
+.potion-slot[data-slot="stam"] { border-color: rgba(102,217,255,0.55); color: var(--accent-cyan); }
+.potion-slot:hover { transform: translateY(-1px); }
+.potion-slot.empty {
+  filter: grayscale(0.85) brightness(0.65);
+  cursor: default;
+}
+.potion-slot.empty:hover { transform: none; }
+.potion-slot[data-slot="hp"]:not(.empty)   { box-shadow: 0 0 12px rgba(255,61,82,0.35),  inset 0 0 8px rgba(255,61,82,0.18); }
+.potion-slot[data-slot="ult"]:not(.empty)  { box-shadow: 0 0 12px rgba(255,217,102,0.35), inset 0 0 8px rgba(255,217,102,0.18); }
+.potion-slot[data-slot="stam"]:not(.empty) { box-shadow: 0 0 12px rgba(102,217,255,0.35), inset 0 0 8px rgba(102,217,255,0.18); }
+.potion-slot .pot-glyph {
+  font-size: 20px;
+  line-height: 1;
+  filter: drop-shadow(0 0 6px currentColor);
+}
+.potion-slot .pot-key {
+  position: absolute;
+  top: 2px; left: 4px;
+  font-size: 9px;
+  color: var(--ink-fade);
+  letter-spacing: 0.04em;
+}
+.potion-slot .pot-count {
+  position: absolute;
+  bottom: 2px; right: 4px;
+  font-size: 11px;
+  color: var(--ink);
+  text-shadow: 0 0 4px rgba(0,0,0,0.85);
+}
+.potion-slot.flashing { animation: potionFlash 0.4s; }
+@keyframes potionFlash {
+  0%   { transform: scale(1.0); }
+  40%  { transform: scale(1.18); filter: brightness(1.6); }
+  100% { transform: scale(1.0); filter: brightness(1.0); }
+}
+
+/* ===== GEAR BETA title button — distinct from FORGE/SETTINGS row ===== */
+.beta-btn {
+  background: linear-gradient(180deg, rgba(178,102,255,0.25), rgba(102,217,255,0.15));
+  border: 1px solid var(--accent-cyan);
+  color: var(--accent-cyan);
+  position: relative;
+  letter-spacing: 0.22em;
+}
+.beta-btn::after {
+  content: 'BETA';
+  position: absolute;
+  top: -7px; right: 8px;
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  padding: 2px 5px;
+  background: var(--accent-cyan);
+  color: var(--bg);
+  border-radius: 3px;
+  font-weight: 800;
+}
+.beta-btn:hover {
+  background: linear-gradient(180deg, rgba(178,102,255,0.35), rgba(102,217,255,0.22));
+  color: #fff;
+  box-shadow: 0 0 14px rgba(102,217,255,0.35);
+}
+
+/* ===== Inventory modal (per-run gear) ===== */
+.inv-card {
+  max-width: 880px;
+  /* The grid + equipped panel together can exceed default modal height; clamp
+     and scroll so the resume button stays reachable on short viewports. */
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+}
+.inv-title {
+  font-size: 22px;
+  letter-spacing: 0.32em;
+  text-align: center;
+  color: var(--accent-gold);
+  text-shadow: 0 0 12px rgba(255,217,102,0.35);
+  margin-bottom: 6px;
+}
+.inv-gold-row {
+  display: flex; justify-content: center; gap: 12px;
+  font-size: 12px; color: var(--ink-dim);
+  letter-spacing: 0.18em;
+  margin-bottom: 12px;
+}
+.inv-gold-pill, .inv-stash-pill {
+  background: rgba(10,6,18,0.55);
+  border: 1px solid var(--panel-edge);
+  border-radius: 999px;
+  padding: 4px 12px;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.inv-gold-pill .ico { color: var(--accent-gold); }
+.inv-stash-pill { color: var(--ink-dim); }
+.inv-body {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) 1fr;
+  gap: 14px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.inv-equipped {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  align-content: start;
+}
+.inv-slot {
+  position: relative;
+  background: rgba(10,6,18,0.65);
+  border: 2px solid rgba(178,102,255,0.25);
+  border-radius: 10px;
+  padding: 8px;
+  min-height: 84px;
+  display: flex; flex-direction: column; align-items: center;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.12s, border-color 0.12s;
+}
+.inv-slot:hover { transform: translateY(-1px); }
+.inv-slot.empty { opacity: 0.55; cursor: default; }
+.inv-slot .slot-icon {
+  font-size: 22px;
+  line-height: 1;
+  margin-bottom: 4px;
+  filter: drop-shadow(0 0 4px rgba(0,0,0,0.6));
+}
+.inv-slot .slot-label {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  color: var(--ink-fade);
+  margin-bottom: 4px;
+}
+.inv-slot .slot-item {
+  font-size: 11px;
+  text-align: center;
+  line-height: 1.25;
+  color: var(--ink);
+  font-weight: 600;
+}
+.inv-slot .empty-hint { color: var(--ink-fade); font-weight: 400; font-style: italic; }
+.inv-slot .slot-affix-count {
+  font-size: 9px; color: var(--ink-fade); margin-top: 3px;
+  letter-spacing: 0.12em;
+}
+.inv-stash {
+  display: flex; flex-direction: column; min-height: 0;
+}
+.inv-stash-head {
+  font-size: 11px; letter-spacing: 0.32em; color: var(--ink-fade);
+  margin-bottom: 6px;
+}
+.inv-stash-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 6px;
+  overflow-y: auto;
+  /* Cap the grid so it scrolls instead of pushing the detail panel off
+     the bottom of short viewports. */
+  max-height: 340px;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-violet) transparent;
+}
+.inv-stash-grid::-webkit-scrollbar { width: 6px; }
+.inv-stash-grid::-webkit-scrollbar-thumb { background: var(--accent-violet); border-radius: 3px; }
+.inv-stash-cell {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  background: rgba(10,6,18,0.6);
+  border: 2px solid rgba(178,102,255,0.18);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: transform 0.08s, box-shadow 0.12s, border-color 0.12s;
+}
+.inv-stash-cell.empty { opacity: 0.32; cursor: default; }
+.inv-stash-cell:not(.empty):hover { transform: translateY(-1px) scale(1.04); }
+.inv-stash-cell.selected { outline: 2px solid var(--accent-gold); outline-offset: 2px; }
+.inv-stash-cell .stash-glyph {
+  font-size: 18px; line-height: 1;
+  filter: drop-shadow(0 0 3px rgba(0,0,0,0.6));
+}
+.inv-stash-cell .stash-rarity-dot {
+  position: absolute; right: 3px; bottom: 3px;
+  width: 6px; height: 6px; border-radius: 50%;
+  box-shadow: 0 0 4px currentColor;
+}
+.inv-detail {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: rgba(10,6,18,0.65);
+  border: 1px solid var(--panel-edge);
+  border-radius: 10px;
+  min-height: 110px;
+}
+.inv-detail-hint { color: var(--ink-fade); font-style: italic; font-size: 12px; text-align: center; padding: 18px 0; }
+.inv-detail-head { border-bottom: 1px dashed; padding-bottom: 6px; margin-bottom: 8px; }
+.inv-detail-name { font-size: 16px; font-weight: 800; letter-spacing: 0.08em; }
+.inv-detail-sub { font-size: 11px; color: var(--ink-fade); margin-top: 2px; letter-spacing: 0.18em; }
+.inv-detail-affixes { display: flex; flex-direction: column; gap: 4px; }
+.affix-row { font-size: 12px; color: var(--ink-dim); }
+.affix-row .cmp-better { color: var(--accent-green); margin-left: 8px; font-weight: 700; }
+.affix-row .cmp-worse  { color: #ff6b7d;             margin-left: 8px; font-weight: 700; }
+.inv-detail-foot {
+  margin-top: 10px;
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 8px;
+}
+.inv-detail-sell { color: var(--ink-dim); font-size: 12px; }
+.inv-detail-sell b { color: var(--accent-gold); }
+.inv-detail-actions { display: flex; gap: 8px; }
+.inv-detail-btn { padding: 8px 14px; font-size: 11px; letter-spacing: 0.18em; }
+.inv-foot { justify-content: center; margin-top: 12px; }
+.inv-foot .primary-btn { min-width: 200px; }
+
+/* Floating hover tooltip for stash + equipped cells */
+.inv-tooltip {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  min-width: 200px;
+  max-width: 320px;
+  background: linear-gradient(180deg, #1c1230 0%, #110820 100%);
+  border: 1px solid var(--panel-edge);
+  border-radius: 8px;
+  padding: 8px 10px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.7);
+  font-size: 11px;
+  color: var(--ink-dim);
+  letter-spacing: 0.02em;
+}
+.inv-tooltip.hidden { display: none; }
+.inv-tooltip .tip-name {
+  font-size: 13px; font-weight: 800; letter-spacing: 0.08em;
+  border-bottom: 1px dashed; padding-bottom: 4px; margin-bottom: 4px;
+}
+.inv-tooltip .tip-sub { font-size: 10px; color: var(--ink-fade); margin-bottom: 6px; letter-spacing: 0.18em; }
+.inv-tooltip .tip-row { font-size: 11px; color: var(--ink); }
+.inv-tooltip .tip-row .cmp-better { color: var(--accent-green); margin-left: 6px; font-weight: 700; }
+.inv-tooltip .tip-row .cmp-worse  { color: #ff6b7d;             margin-left: 6px; font-weight: 700; }
+.inv-tooltip .tip-foot { font-size: 10px; color: var(--ink-fade); margin-top: 6px; letter-spacing: 0.12em; }
+
 /* ===== Responsive nudges ===== */
 @media (max-width: 480px) {
   #hud-top { gap: 8px; padding: 6px 10px; }
@@ -2528,4 +2801,9 @@ body.hud-edit .hud-draggable::after {
   .ability-slot { width: 32px; height: 32px; font-size: 16px; }
   .modal-card h1 { font-size: 26px; }
   .modal-card h2 { font-size: 18px; }
+  /* Mobile inventory: stack equipped above stash; cap stash cells smaller */
+  .inv-body { grid-template-columns: 1fr; }
+  .inv-stash-grid { grid-template-columns: repeat(5, 1fr); max-height: 220px; }
+  .inv-equipped   { grid-template-columns: repeat(3, 1fr); }
+  .inv-card       { max-width: 100vw; padding: 14px; }
 }

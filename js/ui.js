@@ -94,6 +94,40 @@ DDI.UI = (function () {
         begin();
       });
       if (btnRestart) btnRestart.addEventListener('click', function () { self.app.startRun(); });
+      // ---- GEAR BETA — opt-in run mode with loot drops + inventory ----
+      const btnGearBeta = this.$('btn-gear-beta');
+      if (btnGearBeta) btnGearBeta.addEventListener('click', function () {
+        const save = self.app && self.app.save;
+        if (!save) { self.showAuth && self.showAuth(); return; }
+        const charKey = save.character || 'default';
+        const D = DDI.data || {};
+        const cls = (D.CLASSES && D.CLASSES[charKey]) || { name: charKey };
+        const hasSaved = !!(save.runStates && save.runStates[charKey]);
+        const begin = function () {
+          self.app._enterBetaNext = true;
+          self.app.startRun();
+        };
+        // Same confirm UX as NEW GAME — beta runs overwrite any existing save
+        // for this character (we share the runStates[charKey] slot).
+        if (hasSaved) {
+          self.showConfirm({
+            title: 'DISCARD ' + (cls.name || charKey).toUpperCase() + ' SAVE?',
+            message:
+              'You have a saved run on <em class="hl">' + (cls.name || charKey).toUpperCase() + '</em>.\n' +
+              'Starting GEAR BETA will permanently overwrite it.',
+            confirmText: 'START BETA',
+            cancelText: 'KEEP MY SAVE',
+            danger: true,
+            onConfirm: function () {
+              delete save.runStates[charKey];
+              self.app.persist();
+              begin();
+            },
+          });
+          return;
+        }
+        begin();
+      });
       const btnDeathMenu = this.$('btn-death-menu');
       if (btnDeathMenu) btnDeathMenu.addEventListener('click', function () {
         self.hideDeath();
@@ -162,15 +196,28 @@ DDI.UI = (function () {
         self._charFromTitle = true;
         self.showCharacterSelect();
       });
-      // X-close on the character select modal — only valid when a character
-      // is already chosen (initial pick still needs a class).
+      // X-close on the character select modal.  Previously gated on having
+      // a chosen character (which left guests + new accounts unable to back
+      // out of the modal).  Now always closes — if no character is chosen,
+      // fall back to a sensible default so the rest of the app still works,
+      // and route back to title or auth depending on where we came from.
       const btnCharClose = this.$('btn-char-close');
       if (btnCharClose) btnCharClose.addEventListener('click', function () {
-        if (!self.app.save || !self.app.save.character) return;     // first pick is mandatory
+        if (self.app.save && !self.app.save.character) {
+          // First-pick wasn't made: assign the recommended class so abilities,
+          // CLASSES lookups, and the title screen don't blow up.  The player
+          // can change later via "CHANGE CHARACTER".
+          self.app.save.character = 'mage';
+          self.app.persist();
+        }
         self.$('modal-character').classList.add('hidden');
         self.modalOpen = false;
         self._charFromTitle = false;
-        self.showTitle();
+        self._newRunFlow = false;
+        // Guests are mid-onboarding from the auth modal — bounce back there
+        // (they can choose to sign in instead).  Logged-in users go to title.
+        if (self.app.isGuest && !self.app.save) self.showAuth();
+        else self.showTitle();
       });
       const btnLbBack = this.$('btn-lb-back');
       if (btnLbBack) btnLbBack.addEventListener('click', function () {
@@ -292,6 +339,60 @@ DDI.UI = (function () {
       if (setShake) setShake.addEventListener('change', function () {
         self.app.save.settings.screenShake = setShake.checked; self.app.persist();
       });
+
+      // ---- MEGA Potion bar: 1 / 2 / 3 keys + button clicks ----
+      // Keys are global (no modal gate other than "is a run live").  We
+      // intentionally allow potion use even during pause-menus that aren't
+      // gear or level-up — when the user has a heart-thumping moment they
+      // can chug.  But suppress when typing in inputs.
+      addEventListener('keydown', function (e) {
+        const k = e.key;
+        if (k !== '1' && k !== '2' && k !== '3') return;
+        const tgt = e.target;
+        if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA')) return;
+        // Don't steal from the level-up picker (that one's modal handles 1/2/3 first)
+        const lvl = self.$('modal-levelup');
+        if (lvl && !lvl.classList.contains('hidden')) return;
+        if (!self.app || !self.app.game || !self.app.game.running) return;
+        const slot = k === '1' ? 'hp' : k === '2' ? 'ult' : 'stam';
+        if (self.app.usePotion) self.app.usePotion(slot);
+        e.preventDefault();
+      });
+      const potBar = this.$('potion-bar');
+      if (potBar) potBar.addEventListener('click', function (e) {
+        const btn = e.target.closest('.potion-slot');
+        if (!btn) return;
+        const slot = btn.getAttribute('data-slot');
+        if (!self.app || !self.app.usePotion) return;
+        self.app.usePotion(slot);
+      });
+
+      // ---- Inventory open/close (GEAR BETA only) ----
+      // I or C — toggle the inventory modal during a beta run.  Ignored on
+      // non-beta runs so the main game never accidentally pops the panel.
+      // Both keys behave identically (user requested either).
+      addEventListener('keydown', function (e) {
+        const k = e.key;
+        if (k !== 'i' && k !== 'I' && k !== 'c' && k !== 'C') return;
+        const tgt = e.target;
+        if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA')) return;
+        if (!self.app || !self.app.game || !self.app.game.running) return;
+        if (!self.app.game.gearBeta) return;     // gear inventory is beta-only
+        if (self.invOpen) { self.closeInventory(); }
+        else if (!self.modalOpen && !self.pauseOpen) { self.openInventory(); }
+        e.preventDefault();
+      });
+      const btnInvHud = this.$('btn-inventory');
+      if (btnInvHud) btnInvHud.addEventListener('click', function () {
+        if (!self.app || !self.app.game || !self.app.game.running) return;
+        if (!self.app.game.gearBeta) return;
+        if (self.invOpen) self.closeInventory();
+        else if (!self.modalOpen && !self.pauseOpen) self.openInventory();
+      });
+      const btnInvClose = this.$('btn-inv-close');
+      if (btnInvClose) btnInvClose.addEventListener('click', function () { self.closeInventory(); });
+      const btnInvResume = this.$('btn-inv-resume');
+      if (btnInvResume) btnInvResume.addEventListener('click', function () { self.closeInventory(); });
     }
 
     // ---- Auth (Supabase) ----
@@ -1039,6 +1140,330 @@ DDI.UI = (function () {
         if (root) root.classList.add('in-game');
       }
     }
+    // ---- MEGA Potion bar refresh ----
+    // Called on pickup, on consume, and on run-start/resume.  Updates the
+    // count badge per slot + toggles the dimmed 'empty' style.  A pickup
+    // flash highlights the slot that just gained a charge.
+    updatePotionBar(opts) {
+      const bar = this.$('potion-bar');
+      if (!bar) return;
+      const pots = (this.app && this.app.potions) || { hp: 0, ult: 0, stam: 0 };
+      const slots = bar.querySelectorAll('.potion-slot');
+      slots.forEach(function (slotEl) {
+        const key = slotEl.getAttribute('data-slot');
+        const n = pots[key] | 0;
+        slotEl.classList.toggle('empty', n <= 0);
+        const cnt = slotEl.querySelector('.pot-count');
+        if (cnt) cnt.textContent = n;
+        if (opts && opts.flashSlot === key) {
+          slotEl.classList.remove('flashing');
+          // Force reflow so the animation replays even on consecutive pickups
+          void slotEl.offsetWidth;
+          slotEl.classList.add('flashing');
+        }
+      });
+    }
+
+    // ---- Inventory ----
+    // The inventory pauses the game (like the pause menu) — drawn from the
+    // existing pause infrastructure but kept as its own modal so it can have
+    // a richer layout: equipped slot panel on the left, scrollable stash on
+    // the right, with a detail/comparison pane below.
+    openInventory() {
+      if (!this.app || !this.app.game || !this.app.game.running) return;
+      this.invOpen = true;
+      this.app.game.paused = true;
+      this.$('modal-inventory').classList.remove('hidden');
+      this._invSelectedIdx = -1;
+      this.renderInventory();
+    }
+    closeInventory() {
+      this.invOpen = false;
+      this.$('modal-inventory').classList.add('hidden');
+      // Only resume if no other modal grabbed control.
+      if (!this.modalOpen && !this.pauseOpen && !document.querySelector('.modal:not(.hidden):not(#modal-inventory)')) {
+        this.app.game.paused = false;
+      }
+      // HUD comes back on resume — same defensive class re-add as closePause.
+      if (this.app && this.app.game && this.app.game.running) {
+        const root = document.getElementById('game-root');
+        if (root) root.classList.add('in-game');
+      }
+    }
+    // Format an affix value back into its tooltip-ready string.  Re-derives
+    // from value + op so a player can pick gear up across builds even if we
+    // tweak the desc template later.  Mirrors gear.js _rollAffix's fmt logic.
+    _affixLabel(aff) {
+      if (!aff) return '';
+      if (aff.desc) return aff.desc;     // descs are baked at roll time
+      const v = aff.value;
+      if (aff.op === 'cdm')           return '-' + (v * 100).toFixed(1) + '%';
+      if (aff.fmt === 'pct')          return '+' + (v * 100).toFixed(1) + '%';
+      if (aff.fmt === 'mult')         return '+' + v.toFixed(2);
+      if (aff.op === 'addi')          return '+' + Math.round(v);
+      return '+' + (Number.isInteger(v) ? v : v.toFixed(1));
+    }
+    // Build a rarity-colored badge name (innerHTML safe — items names come
+    // from a fixed pool, no user input).
+    _itemNameHtml(item) {
+      const RAR = (DDI.data && DDI.data.RARITY) || {};
+      const rd = RAR[item.rarity] || { color: '#fff', name: '' };
+      return '<span class="item-name r-' + (item.rarity || 'common') + '" style="color:' + rd.color + '">' +
+        (item.name || 'Gear') + '</span>';
+    }
+    // Render the equipped panel + stash grid.  Called on open and after every
+    // equip / unequip / salvage so the UI stays in sync.
+    renderInventory() {
+      const app = this.app;
+      const rg = (DDI.gear && DDI.gear.ensureRunGear) ? DDI.gear.ensureRunGear(app) : (app.runGear || { equipped: {}, stash: [], maxStash: 32 });
+      const GEAR = DDI.gear;
+      const RAR = (DDI.data && DDI.data.RARITY) || {};
+      const self = this;
+
+      // Header counters
+      const goldEl = this.$('inv-gold');
+      if (goldEl) goldEl.textContent = (app.game && app.game.gold) || 0;
+      const scEl = this.$('inv-stash-count');
+      if (scEl) scEl.textContent = rg.stash.length;
+      const smEl = this.$('inv-stash-max');
+      if (smEl) smEl.textContent = rg.maxStash;
+
+      // ---- Equipped slots ----
+      const eqRoot = this.$('inv-equipped');
+      eqRoot.innerHTML = '';
+      const slotOrder = (GEAR && GEAR.SLOT_KEYS) || ['weapon','armor','boots','amulet','ring','charm'];
+      slotOrder.forEach(function (sk) {
+        const slotDef = GEAR.SLOTS[sk];
+        const item = rg.equipped[sk];
+        const cell = document.createElement('div');
+        cell.className = 'inv-slot' + (item ? ' filled r-' + (item.rarity || 'common') : ' empty');
+        if (item) {
+          const rd = RAR[item.rarity] || { color: '#fff' };
+          cell.style.borderColor = rd.color;
+          cell.style.boxShadow = '0 0 12px ' + rd.color + '55, inset 0 0 12px ' + rd.color + '22';
+        }
+        cell.innerHTML =
+          '<div class="slot-icon">' + (slotDef.icon || '?') + '</div>' +
+          '<div class="slot-label">' + slotDef.name.toUpperCase() + '</div>' +
+          (item
+            ? '<div class="slot-item">' + self._itemNameHtml(item) + '</div>' +
+              '<div class="slot-affix-count">' + item.affixes.length + ' affix' + (item.affixes.length===1?'':'es') + '</div>'
+            : '<div class="slot-item empty-hint">— empty —</div>');
+        // Hover tooltip — equipped items show a "click to unequip" hint
+        if (item) {
+          cell.title = item.name + ' (' + item.rarity + ')';
+          cell.addEventListener('mouseenter', function () { self.showInventoryTooltip(item, cell); });
+          cell.addEventListener('mouseleave', function () { self.hideInventoryTooltip(); });
+          cell.addEventListener('click', function () {
+            if (GEAR && GEAR.unequip) {
+              const ok = GEAR.unequip(app, sk);
+              if (!ok) self.app.fx.toast('STASH FULL');
+              else     self.app.fx.toast('UNEQUIPPED ' + slotDef.name.toUpperCase());
+              self.renderInventory();
+            }
+          });
+        }
+        eqRoot.appendChild(cell);
+      });
+
+      // ---- Stash grid ----
+      const stashRoot = this.$('inv-stash-grid');
+      stashRoot.innerHTML = '';
+      const fillerCells = Math.max(0, rg.maxStash - rg.stash.length);
+      rg.stash.forEach(function (it, idx) {
+        const rd = RAR[it.rarity] || { color: '#fff' };
+        const cell = document.createElement('div');
+        cell.className = 'inv-stash-cell r-' + (it.rarity || 'common');
+        cell.style.borderColor = rd.color;
+        cell.style.boxShadow = '0 0 8px ' + rd.color + '55, inset 0 0 8px ' + rd.color + '22';
+        cell.innerHTML =
+          '<div class="stash-glyph">' + (it.slotIcon || '✦') + '</div>' +
+          '<div class="stash-rarity-dot" style="background:' + rd.color + '"></div>';
+        cell.title = it.name + ' — ' + it.rarity.toUpperCase();
+        // Hover tooltip on desktop; tap-to-select on mobile (selection persists).
+        cell.addEventListener('mouseenter', function () { self.showInventoryTooltip(it, cell, idx); });
+        cell.addEventListener('mouseleave', function () { self.hideInventoryTooltip(); });
+        cell.addEventListener('click', function (e) {
+          self._invSelectedIdx = idx;
+          self.renderInventoryDetail(idx);
+          // Highlight selection visually
+          const all = stashRoot.querySelectorAll('.inv-stash-cell');
+          all.forEach(function (c) { c.classList.remove('selected'); });
+          cell.classList.add('selected');
+          e.stopPropagation();
+        });
+        // Right-click & double-click both equip (Diablo-style)
+        cell.addEventListener('contextmenu', function (e) { e.preventDefault(); self._equipAt(idx); });
+        cell.addEventListener('dblclick', function (e) { e.preventDefault(); self._equipAt(idx); });
+        stashRoot.appendChild(cell);
+      });
+      // Empty placeholder cells so the grid keeps its shape — players see how
+      // much room is left without doing math.
+      for (let i = 0; i < fillerCells; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'inv-stash-cell empty';
+        stashRoot.appendChild(cell);
+      }
+
+      // ---- Detail panel ----
+      this.renderInventoryDetail(this._invSelectedIdx);
+    }
+    // Helper: equip from stash + refresh.  Surfaces a salvage prompt if the
+    // item's slot is already full (the swap path inside gear.equip handles
+    // the displaced item — but we want a clear toast about what happened).
+    _equipAt(idx) {
+      const app = this.app;
+      const GEAR = DDI.gear;
+      if (!GEAR) return;
+      const rg = GEAR.ensureRunGear(app);
+      const it = rg.stash[idx];
+      if (!it) return;
+      const slot = it.slot;
+      const prev = rg.equipped[slot];
+      const ok = GEAR.equip(app, idx);
+      if (ok) {
+        if (prev) app.fx.toast('EQUIPPED · ' + slot.toUpperCase());
+        else      app.fx.toast('EQUIPPED ' + (it.name || ''));
+      }
+      this._invSelectedIdx = -1;
+      this.renderInventory();
+    }
+    // Render the detail / comparison panel for the currently-selected stash
+    // item.  When the same slot has an equipped item, show deltas with green
+    // (better) / red (worse) coloring.
+    renderInventoryDetail(idx) {
+      const panel = this.$('inv-detail');
+      const app = this.app;
+      const GEAR = DDI.gear;
+      const rg = GEAR ? GEAR.ensureRunGear(app) : { equipped: {}, stash: [] };
+      const item = (idx != null && idx >= 0) ? rg.stash[idx] : null;
+      if (!item) {
+        panel.innerHTML = '<div class="inv-detail-hint">Click a stash item to inspect &amp; compare.</div>';
+        return;
+      }
+      const RAR = (DDI.data && DDI.data.RARITY) || {};
+      const rd = RAR[item.rarity] || { color: '#fff', name: '' };
+      const equipped = rg.equipped[item.slot] || null;
+      const self = this;
+
+      // Affix rows with comparison deltas where applicable.
+      const eqByKey = {};
+      if (equipped) {
+        equipped.affixes.forEach(function (a) { eqByKey[a.key] = (eqByKey[a.key] || 0) + (a.value || 0); });
+      }
+      const rows = item.affixes.map(function (a) {
+        let delta = '';
+        const cur = eqByKey[a.key] || 0;
+        const diff = (a.value || 0) - cur;
+        if (equipped && Math.abs(diff) > 0.0001) {
+          const better = diff > 0;
+          const arrow = better ? '▲' : '▼';
+          const cls = better ? 'cmp-better' : 'cmp-worse';
+          const showAsPct = (a.fmt === 'pct' || a.op === 'cdm');
+          const txt = showAsPct
+            ? (better ? '+' : '') + (diff * 100).toFixed(1) + '%'
+            : (better ? '+' : '') + (Math.abs(diff) >= 1 ? Math.round(diff) : diff.toFixed(2));
+          delta = ' <span class="' + cls + '">' + arrow + ' ' + txt + ' vs equipped</span>';
+        }
+        return '<div class="affix-row">' + a.desc + delta + '</div>';
+      }).join('');
+
+      const salvageGold = GEAR.salvageValue ? GEAR.salvageValue(item) : 0;
+      panel.innerHTML =
+        '<div class="inv-detail-head" style="border-color:' + rd.color + '">' +
+          '<div class="inv-detail-name" style="color:' + rd.color + '">' + (item.name || 'Gear') + '</div>' +
+          '<div class="inv-detail-sub">' +
+            '<span class="inv-detail-rarity" style="color:' + rd.color + '">' + (rd.name || item.rarity || '').toUpperCase() + '</span>' +
+            ' · <span class="inv-detail-slot">' + (item.slotName || item.slot) + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="inv-detail-affixes">' + rows + '</div>' +
+        '<div class="inv-detail-foot">' +
+          '<div class="inv-detail-sell">Salvage: <b>' + salvageGold + '</b> gold</div>' +
+          '<div class="inv-detail-actions">' +
+            '<button class="ghost-btn inv-detail-btn" data-act="salvage">SALVAGE</button>' +
+            '<button class="primary-btn inv-detail-btn" data-act="equip">EQUIP</button>' +
+          '</div>' +
+        '</div>';
+      // Wire detail buttons
+      panel.querySelectorAll('.inv-detail-btn').forEach(function (b) {
+        b.addEventListener('click', function () {
+          const act = b.getAttribute('data-act');
+          if (act === 'equip') self._equipAt(idx);
+          else if (act === 'salvage') {
+            const g = GEAR.salvage(app, idx);
+            if (g > 0) app.fx.toast('+' + g + ' GOLD (SALVAGED)');
+            self._invSelectedIdx = -1;
+            self.renderInventory();
+          }
+        });
+      });
+    }
+    // Lightweight floating tooltip — positioned next to the hovered cell.
+    // Reuses the detail-panel content for parity.  On mobile (no hover) the
+    // selection-driven detail panel is the source of truth instead.
+    showInventoryTooltip(item, anchor, stashIdx) {
+      if (!item) return;
+      let tip = this._invTip;
+      if (!tip) {
+        tip = document.createElement('div');
+        tip.id = 'inv-tooltip';
+        tip.className = 'inv-tooltip';
+        document.body.appendChild(tip);
+        this._invTip = tip;
+      }
+      const RAR = (DDI.data && DDI.data.RARITY) || {};
+      const rd = RAR[item.rarity] || { color: '#fff', name: '' };
+      // Affix delta comparison vs currently-equipped item in same slot.
+      const app = this.app;
+      const rg = DDI.gear ? DDI.gear.ensureRunGear(app) : { equipped: {} };
+      const equipped = rg.equipped[item.slot];
+      const eqByKey = {};
+      if (equipped) {
+        equipped.affixes.forEach(function (a) { eqByKey[a.key] = (eqByKey[a.key] || 0) + (a.value || 0); });
+      }
+      const rows = item.affixes.map(function (a) {
+        const cur = eqByKey[a.key] || 0;
+        const diff = (a.value || 0) - cur;
+        let delta = '';
+        if (equipped && Math.abs(diff) > 0.0001) {
+          const better = diff > 0;
+          const cls = better ? 'cmp-better' : 'cmp-worse';
+          const showAsPct = (a.fmt === 'pct' || a.op === 'cdm');
+          const txt = showAsPct
+            ? (better ? '+' : '') + (diff * 100).toFixed(1) + '%'
+            : (better ? '+' : '') + (Math.abs(diff) >= 1 ? Math.round(diff) : diff.toFixed(2));
+          delta = ' <span class="' + cls + '">' + (better?'▲':'▼') + ' ' + txt + '</span>';
+        }
+        return '<div class="tip-row">' + a.desc + delta + '</div>';
+      }).join('');
+      tip.innerHTML =
+        '<div class="tip-name" style="color:' + rd.color + ';border-color:' + rd.color + '">' + (item.name || 'Gear') + '</div>' +
+        '<div class="tip-sub">' +
+          '<span style="color:' + rd.color + '">' + (rd.name || item.rarity || '').toUpperCase() + '</span>' +
+          ' · ' + (item.slotName || item.slot) +
+        '</div>' +
+        '<div class="tip-affixes">' + rows + '</div>' +
+        (equipped
+          ? '<div class="tip-foot">vs <span style="color:' + ((RAR[equipped.rarity]||{}).color || '#fff') + '">equipped</span></div>'
+          : '<div class="tip-foot">no item equipped in this slot</div>');
+      // Position tooltip near the anchor without clipping past viewport edges.
+      tip.classList.remove('hidden');
+      const r = anchor.getBoundingClientRect();
+      const vw = window.innerWidth, vh = window.innerHeight;
+      tip.style.left = '0px'; tip.style.top = '0px';
+      const tr = tip.getBoundingClientRect();
+      let x = r.right + 8;
+      let y = r.top;
+      if (x + tr.width > vw - 8) x = Math.max(8, r.left - tr.width - 8);
+      if (y + tr.height > vh - 8) y = Math.max(8, vh - tr.height - 8);
+      tip.style.left = x + 'px';
+      tip.style.top  = y + 'px';
+    }
+    hideInventoryTooltip() {
+      if (this._invTip) this._invTip.classList.add('hidden');
+    }
+
     quitRun() {
       this.pauseOpen = false;
       this.$('modal-pause').classList.add('hidden');
@@ -1437,7 +1862,10 @@ DDI.UI = (function () {
         stTxt.textContent = cur.toFixed(1) + ' / ' + max.toFixed(1);
       }
 
-      // Zone header — current location at the top of the screen
+      // Zone header — current location at the top of the screen, with kill
+      // progress appended for tele-zones with a kill objective so the player
+      // always knows "where they are" in their X / 75 grind, even when the
+      // progress widget is off-screen or hidden.
       const zh = this.$('zone-header');
       if (zh) {
         const act = (a.game && a.game.act) || 1;
@@ -1445,7 +1873,19 @@ DDI.UI = (function () {
         const actEl  = this.$('zone-header-act');
         const nameEl = this.$('zone-header-name');
         if (actEl)  actEl.textContent  = 'ACT ' + act + ' ·';
-        if (nameEl) nameEl.textContent = name;
+        if (nameEl) {
+          let label = name;
+          const z = a.zone || {};
+          const inKillZone = z.name && z.name !== 'main' && (z.killsNeeded | 0) > 0;
+          const obj = z.objective || 'standard';
+          // Only standard-objective zones use the bare kill counter; the
+          // others (bounty, ritual, survival, defend) have their own bars.
+          if (inKillZone && obj === 'standard' && !z.finalEliteSpawned) {
+            const cur = Math.min(z.killsNeeded, z.killsInZone || 0);
+            label += '  ·  ' + cur + ' / ' + z.killsNeeded;
+          }
+          nameEl.textContent = label;
+        }
       }
 
       // Zone progress (only visible inside biome zones) — bars adapt to the

@@ -948,6 +948,28 @@ DDI.systems = (function () {
         app.fx.toast('BOSS SLAIN');
         app.fx.shake(18);
         app.loot.spawn('chest', enemy.x, enemy.y, 1, 'legendary');
+        // Bosses always drop a MEGA potion — the player should feel rewarded.
+        if (app.rollPotionSlot) {
+          const bSlot = app.rollPotionSlot({ hp: 2, ult: 2, stam: 1 });
+          if (bSlot) app.loot.spawn('potion',
+            enemy.x + (Math.random() - 0.5) * 40,
+            enemy.y + (Math.random() - 0.5) * 40,
+            1, bSlot, null);
+        }
+        // Guaranteed gear drop on every boss kill — use the act-boss table
+        // for the climax fights (huge legendary+ odds), zone-boss table for
+        // the smaller end-of-tele-zone bosses.  BETA ONLY.
+        if (app.game && app.game.gearBeta && DDI.gear && DDI.gear.generateForSource) {
+          const tk = enemy._actBoss ? 'act_boss' : 'zone_boss';
+          const gItem = DDI.gear.generateForSource(tk, { act: app.game && app.game.act });
+          if (gItem) {
+            // Offset slightly so the gear doesn't sit perfectly on top of the chest.
+            app.loot.spawn('gear',
+              enemy.x + (Math.random() - 0.5) * 60,
+              enemy.y + (Math.random() - 0.5) * 60,
+              1, gItem.rarity, gItem);
+          }
+        }
         // Boss kill clears the battlefield of all lingering hazards + hostile
         // projectiles so the player isn't still being chipped by plague pools
         // / meteors / holy beams after the fight is over. Don't bump the
@@ -981,6 +1003,20 @@ DDI.systems = (function () {
       } else if (def.isElite) {
         app.fx.shake(6);
         app.loot.spawn('chest', enemy.x, enemy.y, 1, 'rare');
+        // Elites — modest MEGA potion drop chance (~22%).  Stingy, so finding
+        // one feels meaningful but they don't trivialize the act 4/5 grind.
+        if (Math.random() < 0.22 && app.rollPotionSlot) {
+          const eSlot = app.rollPotionSlot({ hp: 3, ult: 1, stam: 2 });
+          if (eSlot) app.loot.spawn('potion', enemy.x, enemy.y, 1, eSlot, null);
+        }
+        // Elite gear drop — ~28% chance, stingy elite table.  Keep most
+        // gear in chests (per the per-run design), so elites only sometimes
+        // cough up a piece on top of their guaranteed treasure chest.
+        // BETA ONLY.
+        if (app.game && app.game.gearBeta && DDI.gear && DDI.gear.generateForSource && Math.random() < 0.28) {
+          const gItem = DDI.gear.generateForSource('elite', { act: app.game && app.game.act });
+          if (gItem) app.loot.spawn('gear', enemy.x, enemy.y, 1, gItem.rarity, gItem);
+        }
       }
       app.game.kills++;
       if (def.isElite) app.game.elites++;
