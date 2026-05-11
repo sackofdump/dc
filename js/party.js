@@ -245,6 +245,8 @@ DDI.party = (function () {
     } else if (ev === 'dmg' && _party && _party.iAm === 'host') {
       // Client hit one of our enemies — apply the damage canonically
       _applyClientDamage(d);
+    } else if (ev === 'ult') {
+      _playPartnerUltVfx(d);
     } else if (ev === 'downed') {
       // Partner went down (8s revive window).  Do NOT tear down the
       // party — revive is still possible.  Banner is informational.
@@ -385,6 +387,44 @@ DDI.party = (function () {
   function partnerDowned() { return _isPartnerDowned(); }
   function reviveProgress() { return Math.min(1, _reviveStandT / REVIVE_FULL); }
 
+  function broadcastUlt(info) {
+    if (!_partyChannel || !_party) return;
+    try {
+      DDI.auth.sendPartyMessage(_partyChannel, 'ult', info || {});
+    } catch (e) {}
+  }
+  // Render the partner's ult locally — screen flash + radial particle
+  // burst at their world position.  Damage is host-authoritative (their
+  // sim handles enemy kills; we see results via the enemy snapshot).
+  function _playPartnerUltVfx(d) {
+    if (!app || !d) return;
+    const x = d.x, y = d.y;
+    const color = d.color || '#ffd966';
+    if (app.fx) {
+      if (app.fx.flash) app.fx.flash(color, 0.55);
+      if (app.fx.shake) app.fx.shake(18);
+      if (app.fx.toast) app.fx.toast('★ PARTNER CAST ' + ((d.id || 'ULT') + '').toUpperCase() + ' ★');
+    }
+    if (app.particles && x != null && y != null) {
+      // Big ring + sparks at partner's position so we can see WHERE
+      // they cast even if they're off-screen
+      app.particles.spawn({ x: x, y: y, life: 0.6, size: 240, color: color, kind: 'ring', fade: 1 });
+      app.particles.spawn({ x: x, y: y, life: 1.0, size: 420, color: '#ffffff', kind: 'ring', fade: 1 });
+      for (let i = 0; i < 40; i++) {
+        const a = (i / 40) * Math.PI * 2;
+        const sp = 180 + Math.random() * 260;
+        app.particles.spawn({
+          x: x, y: y,
+          vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+          life: 0.6 + Math.random() * 0.4,
+          color: i % 2 === 0 ? color : '#ffffff',
+          size: 3, kind: 'streak',
+        });
+      }
+    }
+    if (DDI.audio) DDI.audio.play('ult');
+  }
+
   function _showDownedBanner(name) {
     let banner = document.getElementById('party-downed-banner');
     if (!banner) {
@@ -491,12 +531,15 @@ DDI.party = (function () {
         e._mirror   = true;
         e.maxHp     = s.maxHp;
         e.level     = s.level;
+        e.x         = s.x; e.y = s.y;     // first sighting — snap into place
       }
-      // Light lerp toward authoritative position (drift correction) +
-      // update velocity for the local dead-reckoning step.
-      const lerp = 0.40;
-      e.x = e.x + (s.x - e.x) * lerp;
-      e.y = e.y + (s.y - e.y) * lerp;
+      // Set the smooth target — render code lerps toward this each frame.
+      // No vx-based dead reckoning, no lerp-on-apply: just a target the
+      // displayed position glides toward, which never warps when the
+      // host's AI changes direction.
+      e._smoothTargetX = s.x;
+      e._smoothTargetY = s.y;
+      // Keep vx/vy around for animation cues (walk cycle, facing)
       e.vx = s.vx || 0;
       e.vy = s.vy || 0;
       e.hp = s.hp;
@@ -1002,7 +1045,7 @@ DDI.party = (function () {
     partnerState, inParty, party, iAmHost, iAmClient,
     sendDamageHit,
     requestStartGame,
-    partnerProjectiles, broadcastDeath,
+    partnerProjectiles, broadcastDeath, broadcastUlt,
     broadcastDowned, tickRevive, partnerDowned, reviveProgress,
     markLootPickedUp: _markLootPickedUp,
     clearPickedUpLoot: _clearPickedUpLoot,

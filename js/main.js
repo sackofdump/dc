@@ -959,6 +959,17 @@
       this.ult.maxCd = ult.cooldown;
       this.ult.cd = ult.cooldown;
       ult.cast(this);
+      // Co-op: tell the partner we ulted so they see the screen flash
+      // and a particle burst at our position.  Damage is host-authoritative
+      // so this is purely cosmetic.
+      if (DDI.party && DDI.party.broadcastUlt) {
+        DDI.party.broadcastUlt({
+          id:    id,
+          x:     this.hero.x,
+          y:     this.hero.y,
+          color: (ult && ult.color) || '#ffd966',
+        });
+      }
     }
 
     update(dt) {
@@ -1174,13 +1185,20 @@
       const zs = this._zoneSerial;
       this.enemies.forEach(function (e) {
         if (!e._alive) return;
-        // Co-op CLIENT: mirrors are driven by host snapshots.  Dead-reckon
-        // position using last-known velocity so enemies move at 60fps
-        // between 15Hz snapshots.  Snapshot apply does a small lerp toward
-        // the authoritative position to correct drift.
+        // Co-op CLIENT: smooth toward the latest snapshot target instead
+        // of dead-reckoning.  Dead reckoning was wrong on AI direction
+        // changes (host turns, client keeps going, then snaps).  Plain
+        // smoothing always moves toward the latest known good position
+        // — no prediction, no overshoot, no warping.
         if (e._mirror) {
-          e.x += (e.vx || 0) * dt;
-          e.y += (e.vy || 0) * dt;
+          if (e._smoothTargetX != null) {
+            // Time-based catch-up: cover ~80% of the remaining gap over
+            // each snapshot interval.  Tunable: tighter feels snappier
+            // but adds jitter on noisy positions; this lands smooth.
+            const k = Math.min(1, dt * 14);
+            e.x = e.x + (e._smoothTargetX - e.x) * k;
+            e.y = e.y + (e._smoothTargetY - e.y) * k;
+          }
           if (e.flash > 0) e.flash = Math.max(0, e.flash - dt);
           return;
         }

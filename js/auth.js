@@ -722,6 +722,7 @@ DDI.auth = (function () {
       'state',                           // batched per-beat: pos + enemies + projs + loot
       'leave', 'chat', 'dmg',
       'death', 'downed', 'revive_complete',
+      'ult',                             // partner cast their ultimate — show big visual
       'start_request', 'start_accept', 'start_decline', 'start_cancel', 'start_go',
     ];
     PARTY_EVENTS.forEach(function (ev) {
