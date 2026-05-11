@@ -1361,10 +1361,18 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
 .char-recommend {
   /* Floats above the card without contributing to flex layout — otherwise
      the mage card sits ~25px taller than the rest of the grid and the
-     portraits / names go out of alignment. */
+     portraits / names go out of alignment.
+     Centering uses left:0 + right:0 + margin:auto with width:fit-content
+     instead of the transform trick — the button-element parent was
+     anchoring the absolute child to the left in some browsers. */
   position: absolute;
-  top: -10px; left: 50%;
-  transform: translateX(-50%);
+  top: -10px;
+  left: 0;
+  right: 0;
+  margin-left: auto;
+  margin-right: auto;
+  width: fit-content;
+  max-width: calc(100% - 24px);
   padding: 3px 10px;
   background: linear-gradient(180deg, #ffe89a, #f0c850);
   border: 1px solid #fff;
