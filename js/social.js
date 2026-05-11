@@ -26,6 +26,8 @@ DDI.social = (function () {
   let _presenceByUser = {};
   let _unsubscribePresence = null;
   let _unsubscribeFriendAdded = null;
+  let _unsubscribeFriendRequest = null;
+  let _incomingRequests = [];     // [{from_user_id, display_name, created_at}]
 
   function $(id) { return document.getElementById(id); }
 
@@ -72,21 +74,19 @@ DDI.social = (function () {
     if (!inp) return;
     const name = (inp.value || '').trim();
     if (!name) return;
-    if (msg) { msg.textContent = 'adding…'; msg.className = 'fw-msg info'; }
-    if (!DDI.auth || !DDI.auth.addFriend) {
+    if (msg) { msg.textContent = 'sending…'; msg.className = 'fw-msg info'; }
+    if (!DDI.auth || !DDI.auth.sendFriendRequest) {
       if (msg) { msg.textContent = 'offline mode'; msg.className = 'fw-msg err'; }
       return;
     }
-    const res = await DDI.auth.addFriend(name);
+    const res = await DDI.auth.sendFriendRequest(name);
     if (res && res.ok) {
-      if (msg) { msg.textContent = 'added!'; msg.className = 'fw-msg ok'; }
+      if (msg) { msg.textContent = 'request sent — waiting for them to accept'; msg.className = 'fw-msg ok'; }
       inp.value = '';
       refreshFriends();
-      // Clear the success message after a beat so it doesn't linger forever
-      setTimeout(function () { if (msg && msg.textContent === 'added!') { msg.textContent = ''; msg.className = 'fw-msg'; } }, 1500);
+      setTimeout(function () { if (msg && msg.className === 'fw-msg ok') { msg.textContent = ''; msg.className = 'fw-msg'; } }, 2500);
     } else {
-      const m = (res && res.error && res.error.message) || 'add failed';
-      // Surface friendlier text for the common server-thrown errors
+      const m = (res && res.error && res.error.message) || 'send failed';
       const friendly = /no player named/i.test(m) ? 'no player by that name'
                      : /cannot add yourself/i.test(m) ? 'that\'s you 🙂'
                      : m;
@@ -112,21 +112,26 @@ DDI.social = (function () {
         _renderBadge();
       });
     }
-    // Subscribe to friend-added events — fires when someone adds us as a
-    // friend, regardless of whether the panel is open.  Shows a banner toast
-    // + refreshes the list so the new friend appears immediately.
+    // Subscribe to friend-request + friend-added events.  Request banner
+    // shows up when someone wants to add me; the auto-accept path fires
+    // a friend INSERT instead (so my list refreshes silently).
     if (DDI.auth.subscribeFriendChanges) {
       try { await DDI.auth.subscribeFriendChanges(); } catch (e) {}
     }
-    if (!_unsubscribeFriendAdded && DDI.auth.onFriendAdded) {
-      _unsubscribeFriendAdded = DDI.auth.onFriendAdded(async function (newFriendUserId) {
-        // Look up their display name so the toast actually reads humanly.
+    if (!_unsubscribeFriendRequest && DDI.auth.onFriendRequest) {
+      _unsubscribeFriendRequest = DDI.auth.onFriendRequest(async function (fromUserId) {
         let name = 'Someone';
         if (DDI.auth.fetchProfileName) {
-          try { name = (await DDI.auth.fetchProfileName(newFriendUserId)) || 'Someone'; }
+          try { name = (await DDI.auth.fetchProfileName(fromUserId)) || 'Someone'; }
           catch (e) {}
         }
-        _showFriendAddedBanner(name);
+        _showFriendAddedBanner(name, fromUserId);
+        refreshFriends();     // pulls the request into the list
+      });
+    }
+    if (!_unsubscribeFriendAdded && DDI.auth.onFriendAdded) {
+      _unsubscribeFriendAdded = DDI.auth.onFriendAdded(function () {
+        // Auto-accept (we sent them a request, they sent one back, mutual)
         refreshFriends();
       });
     }
@@ -140,6 +145,8 @@ DDI.social = (function () {
     if (panel) panel.classList.add('hidden');
     if (_unsubscribePresence) { _unsubscribePresence(); _unsubscribePresence = null; }
     if (_unsubscribeFriendAdded) { _unsubscribeFriendAdded(); _unsubscribeFriendAdded = null; }
+    if (_unsubscribeFriendRequest) { _unsubscribeFriendRequest(); _unsubscribeFriendRequest = null; }
+    _incomingRequests = [];
     if (DDI.auth && DDI.auth.leavePresence) {
       try { DDI.auth.leavePresence(); } catch (e) {}
     }
@@ -152,10 +159,10 @@ DDI.social = (function () {
     _renderBadge();
   }
 
-  // Floating "pending friend request" banner — drops down from the top of
-  // the screen for a few seconds, dismissible by click.  Open-add means
-  // they're already mutual; this just lets the receiver KNOW it happened.
-  function _showFriendAddedBanner(name) {
+  // Floating "pending friend request from X" banner — drops down from the
+  // top of the screen with inline ACCEPT / DECLINE buttons so the user can
+  // act without opening the panel.
+  function _showFriendAddedBanner(name, fromUserId) {
     let banner = document.getElementById('friend-added-banner');
     if (!banner) {
       banner = document.createElement('div');
@@ -163,34 +170,53 @@ DDI.social = (function () {
       banner.innerHTML =
         '<span class="fab-glyph">★</span>' +
         '<span class="fab-text"><b>pending friend request</b> from <em></em></span>' +
-        '<button class="fab-close" type="button" title="Dismiss">✕</button>';
+        '<button class="fab-accept"  type="button" title="Accept">✓ ACCEPT</button>' +
+        '<button class="fab-decline" type="button" title="Decline">✕</button>';
       document.body.appendChild(banner);
-      banner.querySelector('.fab-close').addEventListener('click', function () {
-        banner.classList.remove('shown');
-      });
-      banner.addEventListener('click', function (e) {
-        if (e.target && e.target.classList && e.target.classList.contains('fab-close')) return;
-        // Click body → open the friends panel so the user can confirm
-        const widget = document.getElementById('friends-widget');
-        const panel  = document.getElementById('friends-panel');
-        if (widget) widget.classList.remove('hidden');
-        if (panel)  panel.classList.remove('hidden');
-        refreshFriends();
-        banner.classList.remove('shown');
-      });
     }
     const em = banner.querySelector('em');
     if (em) em.textContent = name;
+    // Re-wire the action buttons each time (uid changes per request)
+    const acceptBtn  = banner.querySelector('.fab-accept');
+    const declineBtn = banner.querySelector('.fab-decline');
+    if (acceptBtn) {
+      acceptBtn.onclick = async function (e) {
+        e.stopPropagation();
+        if (!DDI.auth || !DDI.auth.acceptFriendRequest) return;
+        acceptBtn.disabled = true;
+        const res = await DDI.auth.acceptFriendRequest(fromUserId);
+        if (res && res.ok) {
+          banner.classList.remove('shown');
+          refreshFriends();
+        } else {
+          acceptBtn.disabled = false;
+        }
+      };
+    }
+    if (declineBtn) {
+      declineBtn.onclick = async function (e) {
+        e.stopPropagation();
+        if (!DDI.auth || !DDI.auth.declineFriendRequest) return;
+        declineBtn.disabled = true;
+        await DDI.auth.declineFriendRequest(fromUserId);
+        banner.classList.remove('shown');
+        refreshFriends();
+      };
+    }
     banner.classList.add('shown');
-    // Auto-hide after 6s (long enough to read; short enough not to nag)
+    // Sticky-ish — 10s instead of 6.  User needs time to read + click.
     clearTimeout(banner._timer);
-    banner._timer = setTimeout(function () { banner.classList.remove('shown'); }, 6000);
+    banner._timer = setTimeout(function () { banner.classList.remove('shown'); }, 10000);
   }
 
   async function refreshFriends() {
     if (!DDI.auth || !DDI.auth.listFriends) { _friends = []; }
     else {
       try { _friends = await DDI.auth.listFriends(); } catch (e) { _friends = []; }
+    }
+    if (DDI.auth && DDI.auth.listIncomingRequests) {
+      try { _incomingRequests = await DDI.auth.listIncomingRequests(); }
+      catch (e) { _incomingRequests = []; }
     }
     _renderList();
     _renderBadge();
@@ -215,7 +241,17 @@ DDI.social = (function () {
 
   function _renderBadge() {
     const el = $('friends-online-count');
-    if (el) el.textContent = _onlineCount();
+    if (!el) return;
+    // When there are pending requests, the badge becomes a red "!N" alert.
+    // Otherwise it shows the online friend count.
+    const reqs = _incomingRequests.length;
+    if (reqs > 0) {
+      el.textContent = '!' + reqs;
+      el.classList.add('alert');
+    } else {
+      el.textContent = _onlineCount();
+      el.classList.remove('alert');
+    }
   }
 
   function _statusLabel(status) {
@@ -231,42 +267,87 @@ DDI.social = (function () {
   function _renderList() {
     const list = $('friends-list');
     if (!list) return;
-    if (!_friends.length) {
-      list.innerHTML = '<div class="fw-empty">no friends yet — add someone by name above</div>';
+    if (!_friends.length && !_incomingRequests.length) {
+      list.innerHTML = '<div class="fw-empty">no friends yet — send a request by name above</div>';
       return;
     }
-    // Sort: online first, then alpha.  Stable so the list doesn't churn
-    // visually when statuses flip.
-    const rows = _friends.slice().sort(function (a, b) {
+    // ---- Incoming requests block (top of list) ----
+    let reqHtml = '';
+    if (_incomingRequests.length) {
+      reqHtml += '<div class="fw-section">PENDING REQUESTS</div>';
+      reqHtml += _incomingRequests.map(function (r) {
+        return (
+          '<div class="fw-req-row" data-uid="' + r.from_user_id + '">' +
+            '<span class="fw-req-name"></span>' +
+            '<div class="fw-req-actions">' +
+              '<button class="fw-req-accept"  data-uid="' + r.from_user_id + '" title="Accept">✓</button>' +
+              '<button class="fw-req-decline" data-uid="' + r.from_user_id + '" title="Decline">✕</button>' +
+            '</div>' +
+          '</div>'
+        );
+      }).join('');
+    }
+    // ---- Friends block ----
+    const sortedFriends = _friends.slice().sort(function (a, b) {
       const ao = _presenceByUser[a.user_id] ? 0 : 1;
       const bo = _presenceByUser[b.user_id] ? 0 : 1;
       if (ao !== bo) return ao - bo;
       return (a.display_name || '').localeCompare(b.display_name || '');
     });
-    list.innerHTML = rows.map(function (r) {
-      const p = _presenceByUser[r.user_id];
-      const online = !!p;
-      const dot   = online ? 'on' : 'off';
-      const sub   = online ? _statusLabel(p.status) : 'offline';
-      // We don't HTML-escape because display_name is constrained to 18 chars
-      // and the profiles table is the only writer.  Still, keep it safe by
-      // building via textContent in the row build below.
-      return (
-        '<div class="fw-row" data-uid="' + r.user_id + '">' +
-          '<span class="fw-dot ' + dot + '"></span>' +
-          '<span class="fw-name"></span>' +
-          '<span class="fw-sub">' + sub + '</span>' +
-          '<button class="fw-remove" data-uid="' + r.user_id + '" title="Remove">✕</button>' +
-        '</div>'
-      );
-    }).join('');
-    // Apply names via textContent so any future weird character can't break the DOM
-    const nodes = list.querySelectorAll('.fw-row');
-    for (let i = 0; i < nodes.length; i++) {
-      const nameEl = nodes[i].querySelector('.fw-name');
-      if (nameEl) nameEl.textContent = rows[i].display_name || '???';
+    let friendsHtml = '';
+    if (sortedFriends.length) {
+      if (_incomingRequests.length) friendsHtml += '<div class="fw-section">FRIENDS</div>';
+      friendsHtml += sortedFriends.map(function (r) {
+        const p = _presenceByUser[r.user_id];
+        const online = !!p;
+        const dot   = online ? 'on' : 'off';
+        const sub   = online ? _statusLabel(p.status) : 'offline';
+        return (
+          '<div class="fw-row" data-uid="' + r.user_id + '">' +
+            '<span class="fw-dot ' + dot + '"></span>' +
+            '<span class="fw-name"></span>' +
+            '<span class="fw-sub">' + sub + '</span>' +
+            '<button class="fw-remove" data-uid="' + r.user_id + '" title="Remove">✕</button>' +
+          '</div>'
+        );
+      }).join('');
     }
-    // Wire remove buttons
+    list.innerHTML = reqHtml + friendsHtml;
+    // Names via textContent (safe — bypasses any HTML in display_name)
+    const reqRows = list.querySelectorAll('.fw-req-row');
+    for (let i = 0; i < reqRows.length; i++) {
+      const nameEl = reqRows[i].querySelector('.fw-req-name');
+      if (nameEl) nameEl.textContent = _incomingRequests[i].display_name || '???';
+    }
+    const friendRows = list.querySelectorAll('.fw-row');
+    for (let i = 0; i < friendRows.length; i++) {
+      const nameEl = friendRows[i].querySelector('.fw-name');
+      if (nameEl) nameEl.textContent = sortedFriends[i].display_name || '???';
+    }
+    // Accept / decline buttons
+    list.querySelectorAll('.fw-req-accept').forEach(function (btn) {
+      btn.addEventListener('click', async function (e) {
+        e.stopPropagation();
+        const uid = btn.getAttribute('data-uid');
+        if (!uid || !DDI.auth || !DDI.auth.acceptFriendRequest) return;
+        btn.disabled = true;
+        const res = await DDI.auth.acceptFriendRequest(uid);
+        if (res && res.ok) refreshFriends();
+        else                btn.disabled = false;
+      });
+    });
+    list.querySelectorAll('.fw-req-decline').forEach(function (btn) {
+      btn.addEventListener('click', async function (e) {
+        e.stopPropagation();
+        const uid = btn.getAttribute('data-uid');
+        if (!uid || !DDI.auth || !DDI.auth.declineFriendRequest) return;
+        btn.disabled = true;
+        const res = await DDI.auth.declineFriendRequest(uid);
+        if (res && res.ok) refreshFriends();
+        else                btn.disabled = false;
+      });
+    });
+    // Remove buttons
     list.querySelectorAll('.fw-remove').forEach(function (btn) {
       btn.addEventListener('click', async function (e) {
         e.stopPropagation();

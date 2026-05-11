@@ -2748,6 +2748,66 @@ body.on-title #friends-panel {
   border-bottom: 1px dashed rgba(178,102,255,0.15);
 }
 .fw-row:last-child { border-bottom: none; }
+/* Section headers separate "PENDING REQUESTS" from "FRIENDS" inside the list */
+.fw-section {
+  color: var(--accent-gold);
+  font-size: 9px;
+  letter-spacing: 0.32em;
+  font-weight: 800;
+  padding: 8px 4px 4px;
+  border-bottom: 1px solid rgba(255,217,102,0.15);
+  margin-bottom: 4px;
+}
+.fw-section + .fw-section { margin-top: 8px; }
+/* Pending request row — name on the left, accept/decline buttons right */
+.fw-req-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px;
+  border-bottom: 1px dashed rgba(255,217,102,0.18);
+  background: rgba(255,217,102,0.04);
+  border-radius: 6px;
+}
+.fw-req-name {
+  color: var(--accent-gold);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.fw-req-actions { display: flex; gap: 4px; }
+.fw-req-accept, .fw-req-decline {
+  width: 26px; height: 26px;
+  background: rgba(10,6,18,0.5);
+  border: 1px solid var(--panel-edge);
+  border-radius: 6px;
+  color: var(--ink-fade);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+}
+.fw-req-accept:hover {
+  background: rgba(109,255,155,0.18);
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+.fw-req-decline:hover {
+  background: rgba(255,100,119,0.18);
+  border-color: #ff6477;
+  color: #ff8a99;
+}
+/* Alert state on the toggle badge when requests are pending */
+#friends-toggle .fw-badge.alert {
+  background: #ff3d52;
+  color: #fff;
+  animation: fwBadgePulse 1.4s ease-in-out infinite;
+}
+@keyframes fwBadgePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,61,82,0.65); }
+  50%      { box-shadow: 0 0 0 6px rgba(255,61,82,0); }
+}
 .fw-dot {
   width: 9px; height: 9px;
   border-radius: 50%;
@@ -2847,6 +2907,32 @@ body.on-title #friends-panel {
   line-height: 1;
 }
 #friend-added-banner .fab-close:hover { color: #ff8a99; border-color: #ff6477; }
+/* Accept / decline buttons on the request banner */
+#friend-added-banner .fab-accept,
+#friend-added-banner .fab-decline {
+  margin-left: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  border: 1px solid;
+}
+#friend-added-banner .fab-accept {
+  background: var(--accent-green);
+  border-color: var(--accent-green);
+  color: #0a1a0e;
+}
+#friend-added-banner .fab-accept:hover { filter: brightness(1.15); }
+#friend-added-banner .fab-decline {
+  background: transparent;
+  border-color: rgba(255,100,119,0.5);
+  color: #ff8a99;
+  padding: 4px 9px;
+}
+#friend-added-banner .fab-decline:hover { background: rgba(255,61,82,0.18); border-color: #ff6477; }
 @media (max-width: 480px) {
   #friend-added-banner {
     font-size: 11px;
@@ -2860,18 +2946,29 @@ body.on-title #friends-panel {
 /* ===== MEGA Potion bar (per-run, 3 slots) ===== */
 #potion-bar {
   position: absolute;
-  /* Stack ABOVE the hud-top (HP / FLOOR / CATACLYSM row) which sits at
-     bottom: safe-area + 102 with ~60px height.  +172 keeps a tight gap
-     between potion bar and hud-top so they read as one toolbar without
-     overlapping the cataclysm meter. */
-  bottom: calc(env(safe-area-inset-bottom, 20px) + 172px);
-  left: 50%;
-  right: auto;
-  transform: translateX(-50%);
+  /* Center column (XP bar / hud-top / ability bar) is fully occupied —
+     park the potion bar off to the bottom-right corner, level with the
+     ability bar.  Action-buttons are display:none on desktop so this is
+     empty space.  Mobile override below puts it top-left. */
+  bottom: calc(env(safe-area-inset-bottom, 20px) + 20px);
+  right: 18px;
+  left: auto;
+  top: auto;
+  transform: none;
   display: flex;
   gap: 6px;
   z-index: 12;
   pointer-events: none;
+}
+@media (pointer: coarse) {
+  /* Mobile: action-buttons take the bottom-right column.  Move potion
+     bar to top-left under the zone-header. */
+  #potion-bar {
+    bottom: auto;
+    top: 76px;
+    right: auto;
+    left: 14px;
+  }
 }
 .potion-slot {
   pointer-events: auto;

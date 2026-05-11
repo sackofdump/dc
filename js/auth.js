@@ -320,18 +320,70 @@ DDI.auth = (function () {
   }
   let _friendsMigrationWarned = false;
 
-  // Add a friend by display name.  Mutual — both sides see each other
-  // immediately.  Returns { ok: true } or { error: { message } }.
-  async function addFriend(displayName) {
+  // Send a friend REQUEST (not an instant add).  Receiver must accept.
+  // If they already sent us one, the RPC auto-accepts (mutual interest).
+  async function sendFriendRequest(displayName) {
     if (!client || !currentUser) return { error: { message: 'not signed in' } };
     const name = (displayName || '').trim();
     if (!name) return { error: { message: 'enter a name' } };
-    const { error } = await client.rpc('add_friend', { p_friend_name: name });
+    const { error } = await client.rpc('send_friend_request', { p_to_name: name });
     if (error) {
-      console.error('[auth] addFriend', error);
-      return { error: { message: error.message || 'add failed' } };
+      console.error('[auth] sendFriendRequest', error);
+      return { error: { message: error.message || 'send failed' } };
     }
     return { ok: true };
+  }
+  // Back-compat shim so anywhere in older code that calls addFriend still
+  // works (now goes through the request flow under the hood).
+  async function addFriend(displayName) { return sendFriendRequest(displayName); }
+
+  async function acceptFriendRequest(fromUserId) {
+    if (!client || !currentUser) return { error: { message: 'not signed in' } };
+    const { error } = await client.rpc('accept_friend_request', { p_from_id: fromUserId });
+    if (error) {
+      console.error('[auth] acceptFriendRequest', error);
+      return { error: { message: error.message || 'accept failed' } };
+    }
+    return { ok: true };
+  }
+
+  async function declineFriendRequest(otherUserId) {
+    if (!client || !currentUser) return { error: { message: 'not signed in' } };
+    const { error } = await client.rpc('decline_friend_request', { p_other_id: otherUserId });
+    if (error) {
+      console.error('[auth] declineFriendRequest', error);
+      return { error: { message: error.message || 'decline failed' } };
+    }
+    return { ok: true };
+  }
+
+  // List INCOMING requests (requests sent TO me).  Returns
+  // [{ from_user_id, display_name, created_at }, ...].
+  async function listIncomingRequests() {
+    if (!client || !currentUser) return [];
+    const { data: rows, error } = await client
+      .from('friend_requests')
+      .select('from_user_id, created_at')
+      .eq('to_user_id', currentUser.id);
+    if (error) {
+      console.error('[auth] listIncomingRequests', error);
+      return [];
+    }
+    const ids = (rows || []).map(function (r) { return r.from_user_id; });
+    if (!ids.length) return [];
+    const { data: profs } = await client
+      .from('profiles')
+      .select('id, display_name')
+      .in('id', ids);
+    const nameById = {};
+    (profs || []).forEach(function (p) { nameById[p.id] = p.display_name; });
+    return (rows || []).map(function (r) {
+      return {
+        from_user_id: r.from_user_id,
+        display_name: nameById[r.from_user_id] || 'Unknown',
+        created_at:   r.created_at,
+      };
+    });
   }
 
   async function removeFriend(friendUserId) {
@@ -494,13 +546,25 @@ DDI.auth = (function () {
     };
   }
 
-  // ---------- Friend-added notifications (Realtime postgres changes) ----------
-  // Subscribes to INSERTs on public.friends WHERE user_id = me.  Each event
-  // means someone just added me as a friend — fires the registered callback
-  // with the new friend's user_id so the UI can pop a toast.
+  // ---------- Friend-request notifications (Realtime postgres changes) ----------
+  // Subscribes to INSERTs on public.friend_requests WHERE to_user_id = me.
+  // Each event means someone wants to add me as a friend — receiver picks
+  // ACCEPT or DECLINE in the widget.  Also subscribes to friends INSERTs
+  // (in case the auto-accept path runs: I sent a request, they sent one
+  // back, the RPC auto-promoted both to friends, no request banner fires).
+  let _requestsChannel = null;
   let _friendsChangesChannel = null;
-  const _friendAddedListeners = [];
+  const _friendRequestListeners = [];
+  const _friendAddedListeners   = [];     // kept for back-compat callers
 
+  function onFriendRequest(fn) {
+    if (typeof fn !== 'function') return function () {};
+    _friendRequestListeners.push(fn);
+    return function () {
+      const i = _friendRequestListeners.indexOf(fn);
+      if (i >= 0) _friendRequestListeners.splice(i, 1);
+    };
+  }
   function onFriendAdded(fn) {
     if (typeof fn !== 'function') return function () {};
     _friendAddedListeners.push(fn);
@@ -512,32 +576,58 @@ DDI.auth = (function () {
 
   async function subscribeFriendChanges() {
     if (!client || !currentUser) return;
-    if (_friendsChangesChannel) return;
-    _friendsChangesChannel = client
-      .channel('friend-inserts:' + currentUser.id)
-      .on('postgres_changes', {
-        event:  'INSERT',
-        schema: 'public',
-        table:  'friends',
-        filter: 'user_id=eq.' + currentUser.id,
-      }, function (payload) {
-        const newRow = payload && payload.new;
-        if (!newRow) return;
-        _friendAddedListeners.forEach(function (fn) {
-          try { fn(newRow.friend_user_id); } catch (e) { console.error('[auth] onFriendAdded fn', e); }
+    // Incoming friend REQUESTS — show the actionable banner
+    if (!_requestsChannel) {
+      _requestsChannel = client
+        .channel('friend-req-inserts:' + currentUser.id)
+        .on('postgres_changes', {
+          event:  'INSERT',
+          schema: 'public',
+          table:  'friend_requests',
+          filter: 'to_user_id=eq.' + currentUser.id,
+        }, function (payload) {
+          const newRow = payload && payload.new;
+          if (!newRow) return;
+          _friendRequestListeners.forEach(function (fn) {
+            try { fn(newRow.from_user_id); } catch (e) { console.error('[auth] onFriendRequest fn', e); }
+          });
+        })
+        .subscribe(function (status) {
+          if (status === 'CHANNEL_ERROR') {
+            console.warn('[auth] friend-req channel error — Realtime on friend_requests may need enabling');
+          }
         });
-      })
-      .subscribe(function (status) {
-        if (status === 'CHANNEL_ERROR') {
-          console.warn('[auth] friend-changes channel error — Realtime on friends table may need to be enabled');
-        }
-      });
+    }
+    // Friends INSERTs — fired when an auto-accept happens (the other side
+    // accepted our request).  Used to refresh the friend list silently.
+    if (!_friendsChangesChannel) {
+      _friendsChangesChannel = client
+        .channel('friend-inserts:' + currentUser.id)
+        .on('postgres_changes', {
+          event:  'INSERT',
+          schema: 'public',
+          table:  'friends',
+          filter: 'user_id=eq.' + currentUser.id,
+        }, function (payload) {
+          const newRow = payload && payload.new;
+          if (!newRow) return;
+          _friendAddedListeners.forEach(function (fn) {
+            try { fn(newRow.friend_user_id); } catch (e) {}
+          });
+        })
+        .subscribe();
+    }
   }
 
   async function unsubscribeFriendChanges() {
-    if (!_friendsChangesChannel) return;
-    try { await client.removeChannel(_friendsChangesChannel); } catch (e) {}
-    _friendsChangesChannel = null;
+    if (_requestsChannel) {
+      try { await client.removeChannel(_requestsChannel); } catch (e) {}
+      _requestsChannel = null;
+    }
+    if (_friendsChangesChannel) {
+      try { await client.removeChannel(_friendsChangesChannel); } catch (e) {}
+      _friendsChangesChannel = null;
+    }
   }
 
   // Fetch a single profile by user_id — used by the friend-added toast
@@ -565,8 +655,9 @@ DDI.auth = (function () {
     submitScore, fetchLeaderboard,
     // Social — Phase 1
     listFriends, addFriend, removeFriend,
+    sendFriendRequest, acceptFriendRequest, declineFriendRequest, listIncomingRequests,
     joinPresence, leavePresence, setPresenceStatus, onPresenceChange,
-    subscribeFriendChanges, unsubscribeFriendChanges, onFriendAdded,
+    subscribeFriendChanges, unsubscribeFriendChanges, onFriendAdded, onFriendRequest,
     fetchProfileName,
   };
 })();

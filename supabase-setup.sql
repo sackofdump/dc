@@ -196,3 +196,116 @@ begin
   alter publication supabase_realtime add table public.friends;
 exception when duplicate_object then null;
 end $$;
+
+-- ============================================================
+-- FRIEND REQUESTS — request / accept flow.
+-- ============================================================
+-- A row in friend_requests means "from_user_id has asked to friend
+-- to_user_id".  When to_user_id accepts, two friends rows are written
+-- and the request is deleted.  Decline just deletes the request.
+
+create table if not exists public.friend_requests (
+  from_user_id uuid not null references auth.users on delete cascade,
+  to_user_id   uuid not null references auth.users on delete cascade,
+  created_at   timestamptz not null default now(),
+  primary key (from_user_id, to_user_id),
+  check (from_user_id <> to_user_id)
+);
+create index if not exists friend_requests_to_idx on public.friend_requests (to_user_id);
+
+alter table public.friend_requests enable row level security;
+
+-- You can read requests SENT to you or sent BY you (so the sender's UI
+-- can show "pending — waiting on X" if we ever want that)
+drop policy if exists friend_requests_read_own on public.friend_requests;
+create policy friend_requests_read_own on public.friend_requests
+  for select using (auth.uid() = to_user_id or auth.uid() = from_user_id);
+
+-- Direct inserts go through the RPC.
+drop policy if exists friend_requests_insert on public.friend_requests;
+create policy friend_requests_insert on public.friend_requests
+  for insert with check (false);
+
+-- The receiver can delete (decline); the sender can delete (cancel).
+drop policy if exists friend_requests_delete_own on public.friend_requests;
+create policy friend_requests_delete_own on public.friend_requests
+  for delete using (auth.uid() = to_user_id or auth.uid() = from_user_id);
+
+-- Send a friend request to a user looked up by display name.
+create or replace function public.send_friend_request(p_to_name text)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_me uuid := auth.uid();
+  v_to uuid;
+begin
+  if v_me is null then raise exception 'not authenticated'; end if;
+  select id into v_to from public.profiles
+    where lower(display_name) = lower(p_to_name)
+    limit 1;
+  if v_to is null then raise exception 'no player named %', p_to_name using errcode = 'P0001'; end if;
+  if v_to = v_me then raise exception 'you cannot add yourself' using errcode = 'P0001'; end if;
+  -- Already friends? Skip silently — UI should treat this as success.
+  if exists (select 1 from public.friends where user_id = v_me and friend_user_id = v_to) then
+    return;
+  end if;
+  -- Did they send US a request first?  Then auto-accept (mutual interest).
+  if exists (select 1 from public.friend_requests where from_user_id = v_to and to_user_id = v_me) then
+    insert into public.friends (user_id, friend_user_id) values (v_me, v_to) on conflict do nothing;
+    insert into public.friends (user_id, friend_user_id) values (v_to, v_me) on conflict do nothing;
+    delete from public.friend_requests where (from_user_id, to_user_id) in ((v_me, v_to), (v_to, v_me));
+    return;
+  end if;
+  insert into public.friend_requests (from_user_id, to_user_id)
+    values (v_me, v_to)
+    on conflict do nothing;
+end; $$;
+
+revoke all on function public.send_friend_request(text) from public;
+grant execute on function public.send_friend_request(text) to authenticated;
+
+-- Accept an incoming request — only the recipient can call this.
+create or replace function public.accept_friend_request(p_from_id uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare v_me uuid := auth.uid();
+begin
+  if v_me is null then raise exception 'not authenticated'; end if;
+  -- Must be the recipient
+  if not exists (
+    select 1 from public.friend_requests
+      where from_user_id = p_from_id and to_user_id = v_me
+  ) then
+    raise exception 'no pending request' using errcode = 'P0001';
+  end if;
+  insert into public.friends (user_id, friend_user_id) values (v_me, p_from_id) on conflict do nothing;
+  insert into public.friends (user_id, friend_user_id) values (p_from_id, v_me) on conflict do nothing;
+  delete from public.friend_requests where from_user_id = p_from_id and to_user_id = v_me;
+end; $$;
+
+revoke all on function public.accept_friend_request(uuid) from public;
+grant execute on function public.accept_friend_request(uuid) to authenticated;
+
+-- Decline (or cancel) — recipient deletes the row to decline; sender can
+-- delete their own row to cancel.
+create or replace function public.decline_friend_request(p_other_id uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare v_me uuid := auth.uid();
+begin
+  if v_me is null then raise exception 'not authenticated'; end if;
+  delete from public.friend_requests
+    where (from_user_id = p_other_id and to_user_id = v_me)
+       or (from_user_id = v_me and to_user_id = p_other_id);
+end; $$;
+
+revoke all on function public.decline_friend_request(uuid) from public;
+grant execute on function public.decline_friend_request(uuid) to authenticated;
+
+-- Enable Realtime on friend_requests so the recipient sees the "X wants to
+-- be your friend" banner as soon as the row is inserted.
+do $$
+begin
+  alter publication supabase_realtime add table public.friend_requests;
+exception when duplicate_object then null;
+end $$;
