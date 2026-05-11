@@ -522,14 +522,16 @@
       Object.assign(this.hero, rs.hero);
       this.hero.iframes = 1.5;     // breathing room on resume
       this.hero.flash = 0.3;
-      // Rebuild abilities at saved levels
+      // Rebuild abilities at saved levels. Abilities.add doubles as the
+      // "level up" path: calling it again on the same id bumps the slot's
+      // level (see systems.js:Abilities.add). There is no separate upgrade()
+      // function — calling one was throwing mid-forEach and aborting the
+      // rest of the restore, which is why features/abilities were missing.
       this.hero.abilities = [];
       (rs.abilities || []).forEach((function (a) {
-        Abilities.add(this, a.id);
-        const slot = this.hero.abilities[this.hero.abilities.length - 1];
+        for (let i = 0; i < (a.level || 1); i++) Abilities.add(this, a.id);
+        const slot = this.hero.abilities.find(function (s) { return s.id === a.id; });
         if (slot) {
-          // Bump to saved level
-          for (let i = 1; i < a.level; i++) Abilities.upgrade(this, a.id);
           slot.cd = a.cd || 0;
           slot.disabled = !!a.disabled;
         }
