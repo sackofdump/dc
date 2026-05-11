@@ -16,6 +16,19 @@ DDI.save = (function () {
     ult:       ' ',
     magnet:    'e',
     pause:     'Escape',
+    // MEGA potion slots — keep on number row (combat-reactive).
+    potionHp:   '1',
+    potionUlt:  '2',
+    potionStam: '3',
+    // Level-up choices — moved off 1/2/3 so a mid-combat potion mash can't
+    // accidentally pick an upgrade (and vice-versa).  Q / W / E sit under
+    // the resting WASD hand; the game is paused during the level-up modal
+    // so the W reuse with moveUp doesn't collide in practice.
+    upgrade1:      'q',
+    upgrade2:      'w',
+    upgrade3:      'e',
+    upgradeReroll: 'r',
+    upgradeSkip:   't',
   };
 
   const DEFAULT_SAVE = {

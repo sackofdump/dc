@@ -37,14 +37,16 @@ DDI.UI = (function () {
       addEventListener('keydown', function (e) {
         const lvl = self.$('modal-levelup');
         if (!lvl || lvl.classList.contains('hidden')) return;
-        const code = e.code;
-        const key = e.key;
-        if (code === 'Digit4' || key === '4') { self.rerollChoices(); e.preventDefault(); return; }
-        if (code === 'Digit5' || key === '5') { self.skipChoice();    e.preventDefault(); return; }
+        const key = (e.key || '').toLowerCase();
+        const kb = (self.app && self.app.save && self.app.save.keybinds) || {};
+        const defaults = (DDI.save && DDI.save.DEFAULT_KEYBINDS) || {};
+        const k = function (id) { return (kb[id] || defaults[id] || '').toLowerCase(); };
+        if (key === k('upgradeReroll')) { self.rerollChoices(); e.preventDefault(); return; }
+        if (key === k('upgradeSkip'))   { self.skipChoice();    e.preventDefault(); return; }
         let idx = -1;
-        if (code === 'Digit1' || key === '1') idx = 0;
-        else if (code === 'Digit2' || key === '2') idx = 1;
-        else if (code === 'Digit3' || key === '3') idx = 2;
+        if      (key === k('upgrade1')) idx = 0;
+        else if (key === k('upgrade2')) idx = 1;
+        else if (key === k('upgrade3')) idx = 2;
         if (idx < 0) return;
         const wrap = self.$('levelup-choices');
         const btn = wrap && wrap.children[idx];
@@ -359,15 +361,24 @@ DDI.UI = (function () {
       // gear or level-up — when the user has a heart-thumping moment they
       // can chug.  But suppress when typing in inputs.
       addEventListener('keydown', function (e) {
-        const k = e.key;
-        if (k !== '1' && k !== '2' && k !== '3') return;
+        const key = (e.key || '').toLowerCase();
         const tgt = e.target;
         if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA')) return;
-        // Don't steal from the level-up picker (that one's modal handles 1/2/3 first)
+        const kb = (self.app && self.app.save && self.app.save.keybinds) || {};
+        const defaults = (DDI.save && DDI.save.DEFAULT_KEYBINDS) || {};
+        const kHp   = (kb.potionHp   || defaults.potionHp   || '1').toLowerCase();
+        const kUlt  = (kb.potionUlt  || defaults.potionUlt  || '2').toLowerCase();
+        const kStam = (kb.potionStam || defaults.potionStam || '3').toLowerCase();
+        let slot = null;
+        if      (key === kHp)   slot = 'hp';
+        else if (key === kUlt)  slot = 'ult';
+        else if (key === kStam) slot = 'stam';
+        if (!slot) return;
+        // Don't steal from the level-up picker — that modal owns its own
+        // bindings.  (Defaults no longer collide, but a custom rebind might.)
         const lvl = self.$('modal-levelup');
         if (lvl && !lvl.classList.contains('hidden')) return;
         if (!self.app || !self.app.game || !self.app.game.running) return;
-        const slot = k === '1' ? 'hp' : k === '2' ? 'ult' : 'stam';
         if (self.app.usePotion) self.app.usePotion(slot);
         e.preventDefault();
       });
@@ -1196,12 +1207,25 @@ DDI.UI = (function () {
       if (!bar) return;
       const pots = (this.app && this.app.potions) || { hp: 0, ult: 0, stam: 0 };
       const slots = bar.querySelectorAll('.potion-slot');
+      // Mirror the configured keybinds on the slot labels so they stay
+      // accurate after a rebind.  Single-char keys render naked; longer
+      // names (e.g. SHIFT) get the displayKey treatment.
+      const kb = (this.app && this.app.save && this.app.save.keybinds) || {};
+      const defaults = (DDI.save && DDI.save.DEFAULT_KEYBINDS) || {};
+      const keyForSlot = function (k) {
+        if (k === 'hp')   return displayKey((kb.potionHp   || defaults.potionHp   || '1'));
+        if (k === 'ult')  return displayKey((kb.potionUlt  || defaults.potionUlt  || '2'));
+        if (k === 'stam') return displayKey((kb.potionStam || defaults.potionStam || '3'));
+        return '';
+      };
       slots.forEach(function (slotEl) {
         const key = slotEl.getAttribute('data-slot');
         const n = pots[key] | 0;
         slotEl.classList.toggle('empty', n <= 0);
         const cnt = slotEl.querySelector('.pot-count');
         if (cnt) cnt.textContent = n;
+        const kbEl = slotEl.querySelector('.pot-key');
+        if (kbEl) kbEl.textContent = keyForSlot(key);
         if (opts && opts.flashSlot === key) {
           slotEl.classList.remove('flashing');
           // Force reflow so the animation replays even on consecutive pickups
@@ -1283,6 +1307,15 @@ DDI.UI = (function () {
       if (scEl) scEl.textContent = rg.stash.length;
       const smEl = this.$('inv-stash-max');
       if (smEl) smEl.textContent = rg.maxStash;
+      // SALVAGE ALL — disabled when stash empty, never wired twice.
+      const salvAllBtn = this.$('btn-inv-salvage-all');
+      if (salvAllBtn) {
+        salvAllBtn.disabled = rg.stash.length === 0;
+        if (!salvAllBtn._wired) {
+          salvAllBtn._wired = true;
+          salvAllBtn.addEventListener('click', function () { self._salvageAll(); });
+        }
+      }
 
       // ---- Equipped slots ----
       const eqRoot = this.$('inv-equipped');
@@ -1418,6 +1451,24 @@ DDI.UI = (function () {
         salvBtn._wired = true;
         salvBtn.addEventListener('click', function () { self._salvageSelected(); });
       }
+    }
+    // Salvage every item in the stash.  Iterates back-to-front so the
+    // splice in gear.salvage never shifts an index we haven't reached.
+    _salvageAll() {
+      const GEAR = DDI.gear;
+      if (!GEAR || !GEAR.salvage) return;
+      const app = this.app;
+      const rg = GEAR.ensureRunGear(app);
+      const n = rg.stash.length;
+      if (!n) return;
+      let total = 0;
+      for (let i = n - 1; i >= 0; i--) {
+        total += GEAR.salvage(app, i) || 0;
+      }
+      this._invMultiSel = {};
+      this._invSelectedIdx = -1;
+      if (total > 0) app.fx.toast('+' + total + ' GOLD (' + n + ' SALVAGED)');
+      this.renderInventory();
     }
     // Bulk-salvage every index in the multi-select set.  Iterate highest
     // index first so each splice doesn't shift the indices we haven't
@@ -1894,6 +1945,14 @@ DDI.UI = (function () {
         ult: 'Ultimate',
         magnet: 'Loot Magnet',
         pause: 'Pause',
+        potionHp:   'MEGA HP Potion',
+        potionUlt:  'MEGA Ult Juice',
+        potionStam: 'MEGA Stamina',
+        upgrade1:      'Level-up Pick 1',
+        upgrade2:      'Level-up Pick 2',
+        upgrade3:      'Level-up Pick 3',
+        upgradeReroll: 'Reroll Picks',
+        upgradeSkip:   'Skip Level-up',
       };
       // Defensive fallbacks: any of these could be null in edge cases
       // (e.g. settings opened before the active profile finished loading,
@@ -2455,11 +2514,15 @@ DDI.UI = (function () {
               const t   = (rs.game && rs.game.time) || 0;
               const lvl = (rs.game && rs.game.level) || 1;
               const act = (rs.game && rs.game.act) || 1;
+              // gearBeta was tracked at the top level on older saves and in
+              // rs.game on newer ones — accept either.
+              const isBeta = !!(rs.gearBeta || (rs.game && rs.game.gearBeta));
+              const betaBadge = isBeta ? ' <span class="sr-beta-badge">GEAR</span>' : '';
               return '' +
-                '<div class="sr-row" data-char="' + ck + '" role="button" tabindex="0">' +
+                '<div class="sr-row' + (isBeta ? ' is-beta' : '') + '" data-char="' + ck + '" role="button" tabindex="0">' +
                   '<span class="sr-ico">' + ico + '</span>' +
                   '<span class="sr-body">' +
-                    '<span class="sr-class">' + (cls.name || ck).toUpperCase() + '</span>' +
+                    '<span class="sr-class">' + (cls.name || ck).toUpperCase() + betaBadge + '</span>' +
                     '<span class="sr-stats">ACT ' + act + ' · LV ' + lvl + ' · ' + fmtTime(t) + '</span>' +
                   '</span>' +
                   '<span class="sr-cta">▶ CONTINUE</span>' +
@@ -2590,13 +2653,28 @@ DDI.UI = (function () {
       const wrap = this.$('levelup-choices');
       wrap.innerHTML = '';
       const self = this;
+      // Render the configured keybind letters (Q / W / E by default) on each
+      // card.  Falls back to the digit position if no binding is set.
+      const kb = (this.app && this.app.save && this.app.save.keybinds) || {};
+      const defaults = (DDI.save && DDI.save.DEFAULT_KEYBINDS) || {};
+      const pickKey = function (i) {
+        const id = 'upgrade' + (i + 1);
+        return displayKey(kb[id] || defaults[id] || (i + 1));
+      };
+      // Update the reroll / skip mini-buttons too so the hint matches.
+      const rrBtn = this.$('btn-reroll');
+      const skBtn = this.$('btn-skip');
+      const rrKbd = rrBtn && rrBtn.querySelector('.kbd');
+      const skKbd = skBtn && skBtn.querySelector('.kbd');
+      if (rrKbd) rrKbd.textContent = displayKey(kb.upgradeReroll || defaults.upgradeReroll || 'r');
+      if (skKbd) skKbd.textContent = displayKey(kb.upgradeSkip   || defaults.upgradeSkip   || 't');
       choices.forEach(function (c, idx) {
         const el = document.createElement('button');
         el.className = 'choice';
         const view = self.choiceView(c);
         if (c.kind === 'new') el.classList.add('new');
         el.innerHTML =
-          '<span class="key-num">' + (idx + 1) + '</span>' +
+          '<span class="key-num">' + pickKey(idx) + '</span>' +
           '<div class="icon">' + view.icon + '</div>' +
           '<div class="body">' +
             '<div class="lvl-tag">' + view.tag + '</div>' +

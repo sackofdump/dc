@@ -1701,6 +1701,18 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
   color: var(--ink-dim);
   letter-spacing: 0.06em;
 }
+.saved-runs .sr-beta-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 9px; letter-spacing: 0.18em;
+  background: linear-gradient(180deg, rgba(178,102,255,0.30), rgba(102,217,255,0.18));
+  border: 1px solid var(--accent-cyan);
+  border-radius: 4px;
+  color: var(--accent-cyan);
+  vertical-align: middle;
+}
+.saved-runs .sr-row.is-beta { border-color: rgba(102,217,255,0.45); }
 .saved-runs .sr-cta {
   font-weight: 800; letter-spacing: 0.14em;
   font-size: 11px;
@@ -3556,7 +3568,16 @@ body.on-title #party-hud {
 .inv-stash-head .inv-multi-hint {
   font-size: 9px; letter-spacing: 0.18em; color: var(--ink-fade); opacity: 0.7;
   text-transform: none;
+  margin-right: auto;
 }
+.inv-salvage-all-btn {
+  padding: 4px 10px;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  border-color: rgba(255,217,102,0.4);
+  color: var(--accent-gold);
+}
+.inv-salvage-all-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 .inv-multi-bar {
   margin-top: 8px;
   display: flex; align-items: center; gap: 10px;
