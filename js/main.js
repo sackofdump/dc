@@ -1080,6 +1080,13 @@
           this.hero.flash    = 0.4;
           if (this.fx && this.fx.toast) this.fx.toast('★ REVIVED ★');
           if (this.fx && this.fx.flash) this.fx.flash('#66d9ff', 0.5);
+        } else if (DDI.party && DDI.party.partnerDowned && DDI.party.partnerDowned()) {
+          // Both players are downed — nobody can revive anyone, no
+          // point waiting for the 3-minute timeout.  End the run now.
+          this.hero._downed = false;
+          this.hero.iframes = 0;
+          if (this.fx && this.fx.toast) this.fx.toast('★ BOTH FALLEN — RUN ENDS ★');
+          this.endRun(false);
         } else {
           this.hero._downedT -= dt;
           if (this.hero._downedT <= 0) {

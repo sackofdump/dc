@@ -2005,6 +2005,12 @@ DDI.Renderer = (function () {
     // must stand inside to fill the progress arc; full 8 seconds revives.
     drawReviveCircle(ctx) {
       if (!DDI.party || !DDI.party.partnerDowned || !DDI.party.partnerDowned()) return;
+      // Only render the circle when we're in the same zone as the
+      // downed partner — their body's coords are in their zone's
+      // coordinate frame, not ours.  Showing the circle in a tele-zone
+      // when the body is in the main map would put a misleading marker
+      // somewhere arbitrary.
+      if (DDI.party.inSameZone && !DDI.party.inSameZone()) return;
       const ps = DDI.party.partnerState && DDI.party.partnerState();
       if (!ps || ps.x == null) return;
       const prog = (DDI.party.reviveProgress && DDI.party.reviveProgress()) || 0;

@@ -373,11 +373,13 @@ DDI.party = (function () {
   // downed partner wakes up.  Out-of-circle resets to 0.
   function tickRevive(dt) {
     if (!_party || _party.pending) return;
-    // Only attempt revive if partner is currently downed
     const downed = _isPartnerDowned();
     if (!downed) { _reviveStandT = 0; return; }
-    // My hero must be alive + reasonably close
     if (!app || !app.hero || app.hero._downed) { _reviveStandT = 0; return; }
+    // Must be in the same zone — can't revive across zones.  The body's
+    // coords are in the partner's zone, so even if we walked to (their
+    // x, their y) it'd be a meaningless spot in OUR zone.
+    if (!inSameZone()) { _reviveStandT = 0; return; }
     const ps = _partnerState;
     if (!ps || ps.x == null) return;
     const dx = app.hero.x - ps.x;
