@@ -397,149 +397,137 @@ DDI.auth = (function () {
   }
 
   // ============================================================
-  // PRESENCE — Supabase Realtime channel for "who's online + status".
-  // The channel auto-syncs state across all subscribers.  We expose a
-  // small surface: join with an initial state, update via setPresenceStatus,
-  // subscribe to changes via onPresenceChange(callback).
+  // PRESENCE via BROADCAST HEARTBEAT
+  // Supabase Realtime's built-in presence channel never delivered sync
+  // events for us (subscribe + track returned ok, then silence — see the
+  // diagnostic logs from the previous push).  Postgres-changes and
+  // broadcast both work fine, so we just simulate presence ourselves:
+  //   - Every client subscribes to channel 'xxds-hb'
+  //   - Each broadcasts a heartbeat {user_id, display_name, status,
+  //     character, ts} every 4 seconds
+  //   - Receivers maintain a {user_id → {state, last_seen}} map
+  //   - A user is "online" if last_seen is within the last 12 seconds
+  //   - On unload / signOut, broadcast a 'bye' so others remove us
+  //     immediately instead of waiting for the timeout
   // ============================================================
-  let _presenceChannel = null;
-  let _presenceState   = null;       // last-known local state we track()
-  const _presenceListeners = [];     // [(stateMap) => void]
+  let _hbChannel = null;
+  let _hbStateLocal = null;
+  let _hbStateByUser = {};
+  let _hbBeatT = null;
+  let _hbSweepT = null;
+  const _presenceListeners = [];
+  const HB_BEAT_MS      = 4000;     // send every 4s
+  const HB_OFFLINE_MS   = 12000;    // assume offline after 12s of silence
 
-  function _emitPresence() {
-    if (!_presenceChannel) return;
-    const raw = _presenceChannel.presenceState();
-    // Flatten to a {user_id: {user_id, display_name, status, character}} map —
-    // Supabase gives us an array per key (one entry per browser tab) and
-    // we just want the most recent.
+  function _emitHb() {
     const out = {};
-    Object.keys(raw).forEach(function (k) {
-      const arr = raw[k];
-      if (!arr || !arr.length) return;
-      const latest = arr[arr.length - 1];
-      out[latest.user_id || k] = latest;
+    const now = Date.now();
+    Object.keys(_hbStateByUser).forEach(function (uid) {
+      const e = _hbStateByUser[uid];
+      if (now - e.last_seen < HB_OFFLINE_MS) out[uid] = e.state;
     });
-    _presenceListeners.forEach(function (fn) { try { fn(out); } catch (e) { console.error('[auth] presence listener', e); } });
+    _presenceListeners.forEach(function (fn) { try { fn(out); } catch (e) { console.error('[hb] listener', e); } });
   }
 
-  let _presenceRetryT = null;
-  let _presencePollT  = null;
-  function _startPresencePoll() {
-    // Fallback: some Supabase Realtime sessions never deliver the 'sync'
-    // event after subscribe (we see SUBSCRIBED + track 'ok', then silence).
-    // Poll the local channel state every 2s and re-emit if it changed —
-    // presenceState() is a synchronous local read, so this is cheap.
-    if (_presencePollT) return;
-    let lastJson = '';
-    _presencePollT = setInterval(function () {
-      if (!_presenceChannel) return;
-      try {
-        const raw = _presenceChannel.presenceState();
-        const json = JSON.stringify(raw);
-        if (json !== lastJson) {
-          lastJson = json;
-          console.log('[presence poll change]', raw);
-          _emitPresence();
-        }
-      } catch (e) {}
-    }, 2000);
+  function _sendHb(event) {
+    if (!_hbChannel || !_hbStateLocal) return;
+    try {
+      _hbChannel.send({
+        type: 'broadcast',
+        event: event || 'beat',
+        payload: Object.assign({ ts: Date.now() }, _hbStateLocal),
+      });
+    } catch (e) { console.error('[hb] send', e); }
   }
-  function _stopPresencePoll() {
-    if (_presencePollT) { clearInterval(_presencePollT); _presencePollT = null; }
-  }
+
   async function joinPresence(initialState) {
     if (!client || !currentUser) return;
-    if (_presenceChannel) return;     // already joined
-    _presenceState = Object.assign({
+    if (_hbChannel) return;
+    _hbStateLocal = Object.assign({
       user_id:      currentUser.id,
       display_name: (currentProfile && currentProfile.display_name) || 'Delver',
       status:       'in-title',
       character:    null,
     }, initialState || {});
-    // Plain channel name (no colon — older Realtime versions special-case
-    // 'presence:' prefix; safer to avoid).  Same name on every client so
-    // they all join the same room.
-    _presenceChannel = client.channel('xxds-online', {
-      config: { presence: { key: currentUser.id } },
+    // Include self in the local map so listeners always see at least the
+    // local user as online (cosmetically irrelevant — we don't list self
+    // as a friend — but useful for diagnostics).
+    _hbStateByUser[currentUser.id] = { state: _hbStateLocal, last_seen: Date.now() };
+
+    _hbChannel = client.channel('xxds-hb', {
+      config: { broadcast: { self: false } },
     });
-    const logEv = function (label) {
-      return function (payload) {
-        console.log('[presence ' + label + ']', payload, 'state=', _presenceChannel.presenceState());
-        _emitPresence();
-      };
-    };
-    _presenceChannel.on('presence', { event: 'sync'  }, logEv('sync'));
-    _presenceChannel.on('presence', { event: 'join'  }, logEv('join'));
-    _presenceChannel.on('presence', { event: 'leave' }, logEv('leave'));
-    try {
-      await new Promise(function (resolve) {
-        _presenceChannel.subscribe(async function (status, err) {
-          console.log('[presence subscribe]', status, err || '');
-          if (status === 'SUBSCRIBED') {
-            try {
-              const trackRes = await _presenceChannel.track(_presenceState);
-              console.log('[presence track]', trackRes, _presenceState);
-            } catch (e) {
-              console.error('[auth] presence track', e);
-            }
-            // Kick off the polling fallback — even if sync events never
-            // fire (which we're seeing in your console), the poller will
-            // pick up state changes within 2 seconds.
-            _startPresencePoll();
-            // First emit so the listener gets initial state immediately
-            setTimeout(_emitPresence, 250);
-            resolve();
-          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-            console.warn('[presence] status', status, '— scheduling retry in 3s');
-            resolve();
-            // Auto-retry: tear down the dead channel and try again after a
-            // short delay.  Realtime can flap during reconnects, so silently
-            // recovering is friendlier than asking the user to refresh.
-            if (_presenceRetryT) clearTimeout(_presenceRetryT);
-            _presenceRetryT = setTimeout(async function () {
-              _presenceRetryT = null;
-              try { if (_presenceChannel) await client.removeChannel(_presenceChannel); } catch (e) {}
-              _presenceChannel = null;
-              joinPresence(_presenceState);     // reuse last-known state
-            }, 3000);
-          }
-        });
+    _hbChannel.on('broadcast', { event: 'beat' }, function (msg) {
+      const s = msg && msg.payload;
+      if (!s || !s.user_id) return;
+      _hbStateByUser[s.user_id] = { state: s, last_seen: Date.now() };
+      _emitHb();
+    });
+    _hbChannel.on('broadcast', { event: 'bye' }, function (msg) {
+      const s = msg && msg.payload;
+      if (!s || !s.user_id) return;
+      delete _hbStateByUser[s.user_id];
+      _emitHb();
+    });
+    // Other clients that JOIN ask for current state.  We reply with our
+    // own beat so they see us instantly instead of waiting 4s.
+    _hbChannel.on('broadcast', { event: 'hello' }, function () { _sendHb('beat'); });
+    await new Promise(function (resolve) {
+      _hbChannel.subscribe(function (status, err) {
+        console.log('[hb subscribe]', status, err || '');
+        if (status === 'SUBSCRIBED') {
+          // Announce we're here so existing peers reply with their beats
+          _sendHb('beat');
+          _sendHb('hello');
+          resolve();
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          resolve();
+        }
       });
-    } catch (e) {
-      console.error('[auth] presence subscribe', e);
-    }
-    // Debug helper — expose state for console diagnosis
+    });
+    // Regular beat
+    if (_hbBeatT) clearInterval(_hbBeatT);
+    _hbBeatT = setInterval(function () { _sendHb('beat'); }, HB_BEAT_MS);
+    // Sweep stale entries (offline transition) and re-emit
+    if (_hbSweepT) clearInterval(_hbSweepT);
+    _hbSweepT = setInterval(_emitHb, HB_BEAT_MS);
+
     window.__ddiPresence = function () {
-      return {
-        channel: _presenceChannel,
-        state: _presenceChannel ? _presenceChannel.presenceState() : null,
-        local: _presenceState,
-      };
+      return { channel: _hbChannel, byUser: _hbStateByUser, local: _hbStateLocal };
     };
   }
 
   async function setPresenceStatus(patch) {
-    if (!_presenceChannel || !_presenceState) return;
-    _presenceState = Object.assign({}, _presenceState, patch || {});
-    try { await _presenceChannel.track(_presenceState); }
-    catch (e) { console.error('[auth] presence retrack', e); }
+    if (!_hbStateLocal) return;
+    _hbStateLocal = Object.assign({}, _hbStateLocal, patch || {});
+    // Update self in map + immediately broadcast so peers see the new
+    // status without waiting for the next 4s tick.
+    if (currentUser) {
+      _hbStateByUser[currentUser.id] = { state: _hbStateLocal, last_seen: Date.now() };
+    }
+    _sendHb('beat');
+    _emitHb();
   }
 
   async function leavePresence() {
-    _stopPresencePoll();
-    if (!_presenceChannel) return;
-    try { await _presenceChannel.untrack(); } catch (e) {}
-    try { await client.removeChannel(_presenceChannel); } catch (e) {}
-    _presenceChannel = null;
-    _presenceState   = null;
+    if (_hbChannel) {
+      _sendHb('bye');     // best-effort — fire and forget
+    }
+    if (_hbBeatT) { clearInterval(_hbBeatT); _hbBeatT = null; }
+    if (_hbSweepT) { clearInterval(_hbSweepT); _hbSweepT = null; }
+    if (_hbChannel) {
+      try { await client.removeChannel(_hbChannel); } catch (e) {}
+      _hbChannel = null;
+    }
+    _hbStateLocal = null;
+    _hbStateByUser = {};
     _presenceListeners.forEach(function (fn) { try { fn({}); } catch (e) {} });
   }
 
   function onPresenceChange(fn) {
     if (typeof fn !== 'function') return function () {};
     _presenceListeners.push(fn);
-    // Fire once immediately so the caller doesn't have to wait for a sync.
-    if (_presenceChannel) _emitPresence();
+    if (_hbChannel) _emitHb();     // fire once with current state
     return function unsubscribe() {
       const i = _presenceListeners.indexOf(fn);
       if (i >= 0) _presenceListeners.splice(i, 1);
