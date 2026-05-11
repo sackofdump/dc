@@ -1681,12 +1681,10 @@
         }
 
         // Building exterior — walk onto the door to enter the instanced interior.
-        // Once entered, the building is sealed and can't be re-looted.
+        // Explored buildings are visually marked (X + EXPLORED label) but the
+        // player can still re-enter freely if they want to revisit / grab
+        // missed loot.
         if (f.type === 'building') {
-          if (f.entered) {
-            if (f.cooldown > 0) f.cooldown -= dt;
-            return;
-          }
           const ddx = h.x - f.doorX, ddy = h.y - f.doorY;
           const dd2 = ddx * ddx + ddy * ddy;
           if (dd2 < 36 * 36 && self.zone.name === 'main' && (!f.cooldown || f.cooldown <= 0)) {

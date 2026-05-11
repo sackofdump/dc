@@ -298,7 +298,11 @@ DDI.Renderer = (function () {
       //   1. Bounty targets   -> bright gold star (always on top)
       //   2. Regular elites   -> red skull-icon marker
       //   3. Everything else  -> tiny red dots (capped at 80 for perf)
+      // Gate the gold-star pass on actually being in a live bounty zone so a
+      // stray _bounty-tagged enemy can never paint a marker in the main map.
+      const showBounty = !!(app.zone && app.zone.objective === 'bounty' && !app.zone.finalEliteSpawned);
       app.enemies.forEach(function (e) {
+        if (!showBounty) return;
         if (!e._alive || !e._bounty) return;
         const ex = e.x * sx, ey = e.y * sy;
         // Outer glow
