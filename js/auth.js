@@ -211,8 +211,10 @@ DDI.auth = (function () {
 
   // Submit / ratchet the player's leaderboard row.  Lower is better for the
   // speedrun column (act1_clear_seconds); the SQL helper handles min/max merging.
+  // Returns {ok, error?, reason?} so callers can surface a toast / log.
   async function submitScore(stats) {
-    if (!client || !currentUser) return;
+    if (!client)      return { ok: false, reason: 'no-client' };
+    if (!currentUser) return { ok: false, reason: 'not-signed-in' };
     const name = (currentProfile && currentProfile.display_name)
       || (currentUser.email ? currentUser.email.split('@')[0] : 'Delver');
     const baseArgs = {
@@ -233,7 +235,10 @@ DDI.auth = (function () {
         error = retry.error;
       }
     }
-    if (error) console.error('[auth] submitScore', error);
+    if (error) {
+      console.error('[auth] submitScore', error);
+      return { ok: false, error: error, reason: 'rpc-error' };
+    }
     // SQL migration the user needs to run once on Supabase to enable class
     // tracking — submitScore degrades gracefully without it (column missing
     // -> RPC ignores p_character and the row just shows '—' on the board).
@@ -241,6 +246,7 @@ DDI.auth = (function () {
     //   create or replace function submit_score(p_best_floor int, p_best_act int,
     //     p_total_dust int, p_act1_clear_seconds int, p_display_name text,
     //     p_character text default null) ...   (extend existing fn to upsert it)
+    return { ok: true };
   }
 
   // Pull the top N rows for the requested sort.  Falls back to the legacy

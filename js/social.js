@@ -82,6 +82,8 @@ DDI.social = (function () {
     const res = await DDI.auth.sendFriendRequest(name);
     if (res && res.ok) {
       if (msg) { msg.textContent = 'request sent — waiting for them to accept'; msg.className = 'fw-msg ok'; }
+      // Toast confirms the send even when the friends panel is closed.
+      if (app && app.fx && app.fx.toast) app.fx.toast('FRIEND REQUEST SENT TO ' + name.toUpperCase());
       inp.value = '';
       refreshFriends();
       setTimeout(function () { if (msg && msg.className === 'fw-msg ok') { msg.textContent = ''; msg.className = 'fw-msg'; } }, 2500);

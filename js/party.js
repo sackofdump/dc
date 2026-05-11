@@ -926,12 +926,10 @@ DDI.party = (function () {
     app.loot.forEach(function (l) {
       if (l._alive && l._mirror && l._remoteId != null) existing[l._remoteId] = l;
     });
-    const seen = {};
     for (let i = 0; i < list.length; i++) {
       const s = list[i];
       if (!s || s.id == null) continue;
       if (_clientPickedUpLoot[s.id]) continue;     // already grabbed
-      seen[s.id] = true;
       if (existing[s.id]) {
         // Don't re-snap a mirror that's being magnet-pulled toward our
         // hero — the snap-vs-pull fight is what made loot "bounce".
@@ -952,11 +950,13 @@ DDI.party = (function () {
       l.vx = 0; l.vy = 0;
       l.spawnPop = 1;     // skip the pop-in animation (host already played it)
     }
-    app.loot.forEach(function (l) {
-      if (l._alive && l._mirror && l._remoteId != null && !seen[l._remoteId]) {
-        l._alive = false;
-      }
-    });
+    // NOTE: we used to kill any mirror whose id wasn't in the latest
+    // snapshot, but that wiped the client's copy the moment the host
+    // picked up the loot — even though each player is supposed to have
+    // their own pickup.  Mirrors now live their own life: they age out
+    // via updateLoot's maxLife counter, or die when the client collects
+    // them (which sets _clientPickedUpLoot[id] so future snapshots skip
+    // re-spawning).
   }
   function _markLootPickedUp(remoteId) {
     if (remoteId != null) _clientPickedUpLoot[remoteId] = true;

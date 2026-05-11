@@ -216,6 +216,10 @@ DDI.systems = (function () {
     tick: function (app, dt) {
       const hero = app.hero;
       if (app.game.paused) return;
+      // Downed (co-op): hero is paralyzed waiting for revive.  Abilities
+      // must not auto-fire — previously you could still chain-lightning
+      // mobs from your own corpse.
+      if (hero._downed) return;
       for (let i = 0; i < hero.abilities.length; i++) {
         const a = hero.abilities[i];
         // Player has manually disabled this ability via the slot context menu.
@@ -1074,11 +1078,10 @@ DDI.systems = (function () {
       app.enemies.forEach(function (e) {
         if (!e._alive) return;
         if (e._fadeOut || e._fadeIn) return;     // intangible during transition
-        // Co-op CLIENT: mirrors don't have authoritative AI — the host's
-        // own contact damage isn't reflected in their snapshot, and we
-        // shouldn't damage the client's hero from a mirror that the host
-        // already considers idle.  Skip the contact check.
-        if (e._mirror) return;
+        // Mirror enemies (co-op client) deal contact damage locally so the
+        // client actually has stakes.  Previously we skipped them entirely,
+        // which made the non-host immune to everything.  The host still
+        // tracks their own canonical HP; each player runs their own collision.
         const r = e.radius + hero.radius - 4;
         if (dist2(hero.x, hero.y, e.x, e.y) < r * r) {
           // Enemy-level vs hero-level scales contact damage. +/-8% per level diff, capped 0.5..2x

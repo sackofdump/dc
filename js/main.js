@@ -735,8 +735,13 @@
 
     // Push the player's best stats to the leaderboard (idempotent — server keeps
     // the higher value).  Called at end of run and when a new act is reached.
-    submitLeaderboard(extras) {
-      if (this.isGuest) return;
+    // Awaited so the post-run toast can reflect actual submission status.
+    async submitLeaderboard(extras) {
+      const self = this;
+      if (this.isGuest) {
+        if (this.fx) this.fx.toast('GUEST RUN — LOG IN FOR LEADERBOARD');
+        return;
+      }
       if (!DDI.auth || !DDI.auth.submitScore) return;
       const stats = {
         bestFloor:         (this.save && this.save.bestFloor) || 1,
@@ -745,7 +750,22 @@
         act1ClearSeconds:  (extras && extras.act1ClearSeconds) || (this.save && this.save.act1ClearSeconds) || null,
         character:         (this.save && this.save.character) || null,
       };
-      DDI.auth.submitScore(stats);
+      const res = await DDI.auth.submitScore(stats);
+      if (!res || !res.ok) {
+        const reason = res && res.reason;
+        const detail = res && res.error && res.error.message;
+        if (reason === 'not-signed-in') {
+          if (self.fx) self.fx.toast('LOG IN TO RECORD RUNS');
+        } else if (reason === 'no-client') {
+          // Supabase not configured locally — silent.
+        } else if (detail) {
+          if (self.fx) self.fx.toast('SCORE NOT SAVED — ' + detail.slice(0, 60).toUpperCase());
+        } else if (self.fx) {
+          self.fx.toast('SCORE NOT SAVED');
+        }
+        return;
+      }
+      if (self.fx) self.fx.toast('★ SCORE SAVED TO LEADERBOARD');
     }
 
     // Spend 1,000 dust to come back from death — one revive per run.
