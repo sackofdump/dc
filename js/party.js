@@ -237,6 +237,8 @@ DDI.party = (function () {
     } else if (ev === 'dmg' && _party && _party.iAm === 'host') {
       // Client hit one of our enemies — apply the damage canonically
       _applyClientDamage(d);
+    } else if (ev === 'loot' && _party && _party.iAm === 'client') {
+      _applyLootSnapshot(d && d.list);
     } else if (ev === 'projs') {
       // Partner's projectile snapshot — replace our mirror list.  Each
       // ghost stores its recvAt for dead-reckoning between snapshots.
@@ -483,6 +485,7 @@ DDI.party = (function () {
       const def = (s.defId && ENEMIES[s.defId]) || null;
       if (!def) continue;
       let e = existing[s.id];
+      const now = Date.now();
       if (!e) {
         // Spawn a fresh mirror.  Combat is gated client-side via
         // app.iAmClient so the mirror's HP doesn't get mutated locally;
@@ -493,14 +496,25 @@ DDI.party = (function () {
         e._mirror   = true;     // tag so combat / drops know to skip side effects
         e.maxHp     = s.maxHp;
         e.level     = s.level;
+        e._prevX    = s.x; e._prevY = s.y;
+        e._targetX  = s.x; e._targetY = s.y;
+        e._prevAt   = now - 66;
+        e._targetAt = now;
+      } else {
+        // Entity interpolation: shift the current target to "prev" and
+        // accept the new snapshot as the next target.  Between snapshots,
+        // updateEnemies blends prev->target by elapsed time, eliminating
+        // the AI-direction-change jitter that dead-reckoning had (host
+        // would change direction mid-interval and client wouldn't know
+        // until the next snapshot).
+        e._prevX    = e._targetX != null ? e._targetX : e.x;
+        e._prevY    = e._targetY != null ? e._targetY : e.y;
+        e._prevAt   = e._targetAt != null ? e._targetAt : (now - 66);
+        e._targetX  = s.x;
+        e._targetY  = s.y;
+        e._targetAt = now;
       }
-      // Snap close to the snapshot position (correcting any drift from
-      // dead reckoning) and update velocity so the client can keep
-      // animating smoothly until the next beat.
-      const lerp = 0.75;     // most of the way — drift correction
-      e.x = e.x + (s.x - e.x) * lerp;
-      e.y = e.y + (s.y - e.y) * lerp;
-      e.vx = s.vx || 0;
+      e.vx = s.vx || 0;     // kept for facing / animation
       e.vy = s.vy || 0;
       e.hp = s.hp;
       e.maxHp = s.maxHp;
@@ -755,10 +769,77 @@ DDI.party = (function () {
       lobby:        false,     // explicit so Object.assign on the receiver clears the previous lobby beat
       sentAt:       Date.now(),
     });
-    // Host: also broadcast the enemy snapshot (Phase 2b)
-    if (_party && _party.iAm === 'host') _sendEnemySnapshot();
+    // Host: also broadcast the enemy + loot snapshots (Phase 2b/c)
+    if (_party && _party.iAm === 'host') {
+      _sendEnemySnapshot();
+      _sendLootSnapshot();
+    }
     // Both players: broadcast friendly projectiles so the OTHER sees spells
     _sendProjectileSnapshot();
+  }
+
+  // Loot snapshot — host broadcasts every live loot piece at 15Hz.  Client
+  // mirrors as ghosts that the client can also pick up locally (each player
+  // gets their own copy of every drop — feels much better in co-op than
+  // racing for the same gold pile).
+  function _sendLootSnapshot() {
+    if (!_partyChannel || !app || !app.loot) return;
+    const out = [];
+    app.loot.forEach(function (l) {
+      if (!l || !l._alive || l._mirror) return;
+      out.push({
+        id:     l.id,
+        kind:   l.kind,
+        x:      Math.round(l.x),
+        y:      Math.round(l.y),
+        value:  l.value,
+        rarity: l.rarity,
+        item:   l.item || null,     // gear items carry their full descriptor
+      });
+    });
+    DDI.auth.sendPartyMessage(_partyChannel, 'loot', { list: out });
+  }
+
+  // Track loot we've already collected so a re-send from the host doesn't
+  // re-spawn the mirror.  Cleared on party leave / new run.
+  const _clientPickedUpLoot = {};
+
+  function _applyLootSnapshot(list) {
+    if (!app || !app.loot || !list) return;
+    // Index existing mirrors by _remoteId
+    const existing = {};
+    app.loot.forEach(function (l) {
+      if (l._alive && l._mirror && l._remoteId != null) existing[l._remoteId] = l;
+    });
+    const seen = {};
+    for (let i = 0; i < list.length; i++) {
+      const s = list[i];
+      if (!s || s.id == null) continue;
+      if (_clientPickedUpLoot[s.id]) continue;     // already grabbed, ignore re-send
+      seen[s.id] = true;
+      if (existing[s.id]) {
+        // Update position (loot drifts a little when first spawned)
+        existing[s.id].x = s.x;
+        existing[s.id].y = s.y;
+        continue;
+      }
+      const l = app.loot.spawn(s.kind, s.x, s.y, s.value || 1, s.rarity || 'common', s.item || null);
+      if (!l) continue;
+      l._mirror   = true;
+      l._remoteId = s.id;
+    }
+    // Kill mirrors host didn't send (host picked them up, or they despawned)
+    app.loot.forEach(function (l) {
+      if (l._alive && l._mirror && l._remoteId != null && !seen[l._remoteId]) {
+        l._alive = false;
+      }
+    });
+  }
+  function _markLootPickedUp(remoteId) {
+    if (remoteId != null) _clientPickedUpLoot[remoteId] = true;
+  }
+  function _clearPickedUpLoot() {
+    for (const k in _clientPickedUpLoot) delete _clientPickedUpLoot[k];
   }
 
   // Phase 2c: projectile sync (cosmetic / view-only on receiver).  Damage
@@ -889,5 +970,7 @@ DDI.party = (function () {
     requestStartGame,
     partnerProjectiles, broadcastDeath,
     broadcastDowned, tickRevive, partnerDowned, reviveProgress,
+    markLootPickedUp: _markLootPickedUp,
+    clearPickedUpLoot: _clearPickedUpLoot,
   };
 })();

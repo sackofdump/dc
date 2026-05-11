@@ -254,6 +254,9 @@
       // Fresh potion stack — wiped between runs (per-run consumables, no carry).
       this.potions = { hp: 0, ult: 0, stam: 0, max: 3 };
       if (this.ui && this.ui.updatePotionBar) this.ui.updatePotionBar();
+      // Co-op: clear the per-run "already-picked-up" loot set so the
+      // first snapshot from host can populate fresh mirrors.
+      if (DDI.party && DDI.party.clearPickedUpLoot) DDI.party.clearPickedUpLoot();
       // Start with class-appropriate abilities — mage gets magic, warrior gets physical
       const charKey = (this.save && this.save.character) || 'default';
       const klass = (CLASSES && CLASSES[charKey]) || CLASSES.default;
@@ -1803,6 +1806,13 @@
     }
 
     collectLoot(l) {
+      // Mirror loot (co-op client): mark the host's id as picked up so
+      // their re-broadcast doesn't re-spawn the mirror after we've
+      // collected it.  The rest of the function gives normal LOCAL
+      // rewards — each player gets their own loot in co-op.
+      if (l._mirror && l._remoteId != null && DDI.party && DDI.party.markLootPickedUp) {
+        DDI.party.markLootPickedUp(l._remoteId);
+      }
       if (l.kind === 'gold') {
         this.game.gold += l.value;
         this.particles.spawn({ x: this.hero.x, y: this.hero.y, vx: 0, vy: -30,

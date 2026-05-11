@@ -233,8 +233,10 @@ DDI.entities = (function () {
     }
   }
 
+  let lootIdSeq = 0;
   class Loot {
     constructor() {
+      this.id = ++lootIdSeq;
       this._alive = false;
       this.x = 0; this.y = 0; this.vx = 0; this.vy = 0;
       this.kind = 'gold'; this.value = 1; this.rarity = 'common';
@@ -244,9 +246,13 @@ DDI.entities = (function () {
       // Gear-drops attach the full item descriptor here so the pickup
       // handler can push the exact rolled affixes into runGear.stash.
       this.item = null;
+      this._mirror = false;     // co-op client mirrors of host's loot
+      this._remoteId = null;
     }
     reset(kind, x, y, value, rarity, item) {
       this._alive = true;
+      this._mirror = false;
+      this._remoteId = null;
       this.kind = kind;
       this.x = x; this.y = y;
       const a = rand(0, TAU);
