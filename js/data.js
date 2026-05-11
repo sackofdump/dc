@@ -176,28 +176,32 @@ DDI.data = (function () {
     },
   };
 
+  // In-run UPGRADE picks (level-up choices). Values are tuned so that they
+  // stack reasonably WITH per-run gear affixes — gear handles the large
+  // bonuses, picks handle the steady incremental drip. Previous values were
+  // calibrated for a world without gear; numbers were trimmed ~25-35% here.
   const UPGRADES = {
-    upDamage:    { name: '+15% Damage',          icon: '🗡️', desc: 'Increases all damage dealt.', apply: function(h){ h.damageMult *= 1.15; }, max: 99 },
-    upArea:      { name: '+12% Area',            icon: '⭕', desc: 'Bigger AoE on everything.', apply: function(h){ h.areaMult *= 1.12; }, max: 99 },
-    upCD:        { name: '-8% Cooldowns',        icon: '⏱️', desc: 'Abilities fire more often.', apply: function(h){ h.cooldownMult *= 0.92; }, max: 12 },
-    upDuration:  { name: '+20% Endurance',       icon: '🌿', desc: 'Sprint longer — more stamina + faster regen.',
+    upDamage:    { name: '+10% Damage',          icon: '🗡️', desc: 'Increases all damage dealt.', apply: function(h){ h.damageMult *= 1.10; }, max: 99 },
+    upArea:      { name: '+8% Area',             icon: '⭕', desc: 'Bigger AoE on everything.', apply: function(h){ h.areaMult *= 1.08; }, max: 99 },
+    upCD:        { name: '-5% Cooldowns',        icon: '⏱️', desc: 'Abilities fire more often.', apply: function(h){ h.cooldownMult *= 0.95; }, max: 12 },
+    upDuration:  { name: '+14% Endurance',       icon: '🌿', desc: 'Sprint longer — more stamina + faster regen.',
       apply: function (h) {
-        h.maxStamina = (h.maxStamina || 1) * 1.20;
+        h.maxStamina = (h.maxStamina || 1) * 1.14;
         h.stamina = h.maxStamina;
-        h.staminaRegenBonus = (h.staminaRegenBonus || 0) + 0.10;
+        h.staminaRegenBonus = (h.staminaRegenBonus || 0) + 0.07;
       },
       max: 12 },
     upProj:      { name: '+1 Projectile',        icon: '➕', desc: 'Adds projectiles to projectile abilities.', apply: function(h){ h.projMult += 1; }, max: 6 },
     upPierce:    { name: '+1 Pierce',            icon: '⤳', desc: 'Projectiles pierce one more enemy.', apply: function(h){ h.pierceBonus += 1; }, max: 8 },
-    upCritC:     { name: '+8% Crit Chance',      icon: '🎯', desc: 'More crits.', apply: function(h){ h.critChance += 0.08; }, max: 12 },
-    upCritD:     { name: '+25% Crit Damage',     icon: '💥', desc: 'Bigger crits.', apply: function(h){ h.critMult += 0.25; }, max: 20 },
-    upHP:        { name: '+25 Max HP',           icon: '❤️', desc: 'Increases max HP and heals you.', apply: function(h){ h.maxHp += 25; h.hp = Math.min(h.maxHp, h.hp + 25); }, max: 99 },
-    upRegen:     { name: '+1 HP/s Regen',        icon: '🌿', desc: 'Heals over time.', apply: function(h){ h.regen += 1; }, max: 30 },
-    upSpeed:     { name: '+8% Move Speed',       icon: '🏃', desc: 'Faster movement.', apply: function(h){ h.speed *= 1.08; }, max: 10 },
-    upPickup:    { name: '+25% Pickup Radius',   icon: '🧲', desc: 'Vacuum loot from farther.', apply: function(h){ h.pickup *= 1.25; }, max: 10 },
-    upGold:      { name: '+30% Gold Find',       icon: '💰', desc: 'More gold drops.', apply: function(h){ h.greed *= 1.30; }, max: 20 },
-    upXp:        { name: '+15% XP Gain',         icon: '🔷', desc: 'Faster leveling.', apply: function(h){ h.xpMult *= 1.15; }, max: 20 },
-    upArmor:     { name: '+5% Damage Reduction', icon: '🛡️', desc: 'Take less damage.', apply: function(h){ h.damageReduce = (h.damageReduce||0) + 0.05; }, max: 12 },
+    upCritC:     { name: '+5% Crit Chance',      icon: '🎯', desc: 'More crits.', apply: function(h){ h.critChance += 0.05; }, max: 12 },
+    upCritD:     { name: '+18% Crit Damage',     icon: '💥', desc: 'Bigger crits.', apply: function(h){ h.critMult += 0.18; }, max: 20 },
+    upHP:        { name: '+18 Max HP',           icon: '❤️', desc: 'Increases max HP and heals you.', apply: function(h){ h.maxHp += 18; h.hp = Math.min(h.maxHp, h.hp + 18); }, max: 99 },
+    upRegen:     { name: '+0.7 HP/s Regen',      icon: '🌿', desc: 'Heals over time.', apply: function(h){ h.regen += 0.7; }, max: 30 },
+    upSpeed:     { name: '+5% Move Speed',       icon: '🏃', desc: 'Faster movement.', apply: function(h){ h.speed *= 1.05; }, max: 10 },
+    upPickup:    { name: '+18% Pickup Radius',   icon: '🧲', desc: 'Vacuum loot from farther.', apply: function(h){ h.pickup *= 1.18; }, max: 10 },
+    upGold:      { name: '+22% Gold Find',       icon: '💰', desc: 'More gold drops.', apply: function(h){ h.greed *= 1.22; }, max: 20 },
+    upXp:        { name: '+10% XP Gain',         icon: '🔷', desc: 'Faster leveling.', apply: function(h){ h.xpMult *= 1.10; }, max: 20 },
+    upArmor:     { name: '+3% Damage Reduction', icon: '🛡️', desc: 'Take less damage.', apply: function(h){ h.damageReduce = (h.damageReduce||0) + 0.03; }, max: 12 },
   };
 
   const ENEMIES = {

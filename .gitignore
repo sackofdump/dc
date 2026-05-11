@@ -15,3 +15,6 @@ desktop.ini
 # Logs / temp
 *.log
 node_modules/
+
+# In-progress local work (not ready to ship)
+*.wip

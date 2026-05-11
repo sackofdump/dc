@@ -1041,7 +1041,7 @@
               if (self.zone.totemHp <= 0 && !self.zone._totemFellHandled) {
                 self.zone._totemFellHandled = true;
                 self.fx.toast('★  THE TOTEM HAS FALLEN  ★');
-                self.fx.flash('#ff3d52', 0.6);
+                self.fx.flash('#ff7b1f', 0.6);     // orange, not red — totem failing isn't an HP-loss cue
                 self.fx.shake(18);
                 // Skip straight to the boss arena — defend objective fails;
                 // player can still fight their way out via the boss.
@@ -1883,6 +1883,16 @@
         this.zone._bountyTimer = null;
       }
     }
+    // Wipe purely-visual flotsam that's tied to the just-finished zone — the
+    // particles trailing a tele-zone meteor, the bubble specks above a toxic
+    // pool, etc. Render still happens between transition and the next update
+    // tick, so any residue here briefly bleeds onto the new zone.
+    _clearTransitionParticles() {
+      if (this.particles && this.particles.live) {
+        this.particles.live.forEach(function (p) { p._alive = false; });
+        this.particles.sweep();
+      }
+    }
 
     // Full zone-transition cleanup. Wipes the battlefield AND bumps the zone
     // serial so any hazard / hostile projectile / enemy spawned before this
@@ -1947,6 +1957,7 @@
       this.projectiles.live.forEach(function (p) { p._alive = false; });
       this.projectiles.sweep();
       this._clearTransientCombat();     // bump zone serial + clear lingering hazards
+      this._clearTransitionParticles();
       Spawner.reset();
       this.hero.x = this.world.width / 2;
       this.hero.y = this.world.height / 2;
@@ -2020,6 +2031,7 @@
       this.loot.live.forEach(function (l) { l._alive = false; });
       this.loot.sweep();
       this._clearTransientCombat();
+      this._clearTransitionParticles();
       Spawner.reset();
       // Build the interior features: chests, gold piles, ambush enemies, and
       // the exit door north of the spawn point.
@@ -2102,6 +2114,7 @@
       this.projectiles.live.forEach(function (p) { p._alive = false; });
       this.projectiles.sweep();
       this._clearTransientCombat();     // bump zone serial + clear lingering hazards
+      this._clearTransitionParticles();
       Spawner.reset();
       this.hero.x = stash.returnX;
       this.hero.y = stash.returnY;
@@ -2328,7 +2341,7 @@
       this._clearBattlefieldFx();
       this.zone.fadeOutBegan = true;
       this.fx.toast('★  THE BOSS APPROACHES  ★');
-      this.fx.flash(this.zone.color || '#ff3d52', 0.5);
+      this.fx.flash(this.zone.color || '#ffe14d', 0.5);     // zone-tinted, gold fallback (not red — boss spawn isn't HP loss)
       // Mark every alive mob to fade out
       this.enemies.forEach(function (e) {
         if (!e._alive) return;
@@ -2395,9 +2408,9 @@
       }
 
       this.fx.toast('★  ZONE BOSS: ' + def.name + '  Lv ' + e.level + '  ★');
-      this.fx.flash(this.zone.color || '#ff3d52', 0.7);
+      this.fx.flash(this.zone.color || '#ffe14d', 0.7);     // zone-tinted, gold fallback (red reserved for HP loss)
       this.fx.shake(22);
-      this.particles.spawn({ x: e.x, y: e.y, life: 0.6, size: 260, color: this.zone.color || '#ff3d52', kind: 'ring', fade: 1 });
+      this.particles.spawn({ x: e.x, y: e.y, life: 0.6, size: 260, color: this.zone.color || '#ffe14d', kind: 'ring', fade: 1 });
       this.particles.spawn({ x: e.x, y: e.y, life: 1.0, size: 420, color: '#ffe14d', kind: 'ring', fade: 1 });
       this.ui.showBoss(def.name + ' · ZONE BOSS  Lv ' + e.level, 1);
       if (DDI.audio) DDI.audio.play('boss_spawn');
@@ -2455,6 +2468,7 @@
       this.projectiles.live.forEach(function (p) { p._alive = false; });
       this.projectiles.sweep();
       this._clearTransientCombat();     // bump zone serial + clear lingering hazards
+      this._clearTransitionParticles(); // wipe any visual flotsam from the zone we just left
       Spawner.reset();
       this.hero.x = this.world.width / 2;
       this.hero.y = this.world.height / 2;
@@ -2505,9 +2519,10 @@
       this.game.actBossActive = e;
       const tagSuffix = isFinalAct ? '  ·  FINAL  ' : '  ·  ACT ' + act + '  ';
       this.fx.toast('★  ' + def.name.toUpperCase() + tagSuffix + '★');
-      this.fx.flash('#ff3d52', 0.85);
+      // Act boss spawn — dramatic gold flash, not red (red is reserved for HP loss).
+      this.fx.flash('#ffe14d', 0.85);
       this.fx.shake(isFinalAct ? 36 : 28);
-      this.particles.spawn({ x: e.x, y: e.y, life: 0.6, size: isFinalAct ? 360 : 280, color: '#ff3d52', kind: 'ring', fade: 1 });
+      this.particles.spawn({ x: e.x, y: e.y, life: 0.6, size: isFinalAct ? 360 : 280, color: '#ff7b1f', kind: 'ring', fade: 1 });
       this.particles.spawn({ x: e.x, y: e.y, life: 1.0, size: isFinalAct ? 480 : 380, color: '#ffe14d', kind: 'ring', fade: 1 });
       this.ui.showBoss(def.name + (isFinalAct ? ' · FINAL BOSS' : ' · ACT ' + act), 1);
       if (DDI.audio) DDI.audio.play('boss_spawn');

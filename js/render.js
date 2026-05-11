@@ -3189,8 +3189,13 @@ DDI.Renderer = (function () {
     drawHazards(ctx) {
       const t = performance.now() / 1000;
       const hazards = this.app.hazards || [];
+      const curSerial = this.app._zoneSerial;
       for (let i = 0; i < hazards.length; i++) {
         const z = hazards[i];
+        // Final guard against stale tele-zone hazards visually bleeding into
+        // the new zone for a single frame between transition and the first
+        // update tick.
+        if (z._zs != null && z._zs !== curSerial) continue;
         if (z.kind === 'holy_beam') {
           // Telegraph: circle on the ground + warning ring
           if (z.telegraph > 0) {
@@ -3247,41 +3252,52 @@ DDI.Renderer = (function () {
             ctx.globalCompositeOperation = 'screen';
             ctx.fillStyle = 'rgba(159,223,127,0.55)';
             const sR = z.radius * (1 - z.telegraph / 0.5);
-            ctx.beginPath(); ctx.ellipse(z.x, z.y, sR, sR * 0.40, 0, 0, TAU); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(z.x, z.y, sR, sR * 0.32, 0, 0, TAU); ctx.fill();
             ctx.restore();
           } else {
-            // Lingering puddle — flat ground splat with wet sheen + sub-surface
-            // bubbles that pop on the puddle's surface (not floating above).
+            // Ground-flat puddle. Every visual cue points DOWN/INTO the floor:
+            // no rising bubbles, no specular blob above the center, very low
+            // y-scale, and a wet-stain that extends BELOW the body so the eye
+            // reads "this is a stain on the floor", not "an orb hovering above".
             ctx.save();
-            // Dark wet-stain ring under the puddle
-            ctx.fillStyle = 'rgba(20,40,15,0.65)';
-            ctx.beginPath(); ctx.ellipse(z.x, z.y + 1, z.radius * 1.05, z.radius * 0.42, 0, 0, TAU); ctx.fill();
-            // Main puddle body — heavily squashed ellipse so it reads as flat
+            const yScale = 0.28;          // flatter than before (was 0.36)
+            const stainOffsetY = z.radius * yScale * 0.55;
+            // Wet-stain shadow under and slightly behind the puddle — sits
+            // below the body's bottom edge so the puddle visibly RESTS on it.
+            ctx.fillStyle = 'rgba(10,28,10,0.55)';
+            ctx.beginPath();
+            ctx.ellipse(z.x, z.y + stainOffsetY, z.radius * 1.15, z.radius * yScale * 1.05, 0, 0, TAU);
+            ctx.fill();
+            // Main puddle body — heavily squashed ellipse, darker rim so it
+            // reads as sitting in a dished depression on the floor.
             const grd = ctx.createRadialGradient(z.x, z.y, 4, z.x, z.y, z.radius);
             grd.addColorStop(0, 'rgba(120,200,80,0.85)');
-            grd.addColorStop(0.7, 'rgba(60,130,40,0.75)');
-            grd.addColorStop(1, 'rgba(30,80,20,0.55)');
+            grd.addColorStop(0.7, 'rgba(50,110,35,0.78)');
+            grd.addColorStop(1, 'rgba(20,60,15,0.7)');
             ctx.fillStyle = grd;
-            ctx.beginPath(); ctx.ellipse(z.x, z.y, z.radius, z.radius * 0.36, 0, 0, TAU); ctx.fill();
-            // Glossy rim highlight on the upper edge
-            ctx.strokeStyle = 'rgba(200,255,140,0.65)';
-            ctx.lineWidth = 1.4;
-            ctx.beginPath();
-            ctx.ellipse(z.x, z.y - 1, z.radius - 2, z.radius * 0.34, 0, Math.PI * 1.05, Math.PI * 1.95);
-            ctx.stroke();
-            // Specular highlight blob
-            ctx.fillStyle = 'rgba(220,255,170,0.35)';
-            ctx.beginPath();
-            ctx.ellipse(z.x - z.radius * 0.30, z.y - z.radius * 0.10, z.radius * 0.35, z.radius * 0.08, 0, 0, TAU);
-            ctx.fill();
-            // Surface bubbles — small, stay near the puddle plane, fade quick
+            ctx.beginPath(); ctx.ellipse(z.x, z.y, z.radius, z.radius * yScale, 0, 0, TAU); ctx.fill();
+            // Sub-surface mottle — a few darker patches WITHIN the puddle,
+            // not above it. Sells "stuff sitting in the liquid".
+            for (let m = 0; m < 3; m++) {
+              const ma = (m / 3) * Math.PI * 2 + t * 0.3;
+              const mx = z.x + Math.cos(ma) * z.radius * 0.40;
+              const my = z.y + Math.sin(ma) * z.radius * yScale * 0.60;
+              ctx.fillStyle = 'rgba(25,70,20,0.40)';
+              ctx.beginPath();
+              ctx.ellipse(mx, my, z.radius * 0.18, z.radius * yScale * 0.45, 0, 0, TAU);
+              ctx.fill();
+            }
+            // Surface bubbles — strictly clamped to the puddle's ellipse so
+            // they pop ON the liquid, never above it. No vertical rise.
             const bubbles = 4;
             for (let b = 0; b < bubbles; b++) {
               const bb = (t * 1.5 + b * 0.6) % 1;
-              const bx = z.x + Math.sin(t * 1.6 + b) * z.radius * 0.55;
-              const by = z.y + Math.cos(t * 1.2 + b * 1.4) * z.radius * 0.12 - bb * 3;
-              ctx.fillStyle = 'rgba(180,255,120,' + (0.55 * (1 - bb)) + ')';
-              ctx.beginPath(); ctx.arc(bx, by, 1.6 + (1 - bb) * 1.2, 0, TAU); ctx.fill();
+              const ang = (b / bubbles) * Math.PI * 2 + t * 0.5;
+              const r = z.radius * (0.30 + 0.45 * Math.sin(t * 0.8 + b));
+              const bx = z.x + Math.cos(ang) * r;
+              const by = z.y + Math.sin(ang) * r * yScale;
+              ctx.fillStyle = 'rgba(180,255,120,' + (0.50 * (1 - bb)) + ')';
+              ctx.beginPath(); ctx.arc(bx, by, 1.3 + (1 - bb) * 1.0, 0, TAU); ctx.fill();
             }
             ctx.restore();
           }
@@ -3312,8 +3328,13 @@ DDI.Renderer = (function () {
     }
 
     drawProjectiles(ctx) {
+      const curSerial = this.app._zoneSerial;
       this.app.projectiles.forEach(function (p) {
         if (!p._alive) return;
+        // Final guard: a hostile projectile from a previous zone shouldn't
+        // visually render for the brief window between transition and the
+        // next update tick.
+        if (p.hostile && p._zs != null && p._zs !== curSerial) return;
 
         // Procedural spear shape — asymmetric bone weapon (tapered tail → grip → angular spearhead)
         if (p.shape === 'spear') {

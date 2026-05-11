@@ -553,7 +553,7 @@ DDI.systems = (function () {
             size: 2, kind: 'spark',
           });
         }
-        app.fx.shake(6);
+        app.fx.shake(3);
       }
       // Smoke Bomb: fat grey smoke puffs swirling outward + lingering haze
       if (def.id === 'smokeBomb') {
@@ -593,7 +593,7 @@ DDI.systems = (function () {
           if (def.id === 'smokeBomb' && e.applySlow) e.applySlow(0.5, 1.4);
         }
       });
-      if (def.id !== 'smokeBomb') app.fx.shake(3);
+      if (def.id !== 'smokeBomb') app.fx.shake(1.5);
     },
 
     fireMeteor: function (app, def, stats) {
@@ -709,7 +709,7 @@ DDI.systems = (function () {
           app.particles.spawn({ x: e.x, y: e.y, life: 0.35, size: 70, color: '#ff3d52', kind: 'ring', fade: 1 });
           app.particles.spawn({ x: e.x, y: e.y, life: 0.55, size: 110, color: '#ffffff', kind: 'ring', fade: 1 });
         });
-        if (targets.length) app.fx.shake(4);
+        if (targets.length) app.fx.shake(2);
         return;
       }
 
@@ -911,7 +911,7 @@ DDI.systems = (function () {
       enemy.takeHit(dmg, isCrit, fromX, fromY);
       this.app.fx.damageNumber(enemy.x, enemy.y - enemy.radius * 0.6, dmg, color, isCrit);
       this.app.fx.hitSpark(enemy.x, enemy.y, color, isCrit);
-      if (isCrit) this.app.fx.shake(2);
+      if (isCrit) this.app.fx.shake(0.6);     // small per-crit nudge — multishot crits used to compound into constant rattle
       // Audio — short throttled thud, crunchier on crits
       if (DDI.audio) DDI.audio.play(isCrit ? 'crit' : 'hit');
       // Trail drops on elite/boss hits — a steady visible drip of loot so
