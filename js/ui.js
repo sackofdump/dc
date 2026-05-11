@@ -1338,7 +1338,19 @@ DDI.UI = (function () {
         magnet: 'Loot Magnet',
         pause: 'Pause',
       };
-      const kb = this.app.save.keybinds || Object.assign({}, DDI.save.DEFAULT_KEYBINDS);
+      // Defensive fallbacks: any of these could be null in edge cases
+      // (e.g. settings opened before the active profile finished loading,
+      // or an older save that's missing the keybinds field). The previous
+      // version threw on `this.app.save.keybinds` when save was null,
+      // aborting the function and leaving the list visibly empty.
+      const defaults = (DDI.save && DDI.save.DEFAULT_KEYBINDS) || {};
+      const savedKb  = (this.app && this.app.save && this.app.save.keybinds) || null;
+      const kb = Object.assign({}, defaults, savedKb || {});
+      // Make sure the save has a keybinds object so the rebind handler can
+      // mutate it without exploding on the first edit.
+      if (this.app && this.app.save && !this.app.save.keybinds) {
+        this.app.save.keybinds = Object.assign({}, defaults);
+      }
       const self = this;
       Object.keys(labels).forEach(function (id) {
         const row = document.createElement('div');
