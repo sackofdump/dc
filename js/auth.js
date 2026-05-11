@@ -719,10 +719,9 @@ DDI.auth = (function () {
     });
     // Bind all in-party events through one callback for simplicity
     const PARTY_EVENTS = [
-      'pos', 'leave', 'chat',
-      'enemies', 'dmg',                 // phase 2b
-      'projs', 'death', 'loot',         // phase 2c — projectile mirrors + death banner + loot sync
-      'downed', 'revive_complete',      // revive system
+      'state',                           // batched per-beat: pos + enemies + projs + loot
+      'leave', 'chat', 'dmg',
+      'death', 'downed', 'revive_complete',
       'start_request', 'start_accept', 'start_decline', 'start_cancel', 'start_go',
     ];
     PARTY_EVENTS.forEach(function (ev) {

@@ -224,28 +224,27 @@ DDI.party = (function () {
     const ev = payload && payload.event;
     const d  = payload && payload.payload;
     if (!ev || !d) return;
-    if (ev === 'pos') {
+    if (ev === 'state') {
+      // Single batched beat — pos + enemies + projs + loot all in one
+      // message so we stay well under Supabase Realtime's per-channel
+      // broadcast rate limit (previously 4 sends per beat × 15Hz = 60/s
+      // approached the cap and queued, manifesting as "client is laggy").
       if (!d.user_id || !_party) return;
-      // Ignore our own echo (just in case)
       const myId = DDI.auth.user && DDI.auth.user() && DDI.auth.user().id;
       if (d.user_id === myId) return;
       _partnerState = Object.assign({}, _partnerState || {}, d, { lastSeen: Date.now() });
       _renderPartyHud();
-    } else if (ev === 'enemies' && _party && _party.iAm === 'client') {
-      // Host's authoritative enemy snapshot — sync our local pool to mirror it
-      _applyEnemySnapshot(d && d.enemies);
+      if (d.enemies && _party.iAm === 'client') _applyEnemySnapshot(d.enemies);
+      if (d.loot    && _party.iAm === 'client') _applyLootSnapshot(d.loot);
+      if (d.projs) {
+        _partnerProjectiles = d.projs.map(function (p) {
+          return Object.assign({}, p, { recvAt: Date.now() });
+        });
+        _partnerProjectilesAt = Date.now();
+      }
     } else if (ev === 'dmg' && _party && _party.iAm === 'host') {
       // Client hit one of our enemies — apply the damage canonically
       _applyClientDamage(d);
-    } else if (ev === 'loot' && _party && _party.iAm === 'client') {
-      _applyLootSnapshot(d && d.list);
-    } else if (ev === 'projs') {
-      // Partner's projectile snapshot — replace our mirror list.  Each
-      // ghost stores its recvAt for dead-reckoning between snapshots.
-      _partnerProjectiles = ((d && d.list) || []).map(function (p) {
-        return Object.assign({}, p, { recvAt: Date.now() });
-      });
-      _partnerProjectilesAt = Date.now();
     } else if (ev === 'downed') {
       // Partner went down (8s revive window).  Do NOT tear down the
       // party — revive is still possible.  Banner is informational.
@@ -485,36 +484,20 @@ DDI.party = (function () {
       const def = (s.defId && ENEMIES[s.defId]) || null;
       if (!def) continue;
       let e = existing[s.id];
-      const now = Date.now();
       if (!e) {
-        // Spawn a fresh mirror.  Combat is gated client-side via
-        // app.iAmClient so the mirror's HP doesn't get mutated locally;
-        // it'll be overwritten by the next snapshot anyway.
         e = app.enemies.spawn(def, s.x, s.y, 1, 1);
         if (!e) continue;
         e._remoteId = s.id;
-        e._mirror   = true;     // tag so combat / drops know to skip side effects
+        e._mirror   = true;
         e.maxHp     = s.maxHp;
         e.level     = s.level;
-        e._prevX    = s.x; e._prevY = s.y;
-        e._targetX  = s.x; e._targetY = s.y;
-        e._prevAt   = now - 66;
-        e._targetAt = now;
-      } else {
-        // Entity interpolation: shift the current target to "prev" and
-        // accept the new snapshot as the next target.  Between snapshots,
-        // updateEnemies blends prev->target by elapsed time, eliminating
-        // the AI-direction-change jitter that dead-reckoning had (host
-        // would change direction mid-interval and client wouldn't know
-        // until the next snapshot).
-        e._prevX    = e._targetX != null ? e._targetX : e.x;
-        e._prevY    = e._targetY != null ? e._targetY : e.y;
-        e._prevAt   = e._targetAt != null ? e._targetAt : (now - 66);
-        e._targetX  = s.x;
-        e._targetY  = s.y;
-        e._targetAt = now;
       }
-      e.vx = s.vx || 0;     // kept for facing / animation
+      // Light lerp toward authoritative position (drift correction) +
+      // update velocity for the local dead-reckoning step.
+      const lerp = 0.40;
+      e.x = e.x + (s.x - e.x) * lerp;
+      e.y = e.y + (s.y - e.y) * lerp;
+      e.vx = s.vx || 0;
       e.vy = s.vy || 0;
       e.hp = s.hp;
       e.maxHp = s.maxHp;
@@ -735,48 +718,92 @@ DDI.party = (function () {
     if (!me) return;
     const myName = (DDI.auth.profile && DDI.auth.profile() && DDI.auth.profile().display_name) || 'Friend';
     const ch = (app.save && app.save.character) || 'default';
-    // Lobby beat — sent when not in a run so partner sees "in lobby" status
-    // on their party HUD instead of "connecting…"
-    if (!app.game.running) {
-      DDI.auth.sendPartyMessage(_partyChannel, 'pos', {
-        user_id:      me.id,
-        display_name: myName,
-        x: null, y: null,
-        hpPct:        1,
-        character:    ch,
-        zone:         'lobby',
-        floor:        0, act: 0, kills: 0,
-        lobby:        true,
-      });
-      return;
-    }
-    DDI.auth.sendPartyMessage(_partyChannel, 'pos', {
+    // ALL state in a single 'state' broadcast per beat — pos + enemies +
+    // projectiles + loot.  Previously we sent up to 4 separate broadcasts
+    // per beat (60/s at 15Hz) which approached / exceeded Supabase
+    // Realtime's per-channel rate limit and queued up.  Batching cuts
+    // that to 15/s, the rate limit headroom is now generous.
+    const payload = {
       user_id:      me.id,
       display_name: myName,
-      x:            h.x,
-      y:            h.y,
-      vx:           h.vx || 0,
-      vy:           h.vy || 0,
-      facing:       h.facing || 0,
-      hp:           h.hp || 0,
-      maxHp:        h.maxHp || 1,
-      hpPct:        Math.max(0, Math.min(1, (h.hp || 0) / (h.maxHp || 1))),
       character:    ch,
-      zone:         (app.zone && app.zone.name) || 'main',
-      floor:        (app.game && app.game.floor) || 1,
-      act:          (app.game && app.game.act)   || 1,
-      kills:        (app.game && app.game.kills) || 0,
-      lobby:        false,     // explicit so Object.assign on the receiver clears the previous lobby beat
       sentAt:       Date.now(),
-    });
-    // Host: also broadcast the enemy + loot snapshots (Phase 2b/c)
-    if (_party && _party.iAm === 'host') {
-      _sendEnemySnapshot();
-      _sendLootSnapshot();
+    };
+    if (!app.game.running) {
+      payload.lobby = true;
+      payload.x = null; payload.y = null;
+      payload.hpPct = 1;
+      payload.zone = 'lobby';
+      payload.floor = 0; payload.act = 0; payload.kills = 0;
+    } else {
+      payload.lobby = false;
+      payload.x = h.x; payload.y = h.y;
+      payload.vx = h.vx || 0; payload.vy = h.vy || 0;
+      payload.facing = h.facing || 0;
+      payload.hp = h.hp || 0;
+      payload.maxHp = h.maxHp || 1;
+      payload.hpPct = Math.max(0, Math.min(1, (h.hp || 0) / (h.maxHp || 1)));
+      payload.zone = (app.zone && app.zone.name) || 'main';
+      payload.floor = (app.game && app.game.floor) || 1;
+      payload.act = (app.game && app.game.act) || 1;
+      payload.kills = (app.game && app.game.kills) || 0;
+      payload.projs = _buildProjectileList();
+      if (_party && _party.iAm === 'host') {
+        payload.enemies = _buildEnemyList();
+        payload.loot    = _buildLootList();
+      }
     }
-    // Both players: broadcast friendly projectiles so the OTHER sees spells
-    _sendProjectileSnapshot();
+    DDI.auth.sendPartyMessage(_partyChannel, 'state', payload);
   }
+
+  function _buildEnemyList() {
+    if (!app || !app.enemies) return [];
+    const out = [];
+    app.enemies.forEach(function (e) {
+      if (!e || !e._alive || !e.def) return;
+      out.push({
+        id: e.id, defId: e.def.id || null,
+        x: Math.round(e.x), y: Math.round(e.y),
+        vx: Math.round(e.vx || 0), vy: Math.round(e.vy || 0),
+        hp: Math.round(e.hp), maxHp: Math.round(e.maxHp),
+        level: e.level || 1,
+        flash: e.flash > 0 ? 1 : 0,
+        fadeIn: !!e._fadeIn, fadeOut: !!e._fadeOut,
+      });
+    });
+    return out;
+  }
+  function _buildProjectileList() {
+    if (!app || !app.projectiles) return [];
+    const out = [];
+    app.projectiles.forEach(function (p) {
+      if (!p || !p._alive || p.hostile || p._mirror) return;
+      out.push({
+        x: Math.round(p.x), y: Math.round(p.y),
+        vx: Math.round(p.vx || 0), vy: Math.round(p.vy || 0),
+        color: p.color, radius: p.radius, kind: p.kind, shape: p.shape || null, element: p.element || null,
+      });
+    });
+    return out;
+  }
+  function _buildLootList() {
+    if (!app || !app.loot) return [];
+    const out = [];
+    app.loot.forEach(function (l) {
+      if (!l || !l._alive || l._mirror) return;
+      out.push({
+        id: l.id, kind: l.kind,
+        x: Math.round(l.x), y: Math.round(l.y),
+        value: l.value, rarity: l.rarity, item: l.item || null,
+      });
+    });
+    return out;
+  }
+  // Legacy single-purpose senders kept as no-ops in case anything still
+  // references them — the batched 'state' broadcast does it all now.
+  function _sendEnemySnapshot()     {}
+  function _sendProjectileSnapshot(){}
+  function _sendLootSnapshot()      {}
 
   // Loot snapshot — host broadcasts every live loot piece at 15Hz.  Client
   // mirrors as ghosts that the client can also pick up locally (each player
@@ -806,7 +833,6 @@ DDI.party = (function () {
 
   function _applyLootSnapshot(list) {
     if (!app || !app.loot || !list) return;
-    // Index existing mirrors by _remoteId
     const existing = {};
     app.loot.forEach(function (l) {
       if (l._alive && l._mirror && l._remoteId != null) existing[l._remoteId] = l;
@@ -815,20 +841,28 @@ DDI.party = (function () {
     for (let i = 0; i < list.length; i++) {
       const s = list[i];
       if (!s || s.id == null) continue;
-      if (_clientPickedUpLoot[s.id]) continue;     // already grabbed, ignore re-send
+      if (_clientPickedUpLoot[s.id]) continue;     // already grabbed
       seen[s.id] = true;
       if (existing[s.id]) {
-        // Update position (loot drifts a little when first spawned)
-        existing[s.id].x = s.x;
-        existing[s.id].y = s.y;
+        // Don't re-snap a mirror that's being magnet-pulled toward our
+        // hero — the snap-vs-pull fight is what made loot "bounce".
+        if (!existing[s.id].attracted) {
+          existing[s.id].x = s.x;
+          existing[s.id].y = s.y;
+        }
         continue;
       }
       const l = app.loot.spawn(s.kind, s.x, s.y, s.value || 1, s.rarity || 'common', s.item || null);
       if (!l) continue;
       l._mirror   = true;
       l._remoteId = s.id;
+      // Zero out the spawn-drift velocity so the mirror sits where host
+      // says it is, NOT where Loot.reset's random drift would take it.
+      // Without this, mirrors visibly wobbled away from snapshot point
+      // until the next snapshot snapped them back — the "bouncing".
+      l.vx = 0; l.vy = 0;
+      l.spawnPop = 1;     // skip the pop-in animation (host already played it)
     }
-    // Kill mirrors host didn't send (host picked them up, or they despawned)
     app.loot.forEach(function (l) {
       if (l._alive && l._mirror && l._remoteId != null && !seen[l._remoteId]) {
         l._alive = false;
