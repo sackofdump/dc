@@ -1126,7 +1126,7 @@ DDI.data = (function () {
     },
     ranger: {
       name: 'Ranger',
-      requiredRank: 3,
+      requiredRank: 1,    // unlocked from the start alongside Mage + Warrior
       starters: ['multishot', 'huntersMark'],
       pool:     ['multishot', 'ricochet', 'pierceShot', 'arrowVolley', 'bearTrap', 'huntersMark'],
     },
