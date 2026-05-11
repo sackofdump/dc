@@ -76,6 +76,9 @@
       await preload();
       if (DDI.hudedit && DDI.hudedit.init) DDI.hudedit.init(this);
       if (DDI.minimap && DDI.minimap.init) DDI.minimap.init(this);
+      // Wire the friends widget DOM once — module owns the show/hide,
+      // populated on auth changes below.
+      if (DDI.social && DDI.social.init) DDI.social.init(this);
       // Arm the WebAudio module — context unlocks on first user gesture.
       if (DDI.audio && DDI.audio.arm) DDI.audio.arm();
       // Bring up Supabase auth.  If we have a stored session, hydrate save from
@@ -148,6 +151,11 @@
       // Sync audio mute state with the saved sound setting.
       if (DDI.audio && DDI.audio.setMuted && this.save.settings) {
         DDI.audio.setMuted(!this.save.settings.sound);
+      }
+      // Friends widget — show + join presence once we know who we are.
+      // Guests skip this (no Supabase identity, can't appear in presence).
+      if (DDI.social && DDI.social.show) {
+        try { await DDI.social.show(); } catch (e) { console.error('[social] show', e); }
       }
       this.persist();
     }
@@ -244,6 +252,10 @@
       if (rootEl) rootEl.classList.add('in-game');
       this.fx.toast('FLOOR ' + this.game.floor);
       this.save.totalRuns++;
+      // Update presence so friends see "in a run"
+      if (DDI.social && DDI.social.setStatus) {
+        DDI.social.setStatus({ status: 'in-run', character: this.save.character || null });
+      }
       this.persist();
     }
 
@@ -264,6 +276,8 @@
       // Same for MEGA potions — leftover stash from a dead run does not carry.
       this.potions = { hp: 0, ult: 0, stam: 0, max: 3 };
       if (this.ui && this.ui.updatePotionBar) this.ui.updatePotionBar();
+      // Friends presence — back to "on title"
+      if (DDI.social && DDI.social.setStatus) DDI.social.setStatus({ status: 'in-title' });
       const rootEl = document.getElementById('game-root');
       if (rootEl) rootEl.classList.remove('in-game');
       // Dust breakdown — shown in death summary so players see where it came from.
@@ -397,6 +411,7 @@
         if (pm) pm.classList.add('hidden');
         if (this.ui.showTitle) this.ui.showTitle();
       }
+      if (DDI.social && DDI.social.setStatus) DDI.social.setStatus({ status: 'in-title' });
     }
 
     _serializeZone(z) {
@@ -692,6 +707,9 @@
       if (this.save.runStates) delete this.save.runStates[charKey];
       this.persist();
       this.fx.toast('★  RESUMED  ★');
+      if (DDI.social && DDI.social.setStatus) {
+        DDI.social.setStatus({ status: 'in-run', character: this.save.character || null });
+      }
       this.fx.flash('#ffd966', 0.4);
     }
 

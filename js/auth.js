@@ -115,6 +115,9 @@ DDI.auth = (function () {
 
   async function signOut() {
     if (!client) return;
+    // Leave the presence channel BEFORE blowing away the session so other
+    // clients see us drop off cleanly rather than detecting a stale ref.
+    try { await leavePresence(); } catch (e) {}
     await client.auth.signOut();
     currentUser    = null;
     currentProfile = null;
@@ -272,6 +275,138 @@ DDI.auth = (function () {
     return res.data || [];
   }
 
+  // ============================================================
+  // FRIENDS (Phase 1 social) — open-add, mutual rows.
+  // ============================================================
+
+  // List the current user's friends with display names joined from profiles.
+  // Returns [{ user_id, display_name }, ...] or [] on error.
+  async function listFriends() {
+    if (!client || !currentUser) return [];
+    const { data, error } = await client
+      .from('friends')
+      .select('friend_user_id, profiles:friend_user_id ( display_name )')
+      .eq('user_id', currentUser.id);
+    if (error) { console.error('[auth] listFriends', error); return []; }
+    return (data || []).map(function (row) {
+      return {
+        user_id: row.friend_user_id,
+        display_name: (row.profiles && row.profiles.display_name) || 'Unknown',
+      };
+    });
+  }
+
+  // Add a friend by display name.  Mutual — both sides see each other
+  // immediately.  Returns { ok: true } or { error: { message } }.
+  async function addFriend(displayName) {
+    if (!client || !currentUser) return { error: { message: 'not signed in' } };
+    const name = (displayName || '').trim();
+    if (!name) return { error: { message: 'enter a name' } };
+    const { error } = await client.rpc('add_friend', { p_friend_name: name });
+    if (error) {
+      console.error('[auth] addFriend', error);
+      return { error: { message: error.message || 'add failed' } };
+    }
+    return { ok: true };
+  }
+
+  async function removeFriend(friendUserId) {
+    if (!client || !currentUser) return { error: { message: 'not signed in' } };
+    const { error } = await client.rpc('remove_friend', { p_friend_id: friendUserId });
+    if (error) {
+      console.error('[auth] removeFriend', error);
+      return { error: { message: error.message || 'remove failed' } };
+    }
+    return { ok: true };
+  }
+
+  // ============================================================
+  // PRESENCE — Supabase Realtime channel for "who's online + status".
+  // The channel auto-syncs state across all subscribers.  We expose a
+  // small surface: join with an initial state, update via setPresenceStatus,
+  // subscribe to changes via onPresenceChange(callback).
+  // ============================================================
+  let _presenceChannel = null;
+  let _presenceState   = null;       // last-known local state we track()
+  const _presenceListeners = [];     // [(stateMap) => void]
+
+  function _emitPresence() {
+    if (!_presenceChannel) return;
+    const raw = _presenceChannel.presenceState();
+    // Flatten to a {user_id: {user_id, display_name, status, character}} map —
+    // Supabase gives us an array per key (one entry per browser tab) and
+    // we just want the most recent.
+    const out = {};
+    Object.keys(raw).forEach(function (k) {
+      const arr = raw[k];
+      if (!arr || !arr.length) return;
+      const latest = arr[arr.length - 1];
+      out[latest.user_id || k] = latest;
+    });
+    _presenceListeners.forEach(function (fn) { try { fn(out); } catch (e) { console.error('[auth] presence listener', e); } });
+  }
+
+  async function joinPresence(initialState) {
+    if (!client || !currentUser) return;
+    if (_presenceChannel) return;     // already joined
+    _presenceState = Object.assign({
+      user_id:      currentUser.id,
+      display_name: (currentProfile && currentProfile.display_name) || 'Delver',
+      status:       'in-title',
+      character:    null,
+    }, initialState || {});
+    _presenceChannel = client.channel('presence:online', {
+      config: { presence: { key: currentUser.id } },
+    });
+    _presenceChannel.on('presence', { event: 'sync'  }, _emitPresence);
+    _presenceChannel.on('presence', { event: 'join'  }, _emitPresence);
+    _presenceChannel.on('presence', { event: 'leave' }, _emitPresence);
+    try {
+      await new Promise(function (resolve) {
+        _presenceChannel.subscribe(async function (status) {
+          if (status === 'SUBSCRIBED') {
+            try { await _presenceChannel.track(_presenceState); } catch (e) { console.error('[auth] presence track', e); }
+            resolve();
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            resolve();     // don't block forever — UI will retry on next join
+          }
+        });
+      });
+    } catch (e) {
+      console.error('[auth] presence subscribe', e);
+    }
+  }
+
+  async function setPresenceStatus(patch) {
+    if (!_presenceChannel || !_presenceState) return;
+    _presenceState = Object.assign({}, _presenceState, patch || {});
+    try { await _presenceChannel.track(_presenceState); }
+    catch (e) { console.error('[auth] presence retrack', e); }
+  }
+
+  async function leavePresence() {
+    if (!_presenceChannel) return;
+    try { await _presenceChannel.untrack(); } catch (e) {}
+    try { await client.removeChannel(_presenceChannel); } catch (e) {}
+    _presenceChannel = null;
+    _presenceState   = null;
+    _presenceListeners.forEach(function (fn) { try { fn({}); } catch (e) {} });
+  }
+
+  function onPresenceChange(fn) {
+    if (typeof fn !== 'function') return function () {};
+    _presenceListeners.push(fn);
+    // Fire once immediately so the caller doesn't have to wait for a sync.
+    if (_presenceChannel) _emitPresence();
+    return function unsubscribe() {
+      const i = _presenceListeners.indexOf(fn);
+      if (i >= 0) _presenceListeners.splice(i, 1);
+    };
+  }
+
+  // Clean up presence on tab close so we don't leave ghost online entries.
+  addEventListener('beforeunload', function () { leavePresence(); });
+
   return {
     init, isConfigured,
     getSession, user, profile,
@@ -279,5 +414,8 @@ DDI.auth = (function () {
     ensureProfile,
     loadSave, saveSave, flushPendingSave,
     submitScore, fetchLeaderboard,
+    // Social — Phase 1
+    listFriends, addFriend, removeFriend,
+    joinPresence, leavePresence, setPresenceStatus, onPresenceChange,
   };
 })();

@@ -407,6 +407,9 @@ DDI.UI = (function () {
       this.$('modal-auth').classList.remove('hidden');
       this.setAuthError('');
       this.switchAuthTab('login');
+      // Friends widget makes no sense on the login screen — we don't know
+      // who the player is yet.  Hidden here, shown after onAuthChanged.
+      if (DDI.social && DDI.social.hide) DDI.social.hide();
     }
     hideAuth() {
       this.$('modal-auth').classList.add('hidden');

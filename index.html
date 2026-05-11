@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=242" />
+  <link rel="stylesheet" href="style.css?v=243" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.50.3/dist/umd/supabase.js"></script>
 </head>
 <body>
@@ -460,24 +460,46 @@
 
     <!-- Floating toast -->
     <div id="toast" class="hidden"></div>
+
+    <!-- FRIENDS widget (always-on, top-right; hidden on auth modal) -->
+    <div id="friends-widget" class="hidden">
+      <button id="friends-toggle" type="button" title="Friends">
+        <span class="fw-glyph">★</span>
+        <span class="fw-label">FRIENDS</span>
+        <span class="fw-badge" id="friends-online-count">0</span>
+      </button>
+      <div id="friends-panel" class="hidden">
+        <div class="fw-panel-head">
+          <span class="fw-panel-title">FRIENDS</span>
+          <button id="friends-close" type="button" title="Close">✕</button>
+        </div>
+        <div class="fw-add-row">
+          <input id="friend-add-input" type="text" placeholder="add by player name…" maxlength="18" />
+          <button id="friend-add-btn" type="button" title="Add">+</button>
+        </div>
+        <div id="friend-add-msg" class="fw-msg"></div>
+        <div id="friends-list" class="fw-list"></div>
+      </div>
+    </div>
   </div>
 
   <!-- Load order matters. ?v= busts browser cache when files change. -->
-  <script src="js/util.js?v=242"></script>
-  <script src="js/audio.js?v=242"></script>
-  <script src="js/auth.js?v=242"></script>
-  <script src="js/data.js?v=242"></script>
-  <script src="js/save.js?v=242"></script>
-  <script src="js/assets.js?v=242"></script>
-  <script src="js/entities.js?v=242"></script>
-  <script src="js/gear.js?v=242"></script>
-  <script src="js/systems.js?v=242"></script>
-  <script src="js/fx.js?v=242"></script>
-  <script src="js/input.js?v=242"></script>
-  <script src="js/ui.js?v=242"></script>
-  <script src="js/render.js?v=242"></script>
-  <script src="js/hudedit.js?v=242"></script>
-  <script src="js/minimap.js?v=242"></script>
-  <script src="js/main.js?v=242"></script>
+  <script src="js/util.js?v=243"></script>
+  <script src="js/audio.js?v=243"></script>
+  <script src="js/auth.js?v=243"></script>
+  <script src="js/social.js?v=243"></script>
+  <script src="js/data.js?v=243"></script>
+  <script src="js/save.js?v=243"></script>
+  <script src="js/assets.js?v=243"></script>
+  <script src="js/entities.js?v=243"></script>
+  <script src="js/gear.js?v=243"></script>
+  <script src="js/systems.js?v=243"></script>
+  <script src="js/fx.js?v=243"></script>
+  <script src="js/input.js?v=243"></script>
+  <script src="js/ui.js?v=243"></script>
+  <script src="js/render.js?v=243"></script>
+  <script src="js/hudedit.js?v=243"></script>
+  <script src="js/minimap.js?v=243"></script>
+  <script src="js/main.js?v=243"></script>
 </body>
 </html>

@@ -103,3 +103,86 @@ end; $$;
 
 revoke all on function public.submit_score(int, int, bigint, int, text) from public;
 grant execute on function public.submit_score(int, int, bigint, int, text) to authenticated;
+
+-- ============================================================
+-- FRIENDS (Phase 1 social) — open-add (no approval), mutual rows
+-- ============================================================
+-- Each friend pair is stored as two rows (A→B + B→A) so reads are trivial:
+-- "give me my friends" is just "select where user_id = me".  The add_friend
+-- RPC writes both directions in one transaction.
+
+create table if not exists public.friends (
+  user_id        uuid not null references auth.users on delete cascade,
+  friend_user_id uuid not null references auth.users on delete cascade,
+  created_at     timestamptz not null default now(),
+  primary key (user_id, friend_user_id),
+  check (user_id <> friend_user_id)
+);
+create index if not exists friends_friend_idx on public.friends (friend_user_id);
+
+alter table public.friends enable row level security;
+
+-- Read your own friend list only — display names are joined client-side
+-- via the public profiles table (which has its own read-all policy).
+drop policy if exists friends_read_self on public.friends;
+create policy friends_read_self on public.friends
+  for select using (auth.uid() = user_id);
+
+-- Direct inserts go through the RPC (which uses security definer) so we don't
+-- need a permissive insert policy on the table itself.  Locking inserts down
+-- forces clients through the dedupe + mutual-row logic.
+drop policy if exists friends_insert_self on public.friends;
+create policy friends_insert_self on public.friends
+  for insert with check (false);
+
+-- Allow users to delete their own rows directly (the remove RPC also handles
+-- the reverse-side delete, but a self-row delete via PostgREST is also fine).
+drop policy if exists friends_delete_self on public.friends;
+create policy friends_delete_self on public.friends
+  for delete using (auth.uid() = user_id);
+
+-- Add a friend by display name.  Mutual (no approval needed).  Look-up is
+-- case-insensitive to match the profiles' unique(lower(display_name)) index.
+create or replace function public.add_friend(p_friend_name text)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_me        uuid := auth.uid();
+  v_friend_id uuid;
+begin
+  if v_me is null then raise exception 'not authenticated'; end if;
+  select id into v_friend_id from public.profiles
+    where lower(display_name) = lower(p_friend_name)
+    limit 1;
+  if v_friend_id is null then
+    raise exception 'no player named %', p_friend_name using errcode = 'P0001';
+  end if;
+  if v_friend_id = v_me then
+    raise exception 'you cannot add yourself' using errcode = 'P0001';
+  end if;
+  insert into public.friends (user_id, friend_user_id)
+    values (v_me, v_friend_id)
+    on conflict do nothing;
+  insert into public.friends (user_id, friend_user_id)
+    values (v_friend_id, v_me)
+    on conflict do nothing;
+end; $$;
+
+revoke all on function public.add_friend(text) from public;
+grant execute on function public.add_friend(text) to authenticated;
+
+-- Remove a friend.  Wipes both directions so the other side's UI stops
+-- showing the connection too.
+create or replace function public.remove_friend(p_friend_id uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_me uuid := auth.uid();
+begin
+  if v_me is null then raise exception 'not authenticated'; end if;
+  delete from public.friends where user_id = v_me        and friend_user_id = p_friend_id;
+  delete from public.friends where user_id = p_friend_id and friend_user_id = v_me;
+end; $$;
+
+revoke all on function public.remove_friend(uuid) from public;
+grant execute on function public.remove_friend(uuid) to authenticated;

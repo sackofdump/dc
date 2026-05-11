@@ -2531,6 +2531,191 @@ body.hud-edit .hud-draggable::after {
 .tier-godkill    #game-root::after { box-shadow: inset 0 0 240px rgba(255,217,102,0.6); animation: godPulse 0.6s infinite; }
 @keyframes godPulse { 0%,100% { opacity:0.7;} 50% { opacity:1;} }
 
+/* ===== FRIENDS widget (Phase 1 social — always-on, top-right) ===== */
+#friends-widget {
+  position: fixed;
+  top: 14px; right: 14px;
+  z-index: 60;     /* above modals so it stays visible everywhere */
+  pointer-events: auto;
+  font-family: inherit;
+  user-select: none;
+  transition: top 0.18s;
+}
+/* In-game: shift below the currency bar (top-right) so they don't overlap */
+#game-root.in-game #friends-widget { top: 56px; }
+#friends-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: linear-gradient(180deg, rgba(28,18,48,0.95), rgba(17,8,32,0.95));
+  border: 1px solid var(--panel-edge);
+  border-radius: 999px;
+  color: var(--ink-dim);
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.55);
+  transition: transform 0.1s, box-shadow 0.12s, border-color 0.12s;
+}
+#friends-toggle:hover {
+  transform: translateY(-1px);
+  border-color: var(--accent-violet);
+  box-shadow: 0 6px 18px rgba(178,102,255,0.35);
+  color: var(--ink);
+}
+#friends-toggle .fw-glyph { color: var(--accent-gold); font-size: 13px; }
+#friends-toggle .fw-badge {
+  background: var(--accent-violet);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 7px;
+  border-radius: 999px;
+  letter-spacing: 0;
+  min-width: 18px;
+  text-align: center;
+}
+#friends-panel {
+  position: absolute;
+  top: 44px; right: 0;
+  width: 280px;
+  background: linear-gradient(180deg, #1c1230 0%, #110820 100%);
+  border: 1px solid var(--panel-edge);
+  border-radius: 10px;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.7), 0 0 22px rgba(178,102,255,0.18);
+  padding: 12px;
+  animation: fwIn 0.18s ease-out;
+}
+@keyframes fwIn {
+  from { transform: translateY(-6px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.fw-panel-head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 10px;
+}
+.fw-panel-title {
+  color: var(--accent-gold);
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.32em;
+}
+#friends-close {
+  width: 22px; height: 22px;
+  border: 1px solid var(--panel-edge);
+  background: transparent;
+  color: var(--ink-fade);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  font-family: inherit;
+  font-weight: 800;
+}
+#friends-close:hover { color: #ff8a99; border-color: #ff6477; }
+.fw-add-row {
+  display: flex; gap: 6px;
+  margin-bottom: 6px;
+}
+.fw-add-row input {
+  flex: 1 1 auto;
+  background: rgba(10,6,18,0.6);
+  border: 1px solid var(--panel-edge);
+  border-radius: 6px;
+  padding: 6px 9px;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 12px;
+  outline: none;
+}
+.fw-add-row input:focus { border-color: var(--accent-violet); box-shadow: 0 0 8px rgba(178,102,255,0.45); }
+.fw-add-row button {
+  width: 32px; height: 32px;
+  background: var(--accent-violet);
+  border: 1px solid var(--accent-violet);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+}
+.fw-add-row button:hover { filter: brightness(1.15); }
+.fw-msg { font-size: 10px; min-height: 14px; padding: 2px 4px; letter-spacing: 0.04em; }
+.fw-msg.ok   { color: var(--accent-green); }
+.fw-msg.err  { color: #ff8a99; }
+.fw-msg.info { color: var(--ink-fade); }
+.fw-list {
+  max-height: 280px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-violet) transparent;
+  margin-top: 4px;
+}
+.fw-list::-webkit-scrollbar { width: 6px; }
+.fw-list::-webkit-scrollbar-thumb { background: var(--accent-violet); border-radius: 3px; }
+.fw-empty {
+  color: var(--ink-fade);
+  font-style: italic;
+  font-size: 11px;
+  text-align: center;
+  padding: 18px 8px;
+  line-height: 1.4;
+}
+.fw-row {
+  display: grid;
+  grid-template-columns: 12px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  border-bottom: 1px dashed rgba(178,102,255,0.15);
+}
+.fw-row:last-child { border-bottom: none; }
+.fw-dot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--ink-fade);
+}
+.fw-dot.on  { background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
+.fw-dot.off { background: #3a2a55; }
+.fw-name {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fw-sub {
+  color: var(--ink-fade);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.fw-remove {
+  width: 22px; height: 22px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--ink-fade);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  font-family: inherit;
+  font-weight: 800;
+}
+.fw-remove:hover { border-color: #ff6477; color: #ff8a99; }
+
+@media (max-width: 480px) {
+  #friends-widget { top: 6px; right: 6px; }
+  #friends-toggle { padding: 5px 10px; font-size: 10px; }
+  #friends-toggle .fw-label { display: none; }     /* compact on phones */
+  #friends-panel { width: calc(100vw - 16px); right: -2px; }
+}
+
 /* ===== MEGA Potion bar (per-run, 3 slots) ===== */
 #potion-bar {
   position: absolute;
