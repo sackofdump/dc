@@ -216,11 +216,33 @@ DDI.UI = (function () {
       if (btnSaveQuit) btnSaveQuit.addEventListener('click', function () {
         if (self.app && self.app.saveRun) self.app.saveRun();
       });
-      // Saved-runs panel — delegated click handler so we can rebuild rows
-      // dynamically each time the title is shown.
+      // Saved-runs panel — delegated handlers for continue (row click) and
+      // delete (small X button per row).  Rebuilt dynamically each title.
       const savedRunsEl = this.$('saved-runs');
       if (savedRunsEl) {
         savedRunsEl.addEventListener('click', function (ev) {
+          // Delete button takes priority over row click
+          const delBtn = ev.target && ev.target.closest && ev.target.closest('.sr-delete');
+          if (delBtn) {
+            ev.stopPropagation();
+            const ck = delBtn.getAttribute('data-char');
+            if (!ck) return;
+            const D = DDI.data || {};
+            const cls = (D.CLASSES && D.CLASSES[ck]) || { name: ck };
+            self.showConfirm({
+              title: 'DELETE ' + (cls.name || ck).toUpperCase() + ' SAVE?',
+              message: 'Permanently remove the saved run on <em class="hl">' + (cls.name || ck).toUpperCase() + '</em>.',
+              confirmText: 'DELETE',
+              cancelText: 'KEEP',
+              danger: true,
+              onConfirm: function () {
+                if (self.app && self.app.deleteSavedRun) self.app.deleteSavedRun(ck);
+                self.showTitle();    // rerender the panel
+              },
+            });
+            return;
+          }
+          // Otherwise — continue the row
           const row = ev.target && ev.target.closest && ev.target.closest('.sr-row');
           if (!row) return;
           const charKey = row.getAttribute('data-char');
@@ -228,6 +250,14 @@ DDI.UI = (function () {
           if (self.app && self.app.continueRunFor) self.app.continueRunFor(charKey);
         });
       }
+      // CC-continue chip on the Playing-As card
+      document.addEventListener('click', function (ev) {
+        const btn = ev.target && ev.target.closest && ev.target.closest('.cc-continue');
+        if (!btn) return;
+        const charKey = btn.getAttribute('data-char');
+        if (!charKey) return;
+        if (self.app && self.app.continueRunFor) self.app.continueRunFor(charKey);
+      });
       if (btnPauseSettings) btnPauseSettings.addEventListener('click', function () {
         self.closePause();
         self.openSettings();
@@ -1717,6 +1747,13 @@ DDI.UI = (function () {
         paladin: '🛡', berserker: '🪓', necromancer: '💀',
       };
       const portraitIcon = portraitIcons[charKey] || '⚔';
+      // If this character has a saved run, surface a quick CONTINUE button
+      // right under the "Playing as" card so the player doesn't need to
+      // scroll down to the saved-runs panel.
+      const activeSaved = (this.app && this.app.activeSavedRun) ? this.app.activeSavedRun() : null;
+      const continueChip = activeSaved
+        ? '<button class="cc-continue" type="button" data-char="' + charKey + '">▶ CONTINUE THIS RUN  ·  ACT ' + ((activeSaved.game && activeSaved.game.act) || 1) + ' · LV ' + ((activeSaved.game && activeSaved.game.level) || 1) + '</button>'
+        : '';
       const charCard = '' +
         '<div class="current-char">' +
           '<div class="cc-portrait">' + portraitIcon + '</div>' +
@@ -1725,7 +1762,8 @@ DDI.UI = (function () {
             '<div class="cc-name">' + (klass.name || 'WARRIOR').toUpperCase() + '</div>' +
             '<div class="cc-abils">' + (starters || '—') + '</div>' +
           '</div>' +
-        '</div>';
+        '</div>' +
+        continueChip;
       // Saved-runs panel — one row per saved class with progress info.
       // Each row's data-char attribute is read by the delegated click
       // handler in init() to dispatch continueRunFor.
@@ -1759,14 +1797,15 @@ DDI.UI = (function () {
               const lvl = (rs.game && rs.game.level) || 1;
               const act = (rs.game && rs.game.act) || 1;
               return '' +
-                '<button class="sr-row" type="button" data-char="' + ck + '">' +
+                '<div class="sr-row" data-char="' + ck + '" role="button" tabindex="0">' +
                   '<span class="sr-ico">' + ico + '</span>' +
                   '<span class="sr-body">' +
                     '<span class="sr-class">' + (cls.name || ck).toUpperCase() + '</span>' +
                     '<span class="sr-stats">ACT ' + act + ' · LV ' + lvl + ' · ' + fmtTime(t) + '</span>' +
                   '</span>' +
                   '<span class="sr-cta">▶ CONTINUE</span>' +
-                '</button>';
+                  '<button class="sr-delete" type="button" data-char="' + ck + '" title="Delete this saved run">✕</button>' +
+                '</div>';
             }).join('');
           savedEl.innerHTML = html;
           savedEl.classList.remove('hidden');

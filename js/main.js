@@ -422,6 +422,16 @@
       return best;
     }
 
+    // Delete the saved run for a specific character.  Used by the X button
+    // on each saved-runs row.
+    deleteSavedRun(charKey) {
+      this._migrateLegacyRunState();
+      if (this.save && this.save.runStates && this.save.runStates[charKey]) {
+        delete this.save.runStates[charKey];
+        this.persist();
+      }
+    }
+
     // Continue a saved run by explicit character key — used by the saved-runs
     // panel rows so the player picks exactly which one they want.
     continueRunFor(charKey) {
@@ -539,23 +549,21 @@
       } else {
         this._interiorBox = null;
       }
-      // Rebuild features from snapshot.  Reattach ritual_circle._data if needed.
-      this.features = (rs.features || []).map(function (f) { return Object.assign({}, f); });
-      // Fallback — if the saved features array is empty / corrupted (we've
-      // seen Supabase save_data come back with [] in rare cases), regenerate
-      // a fresh feature set so the map isn't totally barren.  The hero loses
-      // any "opened chest" state but at least has portals/loot to interact
-      // with again.
-      if (!this.features.length) {
-        if (this.zone.name === 'main' || !this.zone.name) {
-          this.generateFeatures('main');
-        } else if (this.zone.interior) {
-          // Rebuild a fresh interior — we lose the saved chest state but the
-          // exit door + new loot let the player escape and continue.
-          this._rebuildInteriorFeatures();
-        } else {
-          // Tele-zone with no features (shouldn't happen) — regen with the
-          // current biome's pool.
+      // Always regenerate features on resume for the MAIN zone.  Saved
+      // feature arrays were sometimes coming back empty/short from Supabase,
+      // leaving the map totally barren.  Regenerating from the saved act
+      // gives a guaranteed-playable map; the cost is losing chest "opened"
+      // state, which is a fair trade for never having an empty map.
+      if (this.zone.name === 'main' || !this.zone.name) {
+        this.generateFeatures('main');
+      } else if (this.zone.interior) {
+        // Interior: prefer the snapshot if it has anything, otherwise rebuild.
+        this.features = (rs.features || []).map(function (f) { return Object.assign({}, f); });
+        if (!this.features.length) this._rebuildInteriorFeatures();
+      } else {
+        // Tele zone: restore saved features so objectives keep their state.
+        this.features = (rs.features || []).map(function (f) { return Object.assign({}, f); });
+        if (!this.features.length) {
           this.generateFeatures(this.zone.name);
           if (this.setupObjective) this.setupObjective();
         }

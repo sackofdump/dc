@@ -1695,6 +1695,29 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
   white-space: nowrap;
   text-shadow: 0 0 8px rgba(255,123,31,0.45);
 }
+.saved-runs .sr-delete {
+  flex: 0 0 auto;
+  width: 26px; height: 26px;
+  margin-left: 6px;
+  padding: 0;
+  background: rgba(0,0,0,0.4);
+  color: var(--ink-dim);
+  border: 1px solid var(--panel-edge);
+  border-radius: 50%;
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.08s, color 0.1s, border-color 0.1s, box-shadow 0.12s;
+}
+.saved-runs .sr-delete:hover {
+  transform: scale(1.10);
+  color: #ff8a99;
+  border-color: #ff6477;
+  box-shadow: 0 0 10px rgba(255,100,119,0.55);
+}
+.saved-runs .sr-delete:active { transform: scale(0.92); }
 @media (max-width: 480px) {
   .saved-runs .sr-row  { padding: 8px 10px; gap: 8px; }
   .saved-runs .sr-ico  { width: 32px; height: 32px; font-size: 16px; }
@@ -1742,6 +1765,28 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
   letter-spacing: 0.04em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+/* CONTINUE chip — quick action right under the Playing-As card */
+.cc-continue {
+  display: block;
+  width: 100%;
+  margin: -6px auto 14px;
+  max-width: 360px;
+  padding: 10px 16px;
+  background: linear-gradient(180deg, #ffe89a, #f0c850);
+  border: 1px solid #fff;
+  border-radius: 8px;
+  color: #1a0e2a;
+  font-family: Cinzel, "Cinzel Decorative", serif;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-align: center;
+  cursor: pointer;
+  box-shadow: 0 4px 0 #6e4a00, 0 0 14px rgba(255,217,102,0.45);
+  transition: transform 0.08s, box-shadow 0.1s;
+}
+.cc-continue:hover { transform: translateY(-1px); box-shadow: 0 4px 0 #6e4a00, 0 0 22px rgba(255,217,102,0.85); }
+.cc-continue:active { transform: translateY(2px); box-shadow: 0 1px 0 #6e4a00; }
 
 /* Revive button — dust-themed violet accent on the death modal */
 .revive-btn {
