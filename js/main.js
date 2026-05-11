@@ -350,7 +350,7 @@
       const keys = ['name','displayName','color','killsInZone','killsNeeded','totalSpawned',
         'itemsCollected','itemsTotal','finalEliteSpawned','fadeOutBegan',
         'objective','survivalT','bountyKilled','bountyTotal','totemHp','totemHpMax','ritualDone',
-        'interior'];
+        'interior','cleared'];
       for (let i = 0; i < keys.length; i++) if (z[keys[i]] != null) out[keys[i]] = z[keys[i]];
       if (z.ritualCircles) {
         out.ritualCircles = z.ritualCircles.map(function (c) {
@@ -586,6 +586,15 @@
       // Mark in-run
       const rootEl = document.getElementById('game-root');
       if (rootEl) rootEl.classList.add('in-game');
+      // If they saved AFTER clearing a zone (boss dead, EXIT prompt up), put
+      // the button back so they can finish leaving the zone. Without this,
+      // resuming a cleared tele zone strands the player with no way out.
+      if (this.zone && this.zone.cleared && !this.zone.interior &&
+          this.zone.name && this.zone.name !== 'main' &&
+          this.ui && this.ui.showZoneExitButton) {
+        this._zoneCompleting = true;
+        this.ui.showZoneExitButton();
+      }
       // Clear the saved snapshot for THIS character — we're now running it.
       const charKey = (this.save && this.save.character) || 'default';
       if (this.save.runStates) delete this.save.runStates[charKey];
