@@ -2245,6 +2245,9 @@
         clearTimeout(this.zone._bountyTimer);
         this.zone._bountyTimer = null;
       }
+      // Clear pre-boss hazards so old plague pools / holy beams don't keep
+      // ticking through the boss intro.
+      this.hazards = [];
       this.zone.fadeOutBegan = true;
       this.fx.toast('★  THE BOSS APPROACHES  ★');
       this.fx.flash(this.zone.color || '#ff3d52', 0.5);
@@ -2323,6 +2326,9 @@
     completeZone() {
       if (this._zoneCompleting) return;
       this._zoneCompleting = true;
+      // Clear any lingering hazards (boss's plague pools, holy beams, etc.)
+      // so the player isn't still being chipped after the boss is dead.
+      this.hazards = [];
       // Persistent run difficulty bump — main map gets harder after each zone clear
       this.runDifficulty = (this.runDifficulty || 1) + 0.20;
       // Seal this portal for the rest of the run — and track for act-boss gate

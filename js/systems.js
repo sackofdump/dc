@@ -948,6 +948,10 @@ DDI.systems = (function () {
         app.fx.toast('BOSS SLAIN');
         app.fx.shake(18);
         app.loot.spawn('chest', enemy.x, enemy.y, 1, 'legendary');
+        // Boss kill clears the battlefield of all lingering hazards so the
+        // player isn't still being chipped by plague pools / holy beams
+        // after the fight is over.
+        app.hazards = [];
         // Act boss → drop fat loot pile + show PROCEED button (do NOT auto-advance).
         // Player loots, presses PROCEED when ready (mirrors zone-clear flow).
         if (enemy._actBoss && app.ui && app.ui.showActProceedButton) {
