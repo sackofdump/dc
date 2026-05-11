@@ -33,7 +33,8 @@
       this.runDifficulty = 1;
       this.hero = new Hero();
 
-      this.enemies     = new Pool(function () { return new Enemy(); },     function (o, def, x, y, hpS, dmgS) { o.reset(def, x, y, hpS, dmgS); });
+      const _app = this;
+      this.enemies     = new Pool(function () { return new Enemy(); },     function (o, def, x, y, hpS, dmgS) { o.reset(def, x, y, hpS, dmgS); o._zs = _app._zoneSerial; });
       this.projectiles = new Pool(function () { return new Projectile(); },function (o, opts) { o.reset(opts); });
       this.loot        = new Pool(function () { return new Loot(); },      function (o, kind, x, y, value, rarity) { o.reset(kind, x, y, value, rarity); });
       this.particles   = new Pool(function () { return new Particle(); },  function (o, opts) { o.reset(opts); });
@@ -986,8 +987,12 @@
     updateEnemies(dt) {
       const h = this.hero;
       const self = this;
+      const zs = this._zoneSerial;
       this.enemies.forEach(function (e) {
         if (!e._alive) return;
+        // Stale — spawned in a previous zone, somehow survived the cleanup.
+        // Kill it immediately so it can't move, contact, or render.
+        if (e._zs != null && e._zs !== zs) { e._alive = false; return; }
         // Fade-out: enemy is being silently retired during the boss transition
         if (e._fadeOut) {
           e._fadeT = (e._fadeT || 0) + dt;
@@ -1846,11 +1851,11 @@
       this.features = this.features.filter(function (f) { return removed.indexOf(f) === -1; });
     }
 
-    // Single source of truth for "the boss/zone is over — drop everything that
-    // would let an ability outlive its zone". Bumps the zone serial so any
-    // hazard/hostile projectile spawned before this call is auto-filtered by
-    // the update loops on the next tick, even if a delayed cast lands after.
-    _clearTransientCombat() {
+    // Wipe hazards + in-flight hostile projectiles + the bounty respawn timer.
+    // Does NOT bump the zone serial — call this when you want to clear the
+    // battlefield without invalidating still-alive enemies (e.g. boss intro
+    // where existing mobs are mid-fade-out).
+    _clearBattlefieldFx() {
       this.hazards = [];
       this.projectiles.live.forEach(function (p) {
         if (p && p.hostile) p._alive = false;
@@ -1860,6 +1865,14 @@
         clearTimeout(this.zone._bountyTimer);
         this.zone._bountyTimer = null;
       }
+    }
+
+    // Full zone-transition cleanup. Wipes the battlefield AND bumps the zone
+    // serial so any hazard / hostile projectile / enemy spawned before this
+    // call is auto-filtered by the update loops on the next tick, even if a
+    // delayed cast or stale enemy somehow survived the explicit kills above.
+    _clearTransientCombat() {
+      this._clearBattlefieldFx();
       this._zoneSerial = (this._zoneSerial || 0) + 1;
     }
 
@@ -2292,9 +2305,10 @@
         this.zone._bountyTimer = null;
       }
       // Clear pre-boss hazards so old plague pools / holy beams don't keep
-      // ticking through the boss intro. Bumps the zone serial so any in-flight
-      // cast from a pre-boss elite stops applying.
-      this._clearTransientCombat();
+      // ticking through the boss intro. Don't bump the zone serial — the
+      // pre-boss mobs are mid-fade-out and we want them to finish that
+      // animation naturally rather than blink out instantly.
+      this._clearBattlefieldFx();
       this.zone.fadeOutBegan = true;
       this.fx.toast('★  THE BOSS APPROACHES  ★');
       this.fx.flash(this.zone.color || '#ff3d52', 0.5);
@@ -2373,10 +2387,11 @@
     completeZone() {
       if (this._zoneCompleting) return;
       this._zoneCompleting = true;
-      // Clear any lingering hazards + in-flight hostile projectiles (plague
-      // pools, meteors, shrapnel shards) and bump the zone serial so any
-      // further boss-ability casts in this zone become no-ops on the next tick.
-      this._clearTransientCombat();
+      // Wipe hazards + in-flight hostile projectiles (plague pools, meteors,
+      // shrapnel shards) but DON'T bump the zone serial — escorts and leftover
+      // mobs are still alive and the player can keep farming them for loot
+      // before clicking EXIT.
+      this._clearBattlefieldFx();
       // Persistent run difficulty bump — main map gets harder after each zone clear
       this.runDifficulty = (this.runDifficulty || 1) + 0.20;
       // Seal this portal for the rest of the run — and track for act-boss gate
@@ -2486,8 +2501,10 @@
       this.game.actBossActive = null;
       this.game.pendingActBoss = false;
       // Wipe boss-cast hazards/projectiles so the post-fight victory beat
-      // isn't still being chipped by an in-flight ability.
-      this._clearTransientCombat();
+      // isn't still being chipped by an in-flight ability. Don't bump the
+      // serial — leftover mobs are still alive and the player can clean up
+      // before clicking PROCEED.
+      this._clearBattlefieldFx();
       this.ui.hideBoss();
       this.fx.flash('#ffe14d', 0.85);
       this.fx.shake(34);

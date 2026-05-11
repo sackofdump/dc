@@ -115,6 +115,9 @@ DDI.entities = (function () {
       this._eliteCd = 0;
       this._eliteCdMin = null;
       this._eliteCdMax = null;
+      // Zone serial — overwritten by the Pool factory immediately after this
+      // reset returns (see App ctor). Listed here so the field is enumerable.
+      this._zs = 0;
     }
     takeHit(amount, isCrit, fromX, fromY) {
       this.hp -= amount;

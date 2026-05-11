@@ -950,8 +950,10 @@ DDI.systems = (function () {
         app.loot.spawn('chest', enemy.x, enemy.y, 1, 'legendary');
         // Boss kill clears the battlefield of all lingering hazards + hostile
         // projectiles so the player isn't still being chipped by plague pools
-        // / meteors / holy beams after the fight is over.
-        if (app._clearTransientCombat) app._clearTransientCombat();
+        // / meteors / holy beams after the fight is over. Don't bump the
+        // zone serial — leftover mobs are still alive and we want them to
+        // stay killable.
+        if (app._clearBattlefieldFx) app._clearBattlefieldFx();
         else app.hazards = [];
         // Act boss → drop fat loot pile + show PROCEED button (do NOT auto-advance).
         // Player loots, presses PROCEED when ready (mirrors zone-clear flow).
