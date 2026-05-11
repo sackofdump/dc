@@ -2271,6 +2271,17 @@
       // Boss-tier: bosses are already beefy (6000+ base HP). Mild HP/dmg bump on top of difficulty mult.
       const e = this.enemies.spawn(def, x, y, 1.5 * dm, 1.4 * dm);
       e.level = (this.zoneRequiredLevel || 5) + 6;
+      // Bolt a castable ability onto the zone boss so it actually does
+      // something other than walk. Pool varies a bit by act so a Lv 30 magma
+      // tyrant feels different from a Lv 5 one.
+      if (!e.def.eliteAbility) {
+        const pool = (act >= 4)
+          ? ['holy_beam','meteor_burst','spore_bloom','toxic_pool','shadow_dash','shrapnel']
+          : ['meteor_burst','spore_bloom','shrapnel','toxic_pool'];
+        e._castableAbility = pool[Math.floor(Math.random() * pool.length)];
+        e._eliteCdMin = act >= 4 ? 1.6 : 2.2;
+        e._eliteCdMax = act >= 4 ? 2.8 : 3.8;
+      }
       if (fadeIn) { e._fadeIn = true; e._fadeT = 0; }
       this.zone.finalElite = e;
       this.zone.finalEliteSpawned = true;

@@ -1002,7 +1002,7 @@ DDI.data = (function () {
     id: 'greatAxe', name: 'Great Axe', icon: '🪓', element: 'physical', color: '#cdd5e0',
     desc: 'A massive axe spins around you, cleaving anything close.',
     type: 'orbital', maxLevel: 8,
-    base: { count: 1, damage: 22, radius: 75, rps: 0.9, hitCd: 0.40 },
+    base: { count: 1, damage: 28, radius: 75, rps: 0.9, hitCd: 0.40 },
     scale: function (lvl, b) {
       return Object.assign({}, b, {
         count:  b.count  + Math.floor(lvl / 3),
@@ -1027,6 +1027,23 @@ DDI.data = (function () {
       });
     },
     desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · radius ' + Math.round(s.area); },
+  };
+  // Berserker's new heavy hitter — no leap, just a thunderous ground slam
+  // centered on the hero.  Replaces leapSlam in the berserker pool.
+  ABILITIES.tremor = {
+    id: 'tremor', name: 'Tremor', icon: '🌋', element: 'physical', color: '#ff7b1f',
+    desc: 'Slams the earth — shockwave damages + slows every nearby foe.',
+    type: 'nova', maxLevel: 8,
+    base: { cooldown: 3.0, damage: 80, area: 200, slow: 0.45, slowDur: 1.2 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage: b.damage * (1 + 0.22 * lvl),
+        area:   b.area   * (1 + 0.10 * lvl),
+        slow:   Math.min(0.75, b.slow + 0.03 * lvl),
+        cooldown: b.cooldown * (1 - 0.05 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · radius ' + Math.round(s.area) + ' · slow ' + Math.round(s.slow*100) + '%'; },
   };
   ABILITIES.rage = {
     id: 'rage', name: 'Rage', icon: '😡', element: 'physical', color: '#ff3d52',
@@ -1146,7 +1163,7 @@ DDI.data = (function () {
       name: 'Berserker',
       requiredRank: 6,
       starters: ['greatAxe', 'rage'],
-      pool:     ['greatAxe', 'leapSlam', 'rage', 'bloodthirst', 'whirlingAxe', 'berserkerRoar'],
+      pool:     ['greatAxe', 'tremor', 'rage', 'bloodthirst', 'whirlingAxe', 'berserkerRoar'],
     },
     necromancer: {
       name: 'Necromancer',

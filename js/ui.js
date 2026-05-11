@@ -1130,6 +1130,27 @@ DDI.UI = (function () {
       passHdr.textContent = 'PASSIVE UPGRADES';
       grid.appendChild(passHdr);
 
+      // Cumulative-stat formatter — converts the level-multiplier formula
+      // for each meta upgrade into the actual bonus the hero is currently
+      // wearing.  Falls back to a basic "+X total" line if unknown.
+      const currentBonusText = function (id, lvl) {
+        if (lvl <= 0) return 'current: <b>—</b>';
+        switch (id) {
+          case 'meta_hp':     return 'current: <b>+' + (lvl * 10) + ' max HP</b>';
+          case 'meta_dmg':    return 'current: <b>+' + Math.round((Math.pow(1.04, lvl) - 1) * 100) + '% damage</b>';
+          case 'meta_crit':   return 'current: <b>+' + lvl + '% crit chance</b>';
+          case 'meta_critd':  return 'current: <b>+' + (lvl * 10) + '% crit damage</b>';
+          case 'meta_speed':  return 'current: <b>+' + Math.round((Math.pow(1.02, lvl) - 1) * 100) + '% move speed</b>';
+          case 'meta_pickup': return 'current: <b>+' + Math.round((Math.pow(1.05, lvl) - 1) * 100) + '% pickup</b>';
+          case 'meta_gold':   return 'current: <b>+' + Math.round((Math.pow(1.05, lvl) - 1) * 100) + '% gold find</b>';
+          case 'meta_xp':     return 'current: <b>+' + Math.round((Math.pow(1.03, lvl) - 1) * 100) + '% XP gain</b>';
+          case 'meta_regen':  return 'current: <b>+' + (lvl * 0.2).toFixed(1) + ' HP/s regen</b>';
+          case 'meta_armor':  return 'current: <b>+' + lvl + '% damage reduction</b>';
+          case 'meta_cd':     return 'current: <b>-' + Math.round((1 - Math.pow(0.99, lvl)) * 100) + '% cooldowns</b>';
+          case 'meta_proj':   return 'current: <b>+' + Math.floor(lvl / 3) + ' starting projectiles</b>';
+        }
+        return '';
+      };
       Object.keys(META).forEach(function (id) {
         const u = META[id];
         const lvl = (a.save.permUpgrades && a.save.permUpgrades[id]) | 0;
@@ -1147,7 +1168,8 @@ DDI.UI = (function () {
               '<div class="lvl">Lv ' + lvl + ' / ' + u.max + '</div>' +
             '</div>' +
           '</div>' +
-          '<div class="desc">' + u.desc + '</div>';
+          '<div class="desc">' + u.desc + '</div>' +
+          '<div class="current">' + currentBonusText(id, lvl) + '</div>';
         const btn = document.createElement('button');
         btn.className = 'buy';
         btn.disabled = !canBuy && !maxed;
