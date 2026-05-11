@@ -580,7 +580,7 @@
       for (let i = 0; i < 4; i++) {
         const cx = left + Math.random() * (right - left);
         const cy = top  + Math.random() * (bottom - top);
-        this.features.push({ type: 'chest', kind: 'chest', x: cx, y: cy, opened: false, rarity: 'magic' });
+        this.features.push({ type: 'chest', kind: 'chest', x: cx, y: cy, opened: false, rarity: 'magic', hasGear: i === 0 });
       }
     }
 
@@ -853,7 +853,11 @@
                       : farPct < 0.55 ? rarities[Math.floor(Math.random() * 3 + 1)]
                       : farPct < 0.80 ? rarities[Math.floor(Math.random() * 4 + 2)]
                       : rarities[Math.floor(Math.random() * 3 + 5)];
-        return { type: 'chest', x, y, opened: false, rarity, kind: 'chest' };
+        // Roughly 1-in-4 main-map chests roll gear.  Keeps the spread of
+        // gear drops thinner across a long run; you can't carpet-loot the
+        // map and stash 30 epics in 10 minutes.
+        const hasGear = Math.random() < 0.25;
+        return { type: 'chest', x, y, opened: false, rarity, kind: 'chest', hasGear: hasGear };
       });
       // XP shrines — chunk of XP orbs
       placeRandom(5, 220, function (x, y) {
@@ -1828,6 +1832,13 @@
     updateLoot(dt) {
       const h = this.hero;
       const self = this;
+      // Cache "is the gear stash full?" once per tick so we don't re-check
+      // for every loot piece.  Gear loot is locked out of magnet + collect
+      // when full so the player can leave it on the ground and come back.
+      const gearStashFull = (function () {
+        if (!DDI.gear || !DDI.gear.isStashFull) return false;
+        return DDI.gear.isStashFull(self);
+      })();
       this.loot.forEach(function (l) {
         if (!l._alive) return;
         l.life += dt;
@@ -1841,7 +1852,10 @@
         // Loot chests now suck in like other loot — same magnet behaviour as
         // gold/gems, with a wider pull so the player can pick them up from any
         // angle rather than walking onto them precisely.
-        const canAttract = true;
+        // Gear blocks magnet + collect when the stash is full so the drop
+        // stays on the ground instead of vanishing into the void.
+        const blockedByFullStash = (l.kind === 'gear' && gearStashFull);
+        const canAttract = !blockedByFullStash;
         const pullR = (l.kind === 'chest')  ? 130
                     : (l.kind === 'gear')   ? 140
                     : (l.kind === 'potion') ? 130
@@ -1854,12 +1868,21 @@
           l.x += (ax / len) * speed * dt;
           l.y += (ay / len) * speed * dt;
         }
-        if (d < h.radius * 0.8) {
-          self.collectLoot(l);
-          l._alive = false;
+        if (blockedByFullStash && d < pullR) {
+          // Player is hovering over a piece they can't carry — surface a
+          // throttled toast so they know why nothing's happening.
+          if (!self._invFullToastT || self._invFullToastT <= 0) {
+            self.fx.toast('INVENTORY FULL — SALVAGE TO MAKE ROOM');
+            self._invFullToastT = 2.0;
+          }
+        }
+        if (!blockedByFullStash && d < h.radius * 0.8) {
+          const ok = self.collectLoot(l);
+          if (ok !== false) l._alive = false;
         }
         if (l.life > l.maxLife) l._alive = false;
       });
+      if (this._invFullToastT > 0) this._invFullToastT -= dt;
     }
 
     collectLoot(l) {
@@ -1917,9 +1940,12 @@
         }
         if (DDI.audio) DDI.audio.play('pickup_gem');
       } else if (l.kind === 'gear') {
-        // Gear pickup — push to stash, fall back to auto-salvage if full so
-        // players don't lose drops when the bag is jammed.  Legendary+ gets
-        // a screen flash so the player FEELS the moment.
+        // Gear pickup — push to stash.  updateLoot blocks collection when
+        // the stash is full (and surfaces an INVENTORY FULL toast), so by
+        // the time we get here the item should fit.  pickupItem still
+        // returns false if a concurrent path filled the stash; fall back
+        // to leaving the gear on the ground (caller resets _alive only on
+        // successful collect — see updateLoot).
         const it = l.item;
         if (it) {
           const RAR = (DDI.data && DDI.data.RARITY) || {};
@@ -1929,9 +1955,8 @@
             // Big rarity-tinted banner instead of the easy-to-miss toast
             this.fx.gearToast(it);
           } else {
-            const gold = (DDI.gear && DDI.gear.salvageValue) ? DDI.gear.salvageValue(it) : 0;
-            this.game.gold += gold;
-            this.fx.toast('STASH FULL · +' + gold + ' GOLD');
+            this.fx.toast('INVENTORY FULL');
+            return false;     // don't burn the drop — leave it for re-pickup
           }
           // Pickup VFX scaled to rarity
           for (let i = 0; i < 18; i++) {
@@ -2034,8 +2059,11 @@
             }
             // Roll a gear item using the chest's rarity to pick the source
             // table. Higher-tier chests have wildly better odds of epic+.
-            // BETA ONLY — gear drops never appear in main runs.
-            if (self.game && self.game.gearBeta && DDI.gear && DDI.gear.generateForSource) {
+            // BETA ONLY — gear drops never appear in main runs.  Also gated
+            // by per-chest hasGear flag so only 1-2 chests per building (or
+            // ~25% of main-map chests) actually contain gear — keeps drops
+            // spread out instead of one-pass-and-stash.
+            if (f.hasGear && self.game && self.game.gearBeta && DDI.gear && DDI.gear.generateForSource) {
               const tableByRarity = {
                 common:    'chest_common',
                 magic:     'chest_magic',
@@ -2424,6 +2452,18 @@
       const rarities = (def && def.lootBias === 'epic') ? ['rare','rare','epic','epic','legendary']
                      : (def && def.lootBias === 'rare') ? ['magic','magic','rare','rare','epic']
                      : ['common','common','magic','magic','rare'];
+      // Only 1-2 chests per building carry gear; the rest are gold/dust only.
+      // Pick the gear-chest indices up front so they're distributed randomly
+      // (not always the first N).
+      const gearChestN = chestCount <= 2 ? 1 : 2;
+      const gearIdx = {};
+      const idxPool = [];
+      for (let k = 0; k < chestCount; k++) idxPool.push(k);
+      for (let k = 0; k < gearChestN && idxPool.length; k++) {
+        const pick = Math.floor(Math.random() * idxPool.length);
+        gearIdx[idxPool[pick]] = true;
+        idxPool.splice(pick, 1);
+      }
       for (let i = 0; i < chestCount; i++) {
         const cx = left + Math.random() * (right - left);
         const cy = top  + Math.random() * (bottom - top);
@@ -2431,6 +2471,7 @@
         this.features.push({
           type: 'chest', kind: 'chest',
           x: cx, y: cy, opened: false, rarity: r,
+          hasGear: !!gearIdx[i],
         });
       }
       // Gold piles strewn across the floor (immediate pickup)

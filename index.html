@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=264" />
+  <link rel="stylesheet" href="style.css?v=265" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.50.3/dist/umd/supabase.js"></script>
 </head>
 <body>
@@ -191,8 +191,17 @@
         <div class="inv-body">
           <div class="inv-equipped" id="inv-equipped"></div>
           <div class="inv-stash">
-            <div class="inv-stash-head">STASH</div>
+            <div class="inv-stash-head">
+              <span>STASH</span>
+              <span class="inv-multi-hint">Shift / Ctrl-click to multi-select</span>
+            </div>
             <div class="inv-stash-grid" id="inv-stash-grid"></div>
+            <div class="inv-multi-bar hidden" id="inv-multi-bar">
+              <span class="inv-multi-count" id="inv-multi-count">0 selected</span>
+              <span class="inv-multi-gold" id="inv-multi-gold">+0 gold</span>
+              <button class="ghost-btn" id="btn-inv-multi-clear" type="button">CLEAR</button>
+              <button class="primary-btn" id="btn-inv-multi-salvage" type="button">SALVAGE SELECTED</button>
+            </div>
           </div>
         </div>
         <!-- Detail panel (selected stash item with full affixes + comparison) -->

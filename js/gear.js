@@ -252,14 +252,22 @@ DDI.gear = (function () {
     return table[table.length - 1][0];
   }
 
-  // Build a drop item for a given source.  Bumps rarity table by act so
-  // late-act drops are richer without changing the source tier mapping.
+  // Build a drop item for a given source.  Two act gates:
+  //   - Act 1 caps at rare (no epic / legendary / mythic / primal yet).
+  //     Players should taste the basics before the system shows off.
+  //   - Act 2+ has a per-tier bump chance so late-act drops feel richer.
   function generateForSource(sourceKey, opts) {
     opts = opts || {};
     const act = opts.act || 1;
     let rarity = pickRarity(sourceKey);
-    // Late-act upgrade: act 2 has a 25% chance to bump one tier, act 3 = 45%.
     const RARS = ['common','magic','rare','epic','legendary','mythic','primal'];
+    // Act 1 floor: anything epic+ rolled gets demoted to rare.  Keeps the
+    // ramp meaningful (epic+ becomes a real moment when act 2 starts).
+    if (act < 2) {
+      const idx0 = RARS.indexOf(rarity);
+      if (idx0 > 2) rarity = 'rare';
+    }
+    // Late-act upgrade: act 2 has a 25% chance to bump one tier, act 3 = 45%.
     const idx = RARS.indexOf(rarity);
     const bumpP = act >= 3 ? 0.45 : act >= 2 ? 0.25 : 0;
     if (idx >= 0 && idx < RARS.length - 1 && Math.random() < bumpP) {

@@ -3551,7 +3551,26 @@ body.on-title #party-hud {
 .inv-stash-head {
   font-size: 11px; letter-spacing: 0.32em; color: var(--ink-fade);
   margin-bottom: 6px;
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
 }
+.inv-stash-head .inv-multi-hint {
+  font-size: 9px; letter-spacing: 0.18em; color: var(--ink-fade); opacity: 0.7;
+  text-transform: none;
+}
+.inv-multi-bar {
+  margin-top: 8px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px;
+  background: linear-gradient(180deg, rgba(22,16,31,0.92), rgba(10,6,18,0.92));
+  border: 1px solid rgba(255,217,102,0.4);
+  border-radius: 10px;
+  font-size: 11px; letter-spacing: 0.12em;
+}
+.inv-multi-bar.hidden { display: none; }
+.inv-multi-bar .inv-multi-count { color: var(--accent-gold); font-weight: 700; }
+.inv-multi-bar .inv-multi-gold  { color: var(--ink-dim); margin-right: auto; }
+.inv-multi-bar .ghost-btn,
+.inv-multi-bar .primary-btn { padding: 6px 12px; font-size: 11px; }
 .inv-stash-grid {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
@@ -3579,6 +3598,17 @@ body.on-title #party-hud {
 .inv-stash-cell.empty { opacity: 0.32; cursor: default; }
 .inv-stash-cell:not(.empty):hover { transform: translateY(-1px) scale(1.04); }
 .inv-stash-cell.selected { outline: 2px solid var(--accent-gold); outline-offset: 2px; }
+.inv-stash-cell.multi-selected {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 2px;
+  filter: brightness(1.08);
+}
+.inv-stash-cell.multi-selected::after {
+  content: '✓';
+  position: absolute; top: 2px; left: 4px;
+  font-size: 10px; color: var(--accent-cyan); font-weight: 800;
+  text-shadow: 0 0 4px rgba(0,0,0,0.85);
+}
 .inv-stash-cell .stash-glyph {
   font-size: 18px; line-height: 1;
   filter: drop-shadow(0 0 3px rgba(0,0,0,0.6));

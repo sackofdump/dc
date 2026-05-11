@@ -424,6 +424,46 @@ DDI.data = (function () {
       color: '#7a3aff', tier: 5, scale: 3.5, isBoss: true,
       ranged: true, rangedDmg: 38,
     },
+    // ===== New bosses — added for tele-zone variety so a single run doesn't
+    // see the same name twice.  Each pins a distinct telegraphed ability so
+    // the encounter pattern is recognisable.
+    boss_skullking: {
+      id: 'boss_skullking', name: 'Mortrek, the Skull King', kind: 'boss_warden',
+      radius: 75, hp: 7400, dmg: 44, speed: 70, xp: 760, gold: 380,
+      color: '#e8dcc0', tier: 5, scale: 3.3, isBoss: true,
+      eliteAbility: 'shrapnel',
+    },
+    boss_lava_giant: {
+      id: 'boss_lava_giant', name: 'Volgrim, the Magma Giant', kind: 'brute',
+      radius: 105, hp: 13000, dmg: 64, speed: 48, xp: 920, gold: 460,
+      color: '#ff5030', tier: 5, scale: 4.1, isBoss: true,
+      eliteAbility: 'meteor_burst',
+    },
+    boss_frost_queen: {
+      id: 'boss_frost_queen', name: 'Selris, the Frost Queen', kind: 'cultist',
+      radius: 75, hp: 8200, dmg: 46, speed: 70, xp: 800, gold: 400,
+      color: '#66d9ff', tier: 5, scale: 3.2, isBoss: true,
+      ranged: true, rangedDmg: 30,
+      eliteAbility: 'holy_beam',
+    },
+    boss_chaos_avatar: {
+      id: 'boss_chaos_avatar', name: 'Nyrael, Avatar of Chaos', kind: 'wraith',
+      radius: 72, hp: 8800, dmg: 50, speed: 110, xp: 840, gold: 420,
+      color: '#b266ff', tier: 5, scale: 3.2, isBoss: true,
+      eliteAbility: 'shadow_dash',
+    },
+    boss_bloodfiend: {
+      id: 'boss_bloodfiend', name: 'Karnax, the Bloodfiend', kind: 'zombie',
+      radius: 85, hp: 10500, dmg: 54, speed: 60, xp: 880, gold: 440,
+      color: '#ff3d52', tier: 5, scale: 3.5, isBoss: true,
+      eliteAbility: 'toxic_pool',
+    },
+    boss_swarmlord: {
+      id: 'boss_swarmlord', name: 'Bazgul, the Swarmlord', kind: 'pumpkin',
+      radius: 90, hp: 9800, dmg: 48, speed: 55, xp: 860, gold: 430,
+      color: '#ff7b1f', tier: 5, scale: 3.6, isBoss: true,
+      eliteAbility: 'spore_bloom',
+    },
   };
 
   const BIOMES = {
@@ -509,16 +549,18 @@ DDI.data = (function () {
     },
   };
 
-  // Per-act boss pools for tele-zones — each act swaps in different boss varieties
-  // so the encounter feels fresh.  Falls back to ZONE_THEMES.bossPool if no entry.
+  // Per-act tele-zone bosses — 16 unique bosses distributed across 20
+  // tele-zone slots (4 biomes × 5 acts).  Each act picks 4 distinct bosses
+  // so a single run can't see the same name in two portals.  Some bosses
+  // repeat across acts (acts 4-5), but never within an act.  Sequential
+  // assignment + the per-biome themed casting ability keeps the variety
+  // honest.  Falls back to ZONE_THEMES.bossPool if no entry.
   const ACT_ZONE_BOSSES = {
-    1: { magma: ['boss_lava'],         frost: ['boss_warden'],   cursed: ['boss_mushroom'],   cosmic: ['boss_lich'] },
-    2: { magma: ['boss_pyromancer'],   frost: ['boss_iceshade'], cursed: ['boss_archmage'],   cosmic: ['boss_voidweaver'] },
-    3: { magma: ['boss_titan'],        frost: ['boss_huntress'], cursed: ['boss_voidweaver'], cosmic: ['boss_archmage'] },
-    4: { magma: ['boss_pyromancer','boss_titan'], frost: ['boss_iceshade','boss_huntress'],
-         cursed: ['boss_voidweaver','boss_archmage'], cosmic: ['boss_archmage','boss_lich'] },
-    5: { magma: ['boss_titan','boss_pyromancer'], frost: ['boss_huntress','boss_iceshade'],
-         cursed: ['boss_archmage','boss_voidweaver'], cosmic: ['boss_voidweaver','boss_lich'] },
+    1: { magma: ['boss_lava'],          frost: ['boss_warden'],      cursed: ['boss_mushroom'],   cosmic: ['boss_lich'] },
+    2: { magma: ['boss_pyromancer'],    frost: ['boss_iceshade'],    cursed: ['boss_archmage'],   cosmic: ['boss_voidweaver'] },
+    3: { magma: ['boss_lava_giant'],    frost: ['boss_frost_queen'], cursed: ['boss_bloodfiend'], cosmic: ['boss_chaos_avatar'] },
+    4: { magma: ['boss_titan'],         frost: ['boss_huntress'],    cursed: ['boss_swarmlord'],  cosmic: ['boss_skullking'] },
+    5: { magma: ['boss_pyromancer'],    frost: ['boss_iceshade'],    cursed: ['boss_archmage'],   cosmic: ['boss_voidweaver'] },
   };
 
   // ============================================================

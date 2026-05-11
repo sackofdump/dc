@@ -1326,10 +1326,21 @@ DDI.UI = (function () {
       const stashRoot = this.$('inv-stash-grid');
       stashRoot.innerHTML = '';
       const fillerCells = Math.max(0, rg.maxStash - rg.stash.length);
+      // Multi-select set: indices the user has Shift/Ctrl-clicked to mark
+      // for bulk salvage.  Stays sticky across renders so the player can
+      // build a selection then hit one button.
+      if (!this._invMultiSel) this._invMultiSel = {};
+      // Drop any indices that no longer point to a real stash slot (after
+      // salvage / equip the array shrinks).
+      Object.keys(this._invMultiSel).forEach(function (k) {
+        const ki = +k;
+        if (!rg.stash[ki]) delete self._invMultiSel[ki];
+      });
       rg.stash.forEach(function (it, idx) {
         const rd = RAR[it.rarity] || { color: '#fff' };
         const cell = document.createElement('div');
         cell.className = 'inv-stash-cell r-' + (it.rarity || 'common');
+        if (self._invMultiSel[idx]) cell.classList.add('multi-selected');
         cell.style.borderColor = rd.color;
         cell.style.boxShadow = '0 0 8px ' + rd.color + '55, inset 0 0 8px ' + rd.color + '22';
         cell.innerHTML =
@@ -1340,6 +1351,16 @@ DDI.UI = (function () {
         cell.addEventListener('mouseenter', function () { self.showInventoryTooltip(it, cell, idx); });
         cell.addEventListener('mouseleave', function () { self.hideInventoryTooltip(); });
         cell.addEventListener('click', function (e) {
+          // Shift / Ctrl / Meta-click: toggle the cell in the multi-select
+          // set instead of changing the detail-panel focus.
+          if (e.shiftKey || e.ctrlKey || e.metaKey) {
+            e.stopPropagation();
+            if (self._invMultiSel[idx]) delete self._invMultiSel[idx];
+            else self._invMultiSel[idx] = true;
+            self._renderInvMultiBar();
+            cell.classList.toggle('multi-selected');
+            return;
+          }
           self._invSelectedIdx = idx;
           self.renderInventoryDetail(idx);
           // Highlight selection visually
@@ -1353,6 +1374,7 @@ DDI.UI = (function () {
         cell.addEventListener('dblclick', function (e) { e.preventDefault(); self._equipAt(idx); });
         stashRoot.appendChild(cell);
       });
+      this._renderInvMultiBar();
       // Empty placeholder cells so the grid keeps its shape — players see how
       // much room is left without doing math.
       for (let i = 0; i < fillerCells; i++) {
@@ -1363,6 +1385,60 @@ DDI.UI = (function () {
 
       // ---- Detail panel ----
       this.renderInventoryDetail(this._invSelectedIdx);
+    }
+    // Render the multi-select action bar (selection count + estimated gold +
+    // clear / salvage buttons).  Called whenever the multi-select set or the
+    // stash contents change.
+    _renderInvMultiBar() {
+      const bar = this.$('inv-multi-bar');
+      if (!bar) return;
+      const self = this;
+      const GEAR = DDI.gear;
+      const rg = GEAR ? GEAR.ensureRunGear(this.app) : { stash: [] };
+      const sel = this._invMultiSel || {};
+      const keys = Object.keys(sel).map(function (k) { return +k; }).filter(function (k) { return !!rg.stash[k]; });
+      if (!keys.length) { bar.classList.add('hidden'); return; }
+      bar.classList.remove('hidden');
+      let gold = 0;
+      keys.forEach(function (k) { gold += (GEAR && GEAR.salvageValue) ? GEAR.salvageValue(rg.stash[k]) : 0; });
+      const countEl = this.$('inv-multi-count');
+      if (countEl) countEl.textContent = keys.length + ' selected';
+      const goldEl = this.$('inv-multi-gold');
+      if (goldEl) goldEl.textContent = '+' + gold + ' gold';
+      const clearBtn = this.$('btn-inv-multi-clear');
+      if (clearBtn && !clearBtn._wired) {
+        clearBtn._wired = true;
+        clearBtn.addEventListener('click', function () {
+          self._invMultiSel = {};
+          self.renderInventory();
+        });
+      }
+      const salvBtn = this.$('btn-inv-multi-salvage');
+      if (salvBtn && !salvBtn._wired) {
+        salvBtn._wired = true;
+        salvBtn.addEventListener('click', function () { self._salvageSelected(); });
+      }
+    }
+    // Bulk-salvage every index in the multi-select set.  Iterate highest
+    // index first so each splice doesn't shift the indices we haven't
+    // processed yet.
+    _salvageSelected() {
+      const GEAR = DDI.gear;
+      if (!GEAR || !GEAR.salvage) return;
+      const app = this.app;
+      const rg = GEAR.ensureRunGear(app);
+      const sel = this._invMultiSel || {};
+      const keys = Object.keys(sel).map(function (k) { return +k; }).filter(function (k) { return !!rg.stash[k]; });
+      if (!keys.length) return;
+      keys.sort(function (a, b) { return b - a; });
+      let total = 0;
+      for (let i = 0; i < keys.length; i++) {
+        total += GEAR.salvage(app, keys[i]) || 0;
+      }
+      this._invMultiSel = {};
+      this._invSelectedIdx = -1;
+      if (total > 0) app.fx.toast('+' + total + ' GOLD (' + keys.length + ' SALVAGED)');
+      this.renderInventory();
     }
     // Helper: equip from stash + refresh.  Surfaces a salvage prompt if the
     // item's slot is already full (the swap path inside gear.equip handles
