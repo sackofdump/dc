@@ -1177,7 +1177,8 @@ DDI.systems = (function () {
       if (choice.kind === 'new' || choice.kind === 'level') {
         Abilities.add(app, choice.id);
       } else if (choice.kind === 'upgrade') {
-        UPGRADES[choice.id].apply(app.hero);
+        const set = DDI.data.pickUpgradeSet(app.game && app.game.gearBeta);
+        set[choice.id].apply(app.hero);
       }
     },
   };

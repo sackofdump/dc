@@ -2548,7 +2548,7 @@ DDI.UI = (function () {
         return { icon: def.icon, name: def.name + ' Lv ' + newLvl, color: def.color, tag: 'UPGRADE', desc };
       }
       if (c.kind === 'upgrade') {
-        const u = UPGRADES[c.id];
+        const u = DDI.data.pickUpgradeSet(this.app.game && this.app.game.gearBeta)[c.id];
         return { icon: u.icon, name: u.name, color: '#fff', tag: 'PASSIVE', desc: u.desc };
       }
       return { icon: '?', name: '?', color: '#fff', tag: '', desc: '' };
