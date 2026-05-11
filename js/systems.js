@@ -271,6 +271,10 @@ DDI.systems = (function () {
     },
 
     castOnce: function (app, slot, def, stats) {
+      // Brief cast-pose flash so the sprite sheet swaps to the cast row
+      // for a few hundred ms after firing.  Stacks: rapid-fire casts keep
+      // refreshing the window.  Ticked down in main.js::updateHero.
+      if (app.hero) app.hero._castFlashT = Math.max(app.hero._castFlashT || 0, 0.25);
       switch (def.type) {
         case 'projectile': return this.fireProjectiles(app, def, stats);
         case 'chain':      return this.fireChain(app, def, stats);

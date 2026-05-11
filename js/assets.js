@@ -5,7 +5,10 @@ window.DDI = window.DDI || {};
 DDI.assets = (function () {
 
   const IMAGES = {
-    // Hero portraits per class (the canvas-transform animation works on any static portrait)
+    // Hero portraits per class — kept as fallbacks for the default warrior
+    // (whose Main_character.png isn't a uniform grid) and for any sheet
+    // that fails to load.  All non-default classes additionally load
+    // animated sprite sheets below.
     hero:            'Assets/Characters/Main_character.png',
     hero_mage:       'Assets/Characters/Main_Mage.png',
     hero_rogue:      'Assets/Characters/Main_Rogue.png',
@@ -13,6 +16,15 @@ DDI.assets = (function () {
     hero_paladin:    'Assets/Characters/Main_Paladin.png',
     hero_ranger:     'Assets/Characters/Main_Ranger.png',
     hero_berserker:  'Assets/Characters/Main_Beserker.png',     // user filename (typo Beserker)
+
+    // Animated hero sprite sheets — one per class.  Frame grids and per-
+    // anim row specs live in HERO_ANIM (consumed by render.js).
+    hero_mage_sheet:        'Assets/Characters/Main_Mage_Sprites.png',
+    hero_rogue_sheet:       'Assets/Characters/Main_Rogue_Sprites.png',
+    hero_necromancer_sheet: 'Assets/Characters/Main_Necromancer_Sprites.png',
+    hero_paladin_sheet:     'Assets/Characters/Main_Paladin_Sprites.png',
+    hero_ranger_sheet:      'Assets/Characters/Main_Ranger_Sprites.png',
+    hero_berserker_sheet:   'Assets/Characters/Main_Beserker_Sprites.png',
 
     // Enemy single-portrait sprites (used as fallback if sheet missing)
     slime:         'Assets/Characters/Slime.png',
@@ -62,6 +74,13 @@ DDI.assets = (function () {
     meteor:              { cols: 11, rows: 5 },
     frostground:         { cols: 5, rows: 3 },
     bonespear:           { cols: 5, rows: 3 },
+    // Hero sheets — uniform grids inferred from the sprite-sheet artwork.
+    hero_mage_sheet:        { cols: 5, rows: 4 },     // 20 frames
+    hero_rogue_sheet:       { cols: 3, rows: 2 },     // 6 frames
+    hero_necromancer_sheet: { cols: 3, rows: 2 },     // 6 frames
+    hero_paladin_sheet:     { cols: 4, rows: 2 },     // 8 frames
+    hero_ranger_sheet:      { cols: 4, rows: 2 },     // 8 frames
+    hero_berserker_sheet:   { cols: 5, rows: 2 },     // 10 frames
   };
 
   const Assets = { images: {}, sheets: {}, ready: false };

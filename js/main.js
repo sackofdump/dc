@@ -1068,6 +1068,7 @@
         }
         if (this.hero.iframes > 0) this.hero.iframes -= dt;
         if (this.hero.flash > 0) this.hero.flash -= dt;
+        if (this.hero._castFlashT > 0) this.hero._castFlashT -= dt;
       }
       // Particles + dmg numbers keep animating even while paused so the modal feels alive
       this.updateParticles(dt);

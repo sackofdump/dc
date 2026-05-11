@@ -5,7 +5,73 @@ window.DDI = window.DDI || {};
 DDI.Renderer = (function () {
   const { TAU, clamp } = DDI.util;
   const { ABILITIES, BIOMES } = DDI.data;
-  const { drawSpriteOrFallback, img, sheet } = DDI.assets;
+  const { drawSpriteOrFallback, drawFrameOrFallback, img, sheet } = DDI.assets;
+
+  // Per-class hero animation spec.  Each class sheet is a uniform col×row
+  // grid; rows are roles (walk / idle / cast).  Frames per row chosen to
+  // match the visible artwork on the sheet — e.g. Mage is 5 cols × 4 rows
+  // and reads as a continuous 20-frame loop, Rogue is 3 cols × 2 rows with
+  // a walk row and a cast row.  Default class falls back to a static
+  // portrait below since Main_character.png isn't a uniform grid.
+  const HERO_ANIM = {
+    mage: {
+      sheet: 'hero_mage_sheet',
+      walk: { row: 0, frames: 5, fps: 8 },
+      idle: { row: 0, frames: 5, fps: 3 },
+      cast: { row: 1, frames: 5, fps: 14 },
+    },
+    rogue: {
+      sheet: 'hero_rogue_sheet',
+      walk: { row: 0, frames: 3, fps: 7 },
+      idle: { row: 0, frames: 3, fps: 2.5 },
+      cast: { row: 1, frames: 3, fps: 12 },
+    },
+    necromancer: {
+      sheet: 'hero_necromancer_sheet',
+      walk: { row: 0, frames: 3, fps: 6 },
+      idle: { row: 0, frames: 3, fps: 2.5 },
+      cast: { row: 1, frames: 3, fps: 10 },
+    },
+    paladin: {
+      sheet: 'hero_paladin_sheet',
+      walk: { row: 0, frames: 4, fps: 7 },
+      idle: { row: 0, frames: 4, fps: 2.5 },
+      cast: { row: 1, frames: 4, fps: 11 },
+    },
+    ranger: {
+      sheet: 'hero_ranger_sheet',
+      walk: { row: 0, frames: 4, fps: 7 },
+      idle: { row: 0, frames: 4, fps: 2.5 },
+      cast: { row: 1, frames: 4, fps: 12 },
+    },
+    berserker: {
+      sheet: 'hero_berserker_sheet',
+      walk: { row: 0, frames: 5, fps: 8 },
+      idle: { row: 0, frames: 5, fps: 2.5 },
+      cast: { row: 1, frames: 5, fps: 13 },
+    },
+  };
+  // Resolve {sheetKey, frameIdx} for the hero in its current state.
+  // Returns null when the active class has no animated sheet — caller
+  // falls back to the static portrait draw.
+  function pickHeroFrame(charPick, hero) {
+    const anim = HERO_ANIM[charPick];
+    if (!anim) return null;
+    const s = DDI.assets.sheet && DDI.assets.sheet(anim.sheet);
+    if (!s) return null;     // sheet asset didn't load — caller falls back
+    const moving = !!hero.moving;
+    const casting = (hero._castFlashT || 0) > 0;
+    const t = (performance.now() / 1000);
+    let role = casting ? anim.cast : (moving ? anim.walk : anim.idle);
+    if (!role) role = anim.walk || anim.idle;
+    const fps = role.fps || 6;
+    const frames = Math.max(1, role.frames || 1);
+    const col = Math.floor(t * fps) % frames;
+    const row = role.row || 0;
+    const cols = s.cols || frames;
+    const frameIdx = row * cols + col;
+    return { sheetKey: anim.sheet, frameIdx };
+  }
   const { Slaughter } = DDI.systems;
 
   function hexA(hex, a) {
@@ -1818,19 +1884,21 @@ DDI.Renderer = (function () {
       const t = hero.walkT || 0;
       const moving = !!hero.moving;
       const sprinting = !!hero.sprinting;
-      // Walk dynamics. Previous tuning leaned ±9° per step plus a ±4px lateral
-      // shift, which read as "wobbling around." Now: bob is upward-only per
-      // foot-plant (abs of sin), squash/stretch is roughly half-amplitude, the
-      // lean follows direction of travel instead of oscillating, and the
-      // lateral shift is removed.
-      const stepBob = Math.abs(Math.sin(t)) * (moving ? (sprinting ? 7 : 5) : 1.2);
-      const sxAmt   = moving ? 0.07 : 0.02;
-      const syAmt   = moving ? 0.09 : 0.025;
+      // With the sheet now playing the walk cycle visually, the procedural
+      // squash/bob/lean is dialled WAY back — just enough to add bounce on
+      // top of the frame loop without fighting it.  Idle state keeps the
+      // tiniest hint of motion so the hero never reads as a frozen poster.
+      const usingSheet = !!HERO_ANIM[this.app.save && this.app.save.character];
+      const bobAmpMove = usingSheet ? (sprinting ? 3 : 2) : (sprinting ? 7 : 5);
+      const stepBob = Math.abs(Math.sin(t)) * (moving ? bobAmpMove : 0.6);
+      const sxAmt = usingSheet ? (moving ? 0.025 : 0.01) : (moving ? 0.07 : 0.02);
+      const syAmt = usingSheet ? (moving ? 0.035 : 0.012) : (moving ? 0.09 : 0.025);
       const sxx = 1 + Math.cos(t) * sxAmt;
       const syy = 1 - Math.cos(t) * syAmt;
       const dirSign  = (hero.lastMoveX || 0) >= 0 ? 1 : -1;
-      const fwdLean  = moving ? 0.05 * dirSign * (sprinting ? 1.3 : 1) : 0;
-      const microSway = Math.sin(t * 2) * (moving ? 0.025 : 0.01);
+      const leanAmt  = usingSheet ? 0.025 : 0.05;
+      const fwdLean  = moving ? leanAmt * dirSign * (sprinting ? 1.3 : 1) : 0;
+      const microSway = Math.sin(t * 2) * (moving ? (usingSheet ? 0.01 : 0.025) : 0.005);
       const lean = fwdLean + microSway;
       const flash = hero.flash > 0 ? Math.min(1, hero.flash * 4) : 0;
       const flipX = hero.lastMoveX < 0;
@@ -1859,22 +1927,33 @@ DDI.Renderer = (function () {
                     : charPick === 'ranger'      ? 'hero_ranger'
                     : charPick === 'berserker'   ? 'hero_berserker'
                     : 'hero';
-      const drewSprite = drawSpriteOrFallback(ctx, heroKey, 0, 0, d, function (c, x, y, dd) {
-        c.save();
-        c.fillStyle = '#3a2a55';
-        c.beginPath(); c.ellipse(x, y + 2, dd * 0.27, dd * 0.32, 0, 0, TAU); c.fill();
-        c.fillStyle = '#1c1230';
-        c.beginPath(); c.arc(x, y - dd * 0.10, dd * 0.22, 0, TAU); c.fill();
-        c.fillStyle = '#fff066';
-        c.beginPath(); c.arc(x - 4, y - dd * 0.10, 1.8, 0, TAU); c.fill();
-        c.beginPath(); c.arc(x + 4, y - dd * 0.10, 1.8, 0, TAU); c.fill();
-        c.restore();
-      });
+      // Prefer the animated sprite sheet for this class; fall back to the
+      // static portrait, and to a procedural silhouette if even the
+      // portrait failed to load.
+      const frame = pickHeroFrame(charPick, hero);
+      let drewSprite = false;
+      if (frame) {
+        drewSprite = drawFrameOrFallback(ctx, frame.sheetKey, frame.frameIdx, 0, 0, d, null);
+      }
+      if (!drewSprite) {
+        drewSprite = drawSpriteOrFallback(ctx, heroKey, 0, 0, d, function (c, x, y, dd) {
+          c.save();
+          c.fillStyle = '#3a2a55';
+          c.beginPath(); c.ellipse(x, y + 2, dd * 0.27, dd * 0.32, 0, 0, TAU); c.fill();
+          c.fillStyle = '#1c1230';
+          c.beginPath(); c.arc(x, y - dd * 0.10, dd * 0.22, 0, TAU); c.fill();
+          c.fillStyle = '#fff066';
+          c.beginPath(); c.arc(x - 4, y - dd * 0.10, 1.8, 0, TAU); c.fill();
+          c.beginPath(); c.arc(x + 4, y - dd * 0.10, 1.8, 0, TAU); c.fill();
+          c.restore();
+        });
+      }
 
       if (drewSprite && flash > 0.1) {
         ctx.globalCompositeOperation = 'lighter';
         ctx.globalAlpha = flash * 0.7;
-        drawSpriteOrFallback(ctx, heroKey, 0, 0, d, null);
+        if (frame) drawFrameOrFallback(ctx, frame.sheetKey, frame.frameIdx, 0, 0, d, null);
+        else       drawSpriteOrFallback(ctx, heroKey, 0, 0, d, null);
         ctx.globalAlpha = 1;
         ctx.globalCompositeOperation = 'source-over';
       }
@@ -1973,16 +2052,28 @@ DDI.Renderer = (function () {
                     : charPick === 'ranger'      ? 'hero_ranger'
                     : charPick === 'berserker'   ? 'hero_berserker'
                     : 'hero';
-      drawSpriteOrFallback(ctx, heroKey, 0, 0, d, function (c, x, y, dd) {
-        // Procedural fallback — purple-tinted silhouette so the partner
-        // is visually distinct from the local hero.
-        c.save();
-        c.fillStyle = '#3a2a55';
-        c.beginPath(); c.ellipse(x, y + 2, dd * 0.27, dd * 0.32, 0, 0, TAU); c.fill();
-        c.fillStyle = '#1c1230';
-        c.beginPath(); c.arc(x, y - dd * 0.10, dd * 0.22, 0, TAU); c.fill();
-        c.restore();
-      });
+      // Partner: build a stand-in "hero" with the broadcast motion state so
+      // pickHeroFrame can pick the same walk vs idle vs cast frame the
+      // local hero uses.  No _castFlashT broadcast yet, so cast frames
+      // only fire when ult-vfx temporarily sets it; that's good enough.
+      const partnerPseudoHero = { moving: moving, _castFlashT: 0 };
+      const partnerFrame = pickHeroFrame(charPick, partnerPseudoHero);
+      let drewPartner = false;
+      if (partnerFrame) {
+        drewPartner = drawFrameOrFallback(ctx, partnerFrame.sheetKey, partnerFrame.frameIdx, 0, 0, d, null);
+      }
+      if (!drewPartner) {
+        drawSpriteOrFallback(ctx, heroKey, 0, 0, d, function (c, x, y, dd) {
+          // Procedural fallback — purple-tinted silhouette so the partner
+          // is visually distinct from the local hero.
+          c.save();
+          c.fillStyle = '#3a2a55';
+          c.beginPath(); c.ellipse(x, y + 2, dd * 0.27, dd * 0.32, 0, 0, TAU); c.fill();
+          c.fillStyle = '#1c1230';
+          c.beginPath(); c.arc(x, y - dd * 0.10, dd * 0.22, 0, TAU); c.fill();
+          c.restore();
+        });
+      }
       ctx.restore();
 
       // Name label + HP bar above the partner
