@@ -163,8 +163,22 @@ DDI.Renderer = (function () {
         const f = features[i];
         const fx = f.x * sx, fy = f.y * sy;
         if (f.type === 'chest') {
-          ctx.fillStyle = f.opened ? 'rgba(120,90,40,0.5)' : '#ffd966';
-          ctx.fillRect(fx - 3, fy - 3, 6, 6);
+          // Tiny chest silhouette — brown body + gold lid + outline — so it's
+          // visually distinct from the building/totem square markers.
+          const opened = !!f.opened;
+          const body = opened ? 'rgba(80,60,30,0.55)' : '#7a4820';
+          const lid  = opened ? 'rgba(160,130,60,0.55)' : '#ffd966';
+          ctx.fillStyle = body;
+          ctx.fillRect(fx - 3, fy - 1, 6, 3);
+          ctx.fillStyle = lid;
+          ctx.fillRect(fx - 3, fy - 3, 6, 2);
+          ctx.strokeStyle = '#0a0612'; ctx.lineWidth = 0.8;
+          ctx.strokeRect(fx - 3, fy - 3, 6, 5);
+          // Tiny dark lock dot on the lid for the readable "chest" cue
+          if (!opened) {
+            ctx.fillStyle = '#3a2008';
+            ctx.fillRect(fx - 0.5, fy - 2, 1, 1);
+          }
         } else if (f.type === 'portal') {
           const heroLvl = (app.game && app.game.level) || 1;
           const ok = heroLvl >= f.requiredLevel;
