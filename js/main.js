@@ -955,8 +955,15 @@
         h.stamina = Math.min(h.maxStamina, h.stamina + dt * regen);
       }
 
-      h.vx = dx * h.speed * sprintMult;
-      h.vy = dy * h.speed * sprintMult;
+      // Hard ceiling on the effective walk speed. Stacked Swiftness +
+      // +8% Move Speed picks were producing literally-uncontrollable heroes
+      // — high enough that the player overshoots every input on phone or
+      // pad. Generous cap (~2.7x base, ~4.3x with sprint) keeps fast builds
+      // fast without going off-screen.
+      const SPEED_CAP = 480;
+      const baseSpeed = Math.min(h.speed, SPEED_CAP);
+      h.vx = dx * baseSpeed * sprintMult;
+      h.vy = dy * baseSpeed * sprintMult;
       if (h.moving) {
         h.lastMoveX = dx; h.lastMoveY = dy;
         h.facing = Math.atan2(dy, dx);

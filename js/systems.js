@@ -1046,7 +1046,12 @@ DDI.systems = (function () {
       return Math.floor(11 + level * 7 + Math.pow(level, 1.5) * 1.5);
     },
     gainXp: function (app, amount) {
-      const adj = amount * app.hero.xpMult;
+      // Late-act XP brake — a stacked build was racing past level 900 in one
+      // tele-zone, which made level-ups meaningless. Cut hard so the player
+      // still progresses but the leveling cadence stays interesting.
+      const act = (app.game && app.game.act) || 1;
+      const actDiv = act >= 5 ? 10 : act >= 4 ? 4 : 1;
+      const adj = (amount * app.hero.xpMult) / actDiv;
       app.game.xp += adj;
       while (app.game.xp >= app.game.xpNeed) {
         app.game.xp -= app.game.xpNeed;
