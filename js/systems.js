@@ -33,17 +33,25 @@ DDI.systems = (function () {
       if (!game.running || game.paused) return;
       const diff = difficultyAt(game.time);
       const enemyCount = app.enemies.count;
+      // SURVIVE THE ONSLAUGHT: pump up density + spawn rate so it actually
+      // feels like a horde rush.  Other zones use normal pacing.
+      const onslaught = !!(app.zone && app.zone.objective === 'survival');
+      const densityCap = onslaught ? Math.min(120, diff.density * 2) : diff.density;
+      const spawnCdMin = onslaught ? 0.15 : 0.4;
+      const spawnCdMax = onslaught ? 0.45 : 1.2;
+      const burstBonus = onslaught ? 3 : 0;
 
-      // Initial burst — small, just enough to start combat
+      // Initial burst — small, just enough to start combat (heavier on onslaught)
       if (!this.didInitialBurst && game.time > 0.2) {
         this.didInitialBurst = true;
-        for (let i = 0; i < 3; i++) this.spawnOne(app, diff);
+        const initial = onslaught ? 8 : 3;
+        for (let i = 0; i < initial; i++) this.spawnOne(app, diff);
       }
 
       this.spawnT -= dt;
-      if (this.spawnT <= 0 && enemyCount < diff.density) {
-        this.spawnT = clamp(1.2 - game.time * 0.002, 0.4, 1.2);
-        const burst = 1 + Math.floor(game.time / 60);
+      if (this.spawnT <= 0 && enemyCount < densityCap) {
+        this.spawnT = clamp(spawnCdMax - game.time * 0.002, spawnCdMin, spawnCdMax);
+        const burst = 1 + Math.floor(game.time / 60) + burstBonus;
         for (let i = 0; i < burst; i++) this.spawnOne(app, diff);
       }
 
