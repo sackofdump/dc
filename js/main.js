@@ -273,6 +273,11 @@
 
     endRun(win) {
       if (!this.game.running) return;
+      // Co-op: tell the partner we fell so they get the banner.  Survivor's
+      // run continues — endRun is purely local.
+      if (DDI.party && DDI.party.broadcastDeath) {
+        try { DDI.party.broadcastDeath(); } catch (e) {}
+      }
       this.game.running = false;
       this.game.paused = true;
       if (DDI.audio) DDI.audio.play(win ? 'levelup' : 'death');

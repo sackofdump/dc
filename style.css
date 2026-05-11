@@ -3037,6 +3037,69 @@ body.on-title #party-hud {
   }
 }
 
+/* "X HAS FALLEN" banner — partner died, your run keeps going.  Same
+   drop-in style as the leave banner but in death-themed crimson+gold. */
+#party-death-banner {
+  position: fixed;
+  top: -80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 75;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 18px 10px 14px;
+  background: linear-gradient(180deg, #2a0810 0%, #18060a 100%);
+  border: 2px solid var(--accent-gold);
+  border-radius: 999px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.7), 0 0 30px rgba(255,61,82,0.6), inset 0 0 20px rgba(255,61,82,0.18);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  transition: top 0.4s cubic-bezier(.2,1.2,.4,1);
+  white-space: nowrap;
+}
+#party-death-banner.shown { top: 16px; }
+#party-death-banner .pdb-glyph {
+  color: var(--hp);
+  font-size: 20px;
+  filter: drop-shadow(0 0 8px var(--hp));
+  animation: pdbPulse 1.6s ease-in-out infinite;
+}
+@keyframes pdbPulse {
+  0%, 100% { transform: scale(1.0); opacity: 0.85; }
+  50%      { transform: scale(1.15); opacity: 1; }
+}
+#party-death-banner .pdb-text { font-weight: 600; }
+#party-death-banner .pdb-text em {
+  color: var(--accent-gold);
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+#party-death-banner .pdb-close {
+  width: 22px; height: 22px;
+  margin-left: 6px;
+  border: 1px solid rgba(255,255,255,0.25);
+  background: transparent;
+  color: var(--ink-fade);
+  border-radius: 50%;
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 11px;
+  cursor: pointer;
+  line-height: 1;
+}
+#party-death-banner .pdb-close:hover { color: #ff8a99; border-color: #ff6477; }
+@media (max-width: 480px) {
+  #party-death-banner {
+    font-size: 11px;
+    padding: 8px 12px;
+    max-width: calc(100vw - 16px);
+    white-space: normal;
+    text-align: center;
+  }
+}
+
 /* Alert state on the toggle badge when requests are pending */
 #friends-toggle .fw-badge.alert {
   background: #ff3d52;

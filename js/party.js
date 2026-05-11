@@ -25,9 +25,11 @@ DDI.party = (function () {
   let _partnerState = null;      // {user_id, x, y, vx, vy, facing, hpPct, hp, maxHp, character, display_name, lastSeen}
   let _beatT  = null;
   let _sweepT = null;
-  const BEAT_HZ = 10;
+  const BEAT_HZ = 15;     // 66ms — smoother than 10Hz for live position updates
   const BEAT_MS = Math.round(1000 / BEAT_HZ);
   const STALE_MS = 4000;     // 4s of silence -> partner considered gone
+  let _partnerProjectiles = [];     // [{x, y, vx, vy, color, radius, kind, shape, recvAt}]
+  let _partnerProjectilesAt = 0;
 
   function $(id) { return document.getElementById(id); }
   function genId() { return 'p_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); }
@@ -231,6 +233,19 @@ DDI.party = (function () {
     } else if (ev === 'dmg' && _party && _party.iAm === 'host') {
       // Client hit one of our enemies — apply the damage canonically
       _applyClientDamage(d);
+    } else if (ev === 'projs') {
+      // Partner's projectile snapshot — replace our mirror list.  Each
+      // ghost stores its recvAt for dead-reckoning between snapshots.
+      _partnerProjectiles = ((d && d.list) || []).map(function (p) {
+        return Object.assign({}, p, { recvAt: Date.now() });
+      });
+      _partnerProjectilesAt = Date.now();
+    } else if (ev === 'death') {
+      // Partner died — show a prominent banner.  Do NOT end the local
+      // run; if I'm the surviving player my run continues.
+      const partnerName = (_partnerState && _partnerState.display_name) ||
+                          (d && d.display_name) || 'Your partner';
+      _showDeathBanner(partnerName);
     } else if (ev === 'leave') {
       // Partner left the party — abort any in-flight start countdown and
       // show a prominent banner so they're not left wondering why their
@@ -251,6 +266,43 @@ DDI.party = (function () {
       _handleStartEvent(ev, d);
     }
   }
+
+  // "X has fallen" banner — partner died, your run keeps going.  Uses the
+  // same drop-in style as the leave banner but in red+gold "death" colors.
+  function _showDeathBanner(name) {
+    let banner = document.getElementById('party-death-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'party-death-banner';
+      banner.innerHTML =
+        '<span class="pdb-glyph">☠</span>' +
+        '<span class="pdb-text"><em></em> has fallen — keep going</span>' +
+        '<button class="pdb-close" type="button" title="Dismiss">✕</button>';
+      document.body.appendChild(banner);
+      banner.querySelector('.pdb-close').addEventListener('click', function () {
+        banner.classList.remove('shown');
+      });
+    }
+    const em = banner.querySelector('em');
+    if (em) em.textContent = name;
+    banner.classList.add('shown');
+    clearTimeout(banner._timer);
+    banner._timer = setTimeout(function () { banner.classList.remove('shown'); }, 8000);
+  }
+
+  // Called from main.js when the local hero dies / run ends — broadcasts
+  // 'death' so the partner sees the fall banner.  Best-effort: the
+  // channel teardown that follows endRun might race, so don't await.
+  function broadcastDeath() {
+    if (!_partyChannel || !_party) return;
+    const myName = (DDI.auth.profile && DDI.auth.profile() && DDI.auth.profile().display_name)
+                || (app.save && app.save.character) || 'Your partner';
+    try {
+      DDI.auth.sendPartyMessage(_partyChannel, 'death', { display_name: myName });
+    } catch (e) {}
+  }
+
+  function partnerProjectiles() { return _partnerProjectiles; }
 
   // "X left the party" banner — drops down from the top edge, dismissible
   // by click, auto-hides after 6s.
@@ -367,6 +419,15 @@ DDI.party = (function () {
   function requestStartGame() {
     if (!_partyChannel || !_party) return false;
     if (_party.iAm !== 'host') return false;     // only host triggers
+    // Don't queue another run if the partner is already IN a run — they
+    // need to finish or die first.  Partner is "in-run" if their latest
+    // beat reports a non-lobby zone.
+    if (_partnerState && !_partnerState.lobby && _partnerState.zone && _partnerState.zone !== 'lobby') {
+      if (app && app.fx && app.fx.toast) {
+        app.fx.toast('★ PARTNER ALREADY IN A RUN ★');
+      }
+      return false;
+    }
     const me = DDI.auth.user && DDI.auth.user();
     const myName = (DDI.auth.profile && DDI.auth.profile() && DDI.auth.profile().display_name) || 'Host';
     DDI.auth.sendPartyMessage(_partyChannel, 'start_request', {
@@ -583,9 +644,37 @@ DDI.party = (function () {
       act:          (app.game && app.game.act)   || 1,
       kills:        (app.game && app.game.kills) || 0,
       lobby:        false,     // explicit so Object.assign on the receiver clears the previous lobby beat
+      sentAt:       Date.now(),
     });
     // Host: also broadcast the enemy snapshot (Phase 2b)
     if (_party && _party.iAm === 'host') _sendEnemySnapshot();
+    // Both players: broadcast friendly projectiles so the OTHER sees spells
+    _sendProjectileSnapshot();
+  }
+
+  // Phase 2c: projectile sync (cosmetic / view-only on receiver).  Damage
+  // is already attributed correctly via the host-authoritative combat path
+  // and the client->host 'dmg' message — these mirrors are visual only.
+  function _sendProjectileSnapshot() {
+    if (!_partyChannel || !app || !app.projectiles) return;
+    const out = [];
+    app.projectiles.forEach(function (p) {
+      if (!p || !p._alive) return;
+      if (p.hostile) return;     // hostile (enemy) projectiles aren't ours to mirror
+      if (p._mirror) return;     // don't echo back what we already received
+      out.push({
+        x:      Math.round(p.x),
+        y:      Math.round(p.y),
+        vx:     Math.round(p.vx || 0),
+        vy:     Math.round(p.vy || 0),
+        color:  p.color,
+        radius: p.radius,
+        kind:   p.kind,
+        shape:  p.shape || null,
+        element: p.element || null,
+      });
+    });
+    DDI.auth.sendPartyMessage(_partyChannel, 'projs', { list: out, sentAt: Date.now() });
   }
 
   function leaveParty(notify) {
@@ -689,5 +778,6 @@ DDI.party = (function () {
     partnerState, inParty, party, iAmHost, iAmClient,
     sendDamageHit,
     requestStartGame,
+    partnerProjectiles, broadcastDeath,
   };
 })();

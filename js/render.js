@@ -87,6 +87,9 @@ DDI.Renderer = (function () {
       // Phase 2a co-op: draw the partner avatar from their broadcast state.
       // No sim — pure render based on last-known position with smoothing.
       if (DDI.party && DDI.party.partnerState) this.drawPartner(ctx);
+      // Phase 2c: partner's friendly projectiles, dead-reckoned between
+      // 15Hz snapshots so the spells look smooth.
+      if (DDI.party && DDI.party.partnerProjectiles) this.drawPartnerProjectiles(ctx);
       this.drawOrbitals(ctx);
       this.drawProjectiles(ctx);
       this.drawHazards(ctx);
@@ -1877,13 +1880,23 @@ DDI.Renderer = (function () {
       if (!DDI.party || !DDI.party.partnerState) return;
       const ps = DDI.party.partnerState();
       if (!ps || ps.x == null) return;
-      // Interpolate displayed position toward the latest broadcast.
-      // Stored on the renderer so each frame gradually catches up.
-      if (!this._partnerInterp) this._partnerInterp = { x: ps.x, y: ps.y };
+      // Dead reckoning: extrapolate partner position using their last
+      // broadcast velocity + time since the beat.  Eliminates the
+      // "jumpy every 66ms" feel — partner moves smoothly between beats.
+      const sinceBeat = Math.max(0, (Date.now() - (ps.lastSeen || Date.now())) / 1000);
+      // Cap extrapolation so a long network gap doesn't fling the avatar
+      // off to nowhere
+      const cap = 0.25;     // 250ms of extrapolation max
+      const dt  = Math.min(sinceBeat, cap);
+      const targetX = ps.x + (ps.vx || 0) * dt;
+      const targetY = ps.y + (ps.vy || 0) * dt;
+      // Catch up faster than pure lerp — the prediction makes us close
+      // already, so we just need to take the rest of the slack.
+      if (!this._partnerInterp) this._partnerInterp = { x: targetX, y: targetY };
       const pi = this._partnerInterp;
-      const lerp = 0.18;     // 18% per frame ≈ smooth on 60fps
-      pi.x = pi.x + (ps.x - pi.x) * lerp;
-      pi.y = pi.y + (ps.y - pi.y) * lerp;
+      const lerp = 0.35;
+      pi.x = pi.x + (targetX - pi.x) * lerp;
+      pi.y = pi.y + (targetY - pi.y) * lerp;
 
       const px = pi.x, py = pi.y;
       const t = (performance.now() / 1000);
@@ -1958,6 +1971,47 @@ DDI.Renderer = (function () {
       ctx.strokeStyle = '#66d9ff';
       ctx.lineWidth = 1;
       ctx.strokeRect(px - barW / 2, py - 30, barW, barH);
+      ctx.restore();
+    }
+
+    // Partner projectile ghosts — Phase 2c.  Pure cosmetic; the partner's
+    // own client runs the projectile sim canonically, so these are visual
+    // mirrors with dead-reckoning to look smooth at 15Hz beats.
+    drawPartnerProjectiles(ctx) {
+      const list = DDI.party.partnerProjectiles && DDI.party.partnerProjectiles();
+      if (!list || !list.length) return;
+      const now = Date.now();
+      ctx.save();
+      for (let i = 0; i < list.length; i++) {
+        const p = list[i];
+        if (p.x == null) continue;
+        // Dead reckoning — extrapolate using last broadcast velocity
+        const sinceMs = now - (p.recvAt || now);
+        const dt = Math.min(0.30, sinceMs / 1000);     // cap 300ms
+        const x = p.x + (p.vx || 0) * dt;
+        const y = p.y + (p.vy || 0) * dt;
+        const r = p.radius || 6;
+        const color = p.color || '#ffd966';
+        // Outer glow
+        ctx.globalCompositeOperation = 'screen';
+        const glow = ctx.createRadialGradient(x, y, 0, x, y, r * 3.4);
+        glow.addColorStop(0, color);
+        glow.addColorStop(1, color + '00');
+        ctx.globalAlpha = 0.55;
+        ctx.fillStyle = glow;
+        ctx.beginPath(); ctx.arc(x, y, r * 3.4, 0, TAU); ctx.fill();
+        // Bright core
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(x, y, r * 0.85, 0, TAU); ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        // Inner highlight
+        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+        ctx.beginPath(); ctx.arc(x - r * 0.25, y - r * 0.25, r * 0.35, 0, TAU); ctx.fill();
+      }
       ctx.restore();
     }
 

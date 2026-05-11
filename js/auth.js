@@ -721,6 +721,7 @@ DDI.auth = (function () {
     const PARTY_EVENTS = [
       'pos', 'leave', 'chat',
       'enemies', 'dmg',                 // phase 2b
+      'projs', 'death',                 // phase 2c — partner projectile mirrors + death banner
       'start_request', 'start_accept', 'start_decline', 'start_cancel', 'start_go',
     ];
     PARTY_EVENTS.forEach(function (ev) {
