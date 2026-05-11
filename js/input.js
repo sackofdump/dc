@@ -41,6 +41,7 @@ DDI.Input = (function () {
       const self = this;
       addEventListener('keydown', function (e) {
         const k = e.key;
+        if (!k) return;     // synthetic / IME events sometimes lack a .key
         const lk = k.length === 1 ? k.toLowerCase() : k;
         self.keys.add(lk);
         const kb = self.bindings();
@@ -52,6 +53,7 @@ DDI.Input = (function () {
       });
       addEventListener('keyup', function (e) {
         const k = e.key;
+        if (!k) return;
         const lk = k.length === 1 ? k.toLowerCase() : k;
         self.keys.delete(lk);
         const kb = self.bindings();

@@ -371,6 +371,30 @@ DDI.auth = (function () {
   }
 
   let _presenceRetryT = null;
+  let _presencePollT  = null;
+  function _startPresencePoll() {
+    // Fallback: some Supabase Realtime sessions never deliver the 'sync'
+    // event after subscribe (we see SUBSCRIBED + track 'ok', then silence).
+    // Poll the local channel state every 2s and re-emit if it changed —
+    // presenceState() is a synchronous local read, so this is cheap.
+    if (_presencePollT) return;
+    let lastJson = '';
+    _presencePollT = setInterval(function () {
+      if (!_presenceChannel) return;
+      try {
+        const raw = _presenceChannel.presenceState();
+        const json = JSON.stringify(raw);
+        if (json !== lastJson) {
+          lastJson = json;
+          console.log('[presence poll change]', raw);
+          _emitPresence();
+        }
+      } catch (e) {}
+    }, 2000);
+  }
+  function _stopPresencePoll() {
+    if (_presencePollT) { clearInterval(_presencePollT); _presencePollT = null; }
+  }
   async function joinPresence(initialState) {
     if (!client || !currentUser) return;
     if (_presenceChannel) return;     // already joined
@@ -406,6 +430,12 @@ DDI.auth = (function () {
             } catch (e) {
               console.error('[auth] presence track', e);
             }
+            // Kick off the polling fallback — even if sync events never
+            // fire (which we're seeing in your console), the poller will
+            // pick up state changes within 2 seconds.
+            _startPresencePoll();
+            // First emit so the listener gets initial state immediately
+            setTimeout(_emitPresence, 250);
             resolve();
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
             console.warn('[presence] status', status, '— scheduling retry in 3s');
@@ -444,6 +474,7 @@ DDI.auth = (function () {
   }
 
   async function leavePresence() {
+    _stopPresencePoll();
     if (!_presenceChannel) return;
     try { await _presenceChannel.untrack(); } catch (e) {}
     try { await client.removeChannel(_presenceChannel); } catch (e) {}
