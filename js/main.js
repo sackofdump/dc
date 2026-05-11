@@ -244,6 +244,10 @@
       // App by _startBetaRun and consumed here once per run.
       this.game.gearBeta = !!this._enterBetaNext;
       this._enterBetaNext = false;
+      // gearBeta flips the level-up curve to ~60% of the standard threshold
+      // so picks land more often inside a per-run gear loop.  Recompute the
+      // initial xpNeed now that the flag is known.
+      this.game.xpNeed = Leveling.xpForLevel(this.game.level, Leveling.runCurveMult(this.game));
       this.runGear = (DDI.gear && DDI.gear.makeRunGear) ? DDI.gear.makeRunGear() : { equipped: {}, stash: [], maxStash: 32 };
       if (this.game.gearBeta && DDI.gear && DDI.gear.applyAllToHero) {
         DDI.gear.applyAllToHero(this.hero, this.runGear.equipped);
@@ -626,6 +630,10 @@
       // snapshot stores the flag at the top level AND inside game.* (belt-
       // and-suspenders for older snapshots that only had one or the other).
       this.game.gearBeta = !!(rs.gearBeta || (rs.game && rs.game.gearBeta));
+      // Re-apply the beta XP curve so resume mid-run still levels at the
+      // faster pace.  Existing xp on game.xp stays put; only the threshold
+      // for the NEXT level is recomputed.
+      this.game.xpNeed = Leveling.xpForLevel(this.game.level, Leveling.runCurveMult(this.game));
       // Restore per-run gear BEFORE the hero overlay.  The saved heroSnap
       // already includes gear stat contributions baked in, so we don't re-
       // apply equipped items here — the overlay below is authoritative for

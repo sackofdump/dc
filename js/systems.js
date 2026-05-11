@@ -1109,8 +1109,17 @@ DDI.systems = (function () {
 
   // ---------- LEVELING ----------
   const Leveling = {
-    xpForLevel: function (level) {
-      return Math.floor(11 + level * 7 + Math.pow(level, 1.5) * 1.5);
+    // mult: optional curve multiplier — beta runs pass 0.6 so level-up picks
+    // come ~40% sooner.  Gear's per-run nature means the player needs to
+    // see picks faster to actually feel like they're building toward
+    // something inside a single run.
+    xpForLevel: function (level, mult) {
+      return Math.floor((11 + level * 7 + Math.pow(level, 1.5) * 1.5) * (mult || 1));
+    },
+    // Curve multiplier applied to xpForLevel for the active run.  Centralised
+    // so every call site stays in sync.
+    runCurveMult: function (game) {
+      return (game && game.gearBeta) ? 0.6 : 1;
     },
     gainXp: function (app, amount) {
       // Late-act XP brake — a stacked build was racing past level 900 in one
@@ -1123,7 +1132,7 @@ DDI.systems = (function () {
       while (app.game.xp >= app.game.xpNeed) {
         app.game.xp -= app.game.xpNeed;
         app.game.level++;
-        app.game.xpNeed = this.xpForLevel(app.game.level);
+        app.game.xpNeed = this.xpForLevel(app.game.level, this.runCurveMult(app.game));
         this.queueLevelUp(app);
       }
     },
