@@ -2860,10 +2860,11 @@ body.on-title #friends-panel {
 /* ===== MEGA Potion bar (per-run, 3 slots) ===== */
 #potion-bar {
   position: absolute;
-  /* Sit directly on top of the ability bar so the two read as one stacked
-     toolbar.  ability-bar bottom = safe-area + 16, height ~76px → potion
-     bar bottom = safe-area + 96 keeps a clean 4px gap between them. */
-  bottom: calc(env(safe-area-inset-bottom, 20px) + 96px);
+  /* Stack ABOVE the hud-top (HP / FLOOR / CATACLYSM row) which sits at
+     bottom: safe-area + 102 with ~60px height.  +172 keeps a tight gap
+     between potion bar and hud-top so they read as one toolbar without
+     overlapping the cataclysm meter. */
+  bottom: calc(env(safe-area-inset-bottom, 20px) + 172px);
   left: 50%;
   right: auto;
   transform: translateX(-50%);

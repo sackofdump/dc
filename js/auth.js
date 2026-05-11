@@ -370,6 +370,7 @@ DDI.auth = (function () {
     _presenceListeners.forEach(function (fn) { try { fn(out); } catch (e) { console.error('[auth] presence listener', e); } });
   }
 
+  let _presenceRetryT = null;
   async function joinPresence(initialState) {
     if (!client || !currentUser) return;
     if (_presenceChannel) return;     // already joined
@@ -379,26 +380,60 @@ DDI.auth = (function () {
       status:       'in-title',
       character:    null,
     }, initialState || {});
-    _presenceChannel = client.channel('presence:online', {
+    // Plain channel name (no colon — older Realtime versions special-case
+    // 'presence:' prefix; safer to avoid).  Same name on every client so
+    // they all join the same room.
+    _presenceChannel = client.channel('xxds-online', {
       config: { presence: { key: currentUser.id } },
     });
-    _presenceChannel.on('presence', { event: 'sync'  }, _emitPresence);
-    _presenceChannel.on('presence', { event: 'join'  }, _emitPresence);
-    _presenceChannel.on('presence', { event: 'leave' }, _emitPresence);
+    const logEv = function (label) {
+      return function (payload) {
+        console.log('[presence ' + label + ']', payload, 'state=', _presenceChannel.presenceState());
+        _emitPresence();
+      };
+    };
+    _presenceChannel.on('presence', { event: 'sync'  }, logEv('sync'));
+    _presenceChannel.on('presence', { event: 'join'  }, logEv('join'));
+    _presenceChannel.on('presence', { event: 'leave' }, logEv('leave'));
     try {
       await new Promise(function (resolve) {
-        _presenceChannel.subscribe(async function (status) {
+        _presenceChannel.subscribe(async function (status, err) {
+          console.log('[presence subscribe]', status, err || '');
           if (status === 'SUBSCRIBED') {
-            try { await _presenceChannel.track(_presenceState); } catch (e) { console.error('[auth] presence track', e); }
+            try {
+              const trackRes = await _presenceChannel.track(_presenceState);
+              console.log('[presence track]', trackRes, _presenceState);
+            } catch (e) {
+              console.error('[auth] presence track', e);
+            }
             resolve();
-          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            resolve();     // don't block forever — UI will retry on next join
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            console.warn('[presence] status', status, '— scheduling retry in 3s');
+            resolve();
+            // Auto-retry: tear down the dead channel and try again after a
+            // short delay.  Realtime can flap during reconnects, so silently
+            // recovering is friendlier than asking the user to refresh.
+            if (_presenceRetryT) clearTimeout(_presenceRetryT);
+            _presenceRetryT = setTimeout(async function () {
+              _presenceRetryT = null;
+              try { if (_presenceChannel) await client.removeChannel(_presenceChannel); } catch (e) {}
+              _presenceChannel = null;
+              joinPresence(_presenceState);     // reuse last-known state
+            }, 3000);
           }
         });
       });
     } catch (e) {
       console.error('[auth] presence subscribe', e);
     }
+    // Debug helper — expose state for console diagnosis
+    window.__ddiPresence = function () {
+      return {
+        channel: _presenceChannel,
+        state: _presenceChannel ? _presenceChannel.presenceState() : null,
+        local: _presenceState,
+      };
+    };
   }
 
   async function setPresenceStatus(patch) {
