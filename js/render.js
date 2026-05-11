@@ -84,6 +84,9 @@ DDI.Renderer = (function () {
       this.drawAuras(ctx);
       this.drawEnemies(ctx);
       this.drawHero(ctx, app.hero);
+      // Phase 2a co-op: draw the partner avatar from their broadcast state.
+      // No sim — pure render based on last-known position with smoothing.
+      if (DDI.party && DDI.party.partnerState) this.drawPartner(ctx);
       this.drawOrbitals(ctx);
       this.drawProjectiles(ctx);
       this.drawHazards(ctx);
@@ -1862,6 +1865,100 @@ DDI.Renderer = (function () {
           });
         }
       }
+    }
+
+    // ============================================================
+    // PARTNER AVATAR (Phase 2a co-op)
+    // Renders the partner's hero using the same sprite path as the local
+    // hero.  Position is interpolated toward the latest broadcast state so
+    // the 10Hz beat doesn't look jittery.
+    // ============================================================
+    drawPartner(ctx) {
+      if (!DDI.party || !DDI.party.partnerState) return;
+      const ps = DDI.party.partnerState();
+      if (!ps || ps.x == null) return;
+      // Interpolate displayed position toward the latest broadcast.
+      // Stored on the renderer so each frame gradually catches up.
+      if (!this._partnerInterp) this._partnerInterp = { x: ps.x, y: ps.y };
+      const pi = this._partnerInterp;
+      const lerp = 0.18;     // 18% per frame ≈ smooth on 60fps
+      pi.x = pi.x + (ps.x - pi.x) * lerp;
+      pi.y = pi.y + (ps.y - pi.y) * lerp;
+
+      const px = pi.x, py = pi.y;
+      const t = (performance.now() / 1000);
+      // Estimate motion based on broadcast vx/vy — used purely for the
+      // walk-cycle visual.
+      const speed = Math.hypot(ps.vx || 0, ps.vy || 0);
+      const moving = speed > 5;
+      const stepBob = Math.sin(t * 8) * (moving ? 10 : 2.5);
+      const flipX   = (ps.vx || 0) < 0;
+      const d       = 16 * 3.2;     // matches local hero size — radius * 3.2
+
+      // Shadow
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.beginPath();
+      ctx.ellipse(px, py + 16 * 0.95, 16 * 0.95, 16 * 0.32, 0, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+
+      // Sprite — same key system as the local hero
+      ctx.save();
+      ctx.translate(px, py - Math.abs(stepBob));
+      ctx.scale(flipX ? -1 : 1, 1);
+      const charPick = ps.character || 'default';
+      const heroKey = charPick === 'mage'        ? 'hero_mage'
+                    : charPick === 'rogue'       ? 'hero_rogue'
+                    : charPick === 'necromancer' ? 'hero_necromancer'
+                    : charPick === 'paladin'     ? 'hero_paladin'
+                    : charPick === 'ranger'      ? 'hero_ranger'
+                    : charPick === 'berserker'   ? 'hero_berserker'
+                    : 'hero';
+      drawSpriteOrFallback(ctx, heroKey, 0, 0, d, function (c, x, y, dd) {
+        // Procedural fallback — purple-tinted silhouette so the partner
+        // is visually distinct from the local hero.
+        c.save();
+        c.fillStyle = '#3a2a55';
+        c.beginPath(); c.ellipse(x, y + 2, dd * 0.27, dd * 0.32, 0, 0, TAU); c.fill();
+        c.fillStyle = '#1c1230';
+        c.beginPath(); c.arc(x, y - dd * 0.10, dd * 0.22, 0, TAU); c.fill();
+        c.restore();
+      });
+      ctx.restore();
+
+      // Name label + HP bar above the partner
+      const name = ps.display_name || 'Friend';
+      const hpPct = Math.max(0, Math.min(1, ps.hpPct || 0));
+      ctx.save();
+      // Soft outer halo so the partner reads as "another player" not a mob
+      ctx.globalCompositeOperation = 'screen';
+      const haloGrd = ctx.createRadialGradient(px, py, 0, px, py, 36);
+      haloGrd.addColorStop(0, 'rgba(102,217,255,0.22)');
+      haloGrd.addColorStop(1, 'rgba(102,217,255,0)');
+      ctx.fillStyle = haloGrd;
+      ctx.beginPath(); ctx.arc(px, py, 36, 0, TAU); ctx.fill();
+      ctx.restore();
+      // Name
+      ctx.save();
+      ctx.font = '700 11px "Segoe UI", system-ui, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+      ctx.fillStyle = '#66d9ff';
+      ctx.strokeText(name, px, py - 36);
+      ctx.fillText(name, px, py - 36);
+      ctx.restore();
+      // HP bar
+      ctx.save();
+      const barW = 44, barH = 4;
+      ctx.fillStyle = 'rgba(8,4,18,0.85)';
+      ctx.fillRect(px - barW / 2, py - 30, barW, barH);
+      ctx.fillStyle = '#ff3d52';
+      ctx.fillRect(px - barW / 2 + 1, py - 30 + 1, (barW - 2) * hpPct, barH - 2);
+      ctx.strokeStyle = '#66d9ff';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(px - barW / 2, py - 30, barW, barH);
+      ctx.restore();
     }
 
     // Procedural humanoid silhouette used by skeleton/archer/goblin/zombie/etc.

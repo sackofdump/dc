@@ -2798,6 +2798,95 @@ body.on-title #friends-panel {
   border-color: #ff6477;
   color: #ff8a99;
 }
+/* Friend row INVITE button (Phase 2a co-op) */
+.fw-invite {
+  width: 26px; height: 26px;
+  background: linear-gradient(180deg, rgba(102,217,255,0.25), rgba(102,217,255,0.10));
+  border: 1px solid var(--accent-cyan);
+  border-radius: 6px;
+  color: var(--accent-cyan);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+}
+.fw-invite:hover { filter: brightness(1.2); box-shadow: 0 0 8px rgba(102,217,255,0.55); }
+.fw-invite:disabled { opacity: 0.5; cursor: default; }
+/* The fw-row grid was 4 columns (dot | name | sub | remove).  Inserting
+   invite between sub + remove changes it to 5 columns. */
+.fw-row { grid-template-columns: 12px 1fr auto auto auto; }
+
+/* ===== Party HUD widget (Phase 2a) — bottom-left when in a party ===== */
+#party-hud {
+  position: fixed;
+  bottom: calc(env(safe-area-inset-bottom, 16px) + 180px);
+  left: 14px;
+  z-index: 14;
+  background: linear-gradient(180deg, rgba(28,18,48,0.92), rgba(10,6,18,0.92));
+  border: 1px solid var(--accent-cyan);
+  border-radius: 10px;
+  padding: 8px 12px;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.6), 0 0 14px rgba(102,217,255,0.22);
+  font-family: inherit;
+  min-width: 180px;
+  pointer-events: auto;
+}
+#party-hud.hidden { display: none; }
+#party-hud .ph-row {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 800; letter-spacing: 0.04em;
+}
+#party-hud .ph-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--ink-fade);
+}
+#party-hud .ph-dot.on  { background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
+#party-hud .ph-dot.off { background: #3a2a55; }
+#party-hud .ph-name   { color: var(--accent-cyan); letter-spacing: 0.08em; }
+#party-hud .ph-status { color: var(--ink-fade); font-size: 10px; font-weight: 600; }
+#party-hud .ph-hp-wrap {
+  margin: 5px 0 4px;
+  height: 5px;
+  background: #2a0810;
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid rgba(255,61,82,0.4);
+}
+#party-hud .ph-hp-fill { height: 100%; background: var(--hp); transition: width 0.2s; }
+#party-hud .ph-foot { display: flex; justify-content: flex-end; }
+#party-hud .ph-leave-btn {
+  background: transparent;
+  border: 1px solid rgba(255,100,119,0.5);
+  color: #ff8a99;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  cursor: pointer;
+}
+#party-hud .ph-leave-btn:hover { background: rgba(255,61,82,0.18); border-color: #ff6477; }
+
+/* ===== Party invite modal ===== */
+.party-invite-card {
+  max-width: 420px;
+  text-align: center;
+  border-color: var(--accent-cyan);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.7), 0 0 32px rgba(102,217,255,0.4);
+}
+.party-invite-card h2 {
+  color: var(--accent-cyan);
+  text-shadow: 0 0 14px rgba(102,217,255,0.55);
+}
+.party-invite-note {
+  font-size: 11px;
+  color: var(--ink-fade);
+  margin: 10px 0 16px;
+  letter-spacing: 0.04em;
+  font-style: italic;
+}
+
 /* Alert state on the toggle badge when requests are pending */
 #friends-toggle .fw-badge.alert {
   background: #ff3d52;

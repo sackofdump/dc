@@ -632,7 +632,112 @@ DDI.auth = (function () {
   }
 
   // Clean up presence on tab close so we don't leave ghost online entries.
-  addEventListener('beforeunload', function () { leavePresence(); unsubscribeFriendChanges(); });
+  addEventListener('beforeunload', function () { leavePresence(); unsubscribeFriendChanges(); unsubscribeInvites(); });
+
+  // ============================================================
+  // CO-OP PARTY (Phase 2a)
+  // - subscribeInvites(cb): listen on 'xxds-invites:{me}' for invite /
+  //   accept / decline / leave events
+  // - sendPartyInvite(targetUserId, payload, eventName='invite'): broadcast
+  //   to target's invite channel
+  // - openPartyChannel(partyId, cb): join 'xxds-party:{partyId}' for
+  //   in-party messages (position beats, chat, etc.)
+  // - sendPartyMessage(channel, eventName, payload): broadcast on the
+  //   open party channel
+  // - closePartyChannel(channel): tear down
+  // ============================================================
+  let _invitesChannel = null;
+  let _invitesCb      = null;
+  async function subscribeInvites(cb) {
+    if (!client || !currentUser) return null;
+    if (_invitesChannel) return _invitesChannel;
+    _invitesCb = cb;
+    _invitesChannel = client.channel('xxds-invites:' + currentUser.id, {
+      config: { broadcast: { self: false } },
+    });
+    // Wildcard — we want all events on this channel routed through one cb
+    ['invite', 'accept', 'decline', 'leave'].forEach(function (ev) {
+      _invitesChannel.on('broadcast', { event: ev }, function (msg) {
+        if (typeof _invitesCb === 'function') {
+          try { _invitesCb({ event: ev, payload: (msg && msg.payload) || null }); }
+          catch (e) { console.error('[auth] invite cb', e); }
+        }
+      });
+    });
+    await new Promise(function (resolve) {
+      _invitesChannel.subscribe(function (status) {
+        console.log('[invites subscribe]', status);
+        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') resolve();
+      });
+    });
+    return _invitesChannel;
+  }
+  async function unsubscribeInvites() {
+    if (!_invitesChannel) return;
+    try { await client.removeChannel(_invitesChannel); } catch (e) {}
+    _invitesChannel = null;
+    _invitesCb = null;
+  }
+
+  // sendPartyInvite — broadcasts to recipient's invite channel.  Uses
+  // a short-lived ad-hoc channel so we don't have to subscribe to the
+  // recipient's channel (which we couldn't anyway — RLS on Realtime is
+  // open, but we only LISTEN on our own channel to avoid noise).
+  async function sendPartyInvite(targetUserId, payload, eventName) {
+    if (!client || !currentUser) return;
+    const ev = eventName || 'invite';
+    const ch = client.channel('xxds-invites:' + targetUserId, {
+      config: { broadcast: { self: false } },
+    });
+    await new Promise(function (resolve) {
+      ch.subscribe(function (status) {
+        if (status === 'SUBSCRIBED') resolve();
+        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') resolve();
+      });
+    });
+    try {
+      await ch.send({ type: 'broadcast', event: ev, payload: payload || {} });
+    } catch (e) { console.error('[auth] sendPartyInvite', e); }
+    // Tear down — we don't need to keep listening on the target's channel
+    setTimeout(function () {
+      try { client.removeChannel(ch); } catch (e) {}
+    }, 800);
+  }
+
+  async function openPartyChannel(partyId, cb) {
+    if (!client || !partyId) return null;
+    const ch = client.channel('xxds-party:' + partyId, {
+      config: { broadcast: { self: false } },
+    });
+    // Bind all in-party events through one callback for simplicity
+    ['pos', 'leave', 'chat'].forEach(function (ev) {
+      ch.on('broadcast', { event: ev }, function (msg) {
+        if (typeof cb === 'function') {
+          try { cb({ event: ev, payload: (msg && msg.payload) || null }); }
+          catch (e) { console.error('[auth] party cb', e); }
+        }
+      });
+    });
+    await new Promise(function (resolve) {
+      ch.subscribe(function (status) {
+        console.log('[party subscribe]', status, partyId);
+        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') resolve();
+      });
+    });
+    return ch;
+  }
+
+  async function closePartyChannel(ch) {
+    if (!ch) return;
+    try { await client.removeChannel(ch); } catch (e) {}
+  }
+
+  async function sendPartyMessage(ch, eventName, payload) {
+    if (!ch || !eventName) return;
+    try {
+      await ch.send({ type: 'broadcast', event: eventName, payload: payload || {} });
+    } catch (e) { console.error('[auth] sendPartyMessage', e); }
+  }
 
   return {
     init, isConfigured,
@@ -647,5 +752,8 @@ DDI.auth = (function () {
     joinPresence, leavePresence, setPresenceStatus, onPresenceChange,
     subscribeFriendChanges, unsubscribeFriendChanges, onFriendAdded, onFriendRequest,
     fetchProfileName,
+    // Co-op — Phase 2a (party invites + in-party channel)
+    subscribeInvites, unsubscribeInvites, sendPartyInvite,
+    openPartyChannel, closePartyChannel, sendPartyMessage,
   };
 })();

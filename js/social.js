@@ -135,6 +135,10 @@ DDI.social = (function () {
         refreshFriends();
       });
     }
+    // Spin up the party invite listener too — same auth-ready trigger
+    if (DDI.party && DDI.party.start) {
+      try { await DDI.party.start(); } catch (e) {}
+    }
     await refreshFriends();
   }
 
@@ -152,6 +156,9 @@ DDI.social = (function () {
     }
     if (DDI.auth && DDI.auth.unsubscribeFriendChanges) {
       try { DDI.auth.unsubscribeFriendChanges(); } catch (e) {}
+    }
+    if (DDI.party && DDI.party.stop) {
+      try { DDI.party.stop(); } catch (e) {}
     }
     _friends = [];
     _presenceByUser = {};
@@ -302,11 +309,19 @@ DDI.social = (function () {
         const online = !!p;
         const dot   = online ? 'on' : 'off';
         const sub   = online ? _statusLabel(p.status) : 'offline';
+        // Show INVITE button only when friend is online (no point inviting
+        // someone who can't see the modal).  Hidden while we're already in
+        // a party — leave first to invite someone else.
+        const canInvite = online && !(DDI.party && DDI.party.inParty && DDI.party.inParty());
+        const inviteBtn = canInvite
+          ? '<button class="fw-invite" data-uid="' + r.user_id + '" title="Invite to play">▶</button>'
+          : '';
         return (
           '<div class="fw-row" data-uid="' + r.user_id + '">' +
             '<span class="fw-dot ' + dot + '"></span>' +
             '<span class="fw-name"></span>' +
             '<span class="fw-sub">' + sub + '</span>' +
+            inviteBtn +
             '<button class="fw-remove" data-uid="' + r.user_id + '" title="Remove">✕</button>' +
           '</div>'
         );
@@ -345,6 +360,19 @@ DDI.social = (function () {
         const res = await DDI.auth.declineFriendRequest(uid);
         if (res && res.ok) refreshFriends();
         else                btn.disabled = false;
+      });
+    });
+    // Invite buttons
+    list.querySelectorAll('.fw-invite').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        const uid = btn.getAttribute('data-uid');
+        if (!uid || !DDI.party || !DDI.party.inviteToParty) return;
+        // Look up the display name from our local friends list
+        const friend = sortedFriends.find(function (f) { return f.user_id === uid; });
+        DDI.party.inviteToParty(uid, friend ? friend.display_name : null);
+        btn.disabled = true;
+        setTimeout(function () { btn.disabled = false; }, 2000);
       });
     });
     // Remove buttons

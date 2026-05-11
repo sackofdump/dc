@@ -79,6 +79,7 @@
       // Wire the friends widget DOM once — module owns the show/hide,
       // populated on auth changes below.
       if (DDI.social && DDI.social.init) DDI.social.init(this);
+      if (DDI.party  && DDI.party.init)  DDI.party.init(this);
       // Arm the WebAudio module — context unlocks on first user gesture.
       if (DDI.audio && DDI.audio.arm) DDI.audio.arm();
       // Bring up Supabase auth.  If we have a stored session, hydrate save from
