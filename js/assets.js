@@ -23,6 +23,7 @@ DDI.assets = (function () {
     meteor:        'Assets/Actions/Meteor.png',
     frostground:   'Assets/Actions/FrostGround.png',
     bonespear:     'Assets/Actions/BoneSpear.png',
+    raise_skeleton: 'Assets/Actions/rasie_skeletons.png',
     cultist:       'Assets/Characters/CultistMage.png',
     goblin_bomber: 'Assets/Characters/GoblinBomber.png',
     goblin_rogue:  'Assets/Characters/GoblinRogue.png',

@@ -723,7 +723,7 @@ DDI.systems = (function () {
           x: hero.x, y: hero.y - 30,
           vx: 0, vy: -18,
           life: 0.75, size: 88, color: '#fff',
-          kind: 'sprite', sprite: 'skeleton_sheet', spriteFrame: 0,
+          kind: 'sprite', sprite: 'raise_skeleton',
           rot: 0, spin: 0, fade: 1,
           alpha: 0.55,
         });
@@ -748,7 +748,7 @@ DDI.systems = (function () {
             x: e.x, y: e.y - 10,
             vx: 0, vy: -10,
             life: 0.55, size: 70, color: '#fff',
-            kind: 'sprite', sprite: 'skeleton_sheet', spriteFrame: 0,
+            kind: 'sprite', sprite: 'raise_skeleton',
             rot: rand(-0.15, 0.15), spin: 0, fade: 1,
             alpha: 0.65,
           });

@@ -264,12 +264,26 @@ DDI.Renderer = (function () {
           ctx.fillStyle = '#fff';
           ctx.beginPath(); ctx.arc(fx, fy, 1.6, 0, TAU); ctx.fill();
         } else if (f.type === 'building') {
-          // Tinted square — color matches the building type
-          ctx.fillStyle = f.color || '#a8a08a';
-          ctx.strokeStyle = '#000';
-          ctx.lineWidth = 1;
-          ctx.fillRect(fx - 4, fy - 4, 8, 8);
-          ctx.strokeRect(fx - 4, fy - 4, 8, 8);
+          // Tinted square — color matches the building type.  Explored
+          // buildings get muted + a red X to read as "already looted".
+          const explored = !!f.entered;
+          if (explored) {
+            ctx.fillStyle = 'rgba(60,40,60,0.65)';
+            ctx.strokeStyle = '#5a3a4a';
+            ctx.lineWidth = 1;
+            ctx.fillRect(fx - 4, fy - 4, 8, 8);
+            ctx.strokeRect(fx - 4, fy - 4, 8, 8);
+            ctx.strokeStyle = '#ff6477';
+            ctx.lineWidth = 1.2;
+            ctx.beginPath(); ctx.moveTo(fx - 3, fy - 3); ctx.lineTo(fx + 3, fy + 3); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(fx - 3, fy + 3); ctx.lineTo(fx + 3, fy - 3); ctx.stroke();
+          } else {
+            ctx.fillStyle = f.color || '#a8a08a';
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+            ctx.fillRect(fx - 4, fy - 4, 8, 8);
+            ctx.strokeRect(fx - 4, fy - 4, 8, 8);
+          }
         } else if (f.type === 'exit_door') {
           // Bright gold dot — clearly visible inside any interior palette
           ctx.fillStyle = '#ffd966';

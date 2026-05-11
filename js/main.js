@@ -448,6 +448,23 @@
       this._continueRunFromState(rs);
     }
 
+    // Rebuild a basic interior feature set when the snapshot lost them.
+    // Best-effort: exit door + a few chests so the player can escape.
+    _rebuildInteriorFeatures() {
+      const ix = this.world.width / 2, iy = this.world.height / 2;
+      const ROOM_W = 1100, ROOM_H = 800;
+      const left = ix - ROOM_W / 2 + 60, right = ix + ROOM_W / 2 - 60;
+      const top = iy - ROOM_H / 2 + 60, bottom = iy + ROOM_H / 2 - 60;
+      this._interiorBox = { left: ix - ROOM_W / 2, right: ix + ROOM_W / 2, top: iy - ROOM_H / 2, bottom: iy + ROOM_H / 2 };
+      this.features = [];
+      this.features.push({ type: 'exit_door', kind: 'exit_door', x: ix, y: iy - 340 });
+      for (let i = 0; i < 4; i++) {
+        const cx = left + Math.random() * (right - left);
+        const cy = top  + Math.random() * (bottom - top);
+        this.features.push({ type: 'chest', kind: 'chest', x: cx, y: cy, opened: false, rarity: 'magic' });
+      }
+    }
+
     _continueRunFromState(rs) {
       if (!rs) return;
       this.ui.hideTitle();
@@ -510,8 +527,39 @@
         ? (DDI.data.ZONE_THEMES && DDI.data.ZONE_THEMES[savedZone.name]) || null
         : null;
       if (!this.zoneTheme) this.applyMainActTheme();
+      // Reconstruct the interior room box (not serialised on save) so
+      // walls + dim outer area render once we're back inside a building.
+      if (this.zone.interior) {
+        const ix = this.world.width / 2, iy = this.world.height / 2;
+        const ROOM_W = 1100, ROOM_H = 800;
+        this._interiorBox = {
+          left:   ix - ROOM_W / 2, right:  ix + ROOM_W / 2,
+          top:    iy - ROOM_H / 2, bottom: iy + ROOM_H / 2,
+        };
+      } else {
+        this._interiorBox = null;
+      }
       // Rebuild features from snapshot.  Reattach ritual_circle._data if needed.
       this.features = (rs.features || []).map(function (f) { return Object.assign({}, f); });
+      // Fallback — if the saved features array is empty / corrupted (we've
+      // seen Supabase save_data come back with [] in rare cases), regenerate
+      // a fresh feature set so the map isn't totally barren.  The hero loses
+      // any "opened chest" state but at least has portals/loot to interact
+      // with again.
+      if (!this.features.length) {
+        if (this.zone.name === 'main' || !this.zone.name) {
+          this.generateFeatures('main');
+        } else if (this.zone.interior) {
+          // Rebuild a fresh interior — we lose the saved chest state but the
+          // exit door + new loot let the player escape and continue.
+          this._rebuildInteriorFeatures();
+        } else {
+          // Tele-zone with no features (shouldn't happen) — regen with the
+          // current biome's pool.
+          this.generateFeatures(this.zone.name);
+          if (this.setupObjective) this.setupObjective();
+        }
+      }
       if (this.zone.ritualCircles) {
         const circles = this.zone.ritualCircles;
         let ci = 0;
