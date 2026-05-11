@@ -1221,6 +1221,11 @@
     // ELITE ABILITIES — each elite type telegraphs a unique attack on cooldown
     // ============================================================
     tickEliteAbility(e, dt) {
+      // Defense in depth: fading-in elites are intangible and should NOT
+      // run their cast timer.  The outer enemy loop already early-returns
+      // on _fadeIn, but a defensive guard here protects against any code
+      // path that calls tickEliteAbility directly.
+      if (e._fadeIn || e._fadeOut) return;
       if (e._eliteCd == null) {
         // Very quick first cast so even a one-shotted elite gets a telegraph
         // off — the player has to actually see / fear the ability.
@@ -1228,11 +1233,24 @@
       }
       e._eliteCd -= dt;
       if (e._eliteCd > 0) return;
-      // Hero off-screen? Hold the cast (don't burn it into the void).
+      // Visibility gate — hold the cast until the elite is actually inside
+      // the camera viewport (with a small buffer).  Previously the gate
+      // used max(viewW, viewH) as a radius, which is the SCREEN DIAGONAL —
+      // so an elite just off-screen still passed and dropped a meteor
+      // before the player could see the caster.  Rectangular check matches
+      // what's actually visible on the canvas.
       const h = this.hero;
-      const range = Math.max(this.viewW, this.viewH);
-      const range2 = range * range;
-      if (dist2(h.x, h.y, e.x, e.y) > range2) { e._eliteCd = 0.4; return; }
+      const dx = Math.abs(e.x - h.x);
+      const dy = Math.abs(e.y - h.y);
+      const margin = 80;     // small inset so casts fire just as elite enters view
+      const halfW = this.viewW * 0.5 - margin;
+      const halfH = this.viewH * 0.5 - margin;
+      if (dx > halfW || dy > halfH) {
+        // Off-screen — keep the cd from snowballing forever; tiny pulse
+        // so it'll re-check after the player moves.
+        e._eliteCd = 0.4;
+        return;
+      }
       // Aggressive rolling cooldown — 1.0-2.0s default — so even quickly-
       // killed elites land 2-3 casts before they die. Per-enemy overrides
       // win (act bosses tune their own pace).
