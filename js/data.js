@@ -733,11 +733,11 @@ DDI.data = (function () {
     id: 'boneLance', name: 'Bone Lance', icon: '🦴', element: 'physical', color: '#e8dcc0',
     desc: 'Hurls a heavy bone lance — splinters fly on impact.',
     type: 'projectile', maxLevel: 8,
-    base: { cooldown: 1.0, damage: 24, count: 1, speed: 460, pierce: 0, area: 14, life: 1.2 },
+    base: { cooldown: 0.9, damage: 34, count: 1, speed: 480, pierce: 0, area: 16, life: 1.2 },
     scale: function (lvl, b) {
       return Object.assign({}, b, {
-        damage:   b.damage   * (1 + 0.22 * lvl),
-        count:    b.count    + Math.floor(lvl / 3),
+        damage:   b.damage   * (1 + 0.25 * lvl),
+        count:    b.count    + Math.floor((lvl + 1) / 2),
         cooldown: b.cooldown * (1 - 0.05 * lvl),
       });
     },
@@ -747,12 +747,12 @@ DDI.data = (function () {
     id: 'raiseSkeleton', name: 'Raise Skeleton', icon: '💀', element: 'physical', color: '#cdd5e0',
     desc: 'Phantom skeletons claw the nearest foes.',
     type: 'homing', maxLevel: 8,
-    base: { cooldown: 2.0, damage: 22, count: 3, range: 320, life: 0.4, pierce: 0 },
+    base: { cooldown: 1.6, damage: 32, count: 3, range: 360, life: 0.4, pierce: 0 },
     scale: function (lvl, b) {
       return Object.assign({}, b, {
-        damage: b.damage * (1 + 0.18 * lvl),
-        count:  b.count  + Math.floor(lvl / 2),
-        cooldown: b.cooldown * (1 - 0.04 * lvl),
+        damage: b.damage * (1 + 0.22 * lvl),
+        count:  b.count  + Math.floor((lvl + 1) / 2),
+        cooldown: b.cooldown * (1 - 0.05 * lvl),
         range:  b.range  * (1 + 0.04 * lvl),
       });
     },
@@ -762,12 +762,12 @@ DDI.data = (function () {
     id: 'curse', name: 'Curse', icon: '🕯️', element: 'poison', color: '#7a3aa8',
     desc: 'Cursed aura — bleeds nearby foes and slows them.',
     type: 'aura', maxLevel: 8,
-    base: { cooldown: 0.6, damage: 8, area: 150, slow: 0.3 },
+    base: { cooldown: 0.55, damage: 12, area: 180, slow: 0.35 },
     scale: function (lvl, b) {
       return Object.assign({}, b, {
-        damage: b.damage * (1 + 0.18 * lvl),
+        damage: b.damage * (1 + 0.22 * lvl),
         area:   b.area   * (1 + 0.10 * lvl),
-        slow:   Math.min(0.7, b.slow + 0.04 * lvl),
+        slow:   Math.min(0.75, b.slow + 0.04 * lvl),
       });
     },
     desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg/tick · radius ' + Math.round(s.area) + ' · slow ' + Math.round(s.slow*100) + '%'; },
@@ -776,13 +776,13 @@ DDI.data = (function () {
     id: 'corpseBomb', name: 'Corpse Bomb', icon: '💣', element: 'physical', color: '#7faf6d',
     desc: 'Detonates a putrid corpse around you in a green burst.',
     type: 'nova', maxLevel: 8,
-    base: { cooldown: 3.0, damage: 36, area: 160, dot: 6, dotDur: 3 },
+    base: { cooldown: 2.4, damage: 56, area: 200, dot: 12, dotDur: 4 },
     scale: function (lvl, b) {
       return Object.assign({}, b, {
-        damage: b.damage * (1 + 0.20 * lvl),
-        area:   b.area   * (1 + 0.08 * lvl),
-        dot:    b.dot    * (1 + 0.20 * lvl),
-        cooldown: b.cooldown * (1 - 0.04 * lvl),
+        damage: b.damage * (1 + 0.24 * lvl),
+        area:   b.area   * (1 + 0.10 * lvl),
+        dot:    b.dot    * (1 + 0.22 * lvl),
+        cooldown: b.cooldown * (1 - 0.05 * lvl),
       });
     },
     desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg + ' + Math.round(s.dot) + ' rot/s · radius ' + Math.round(s.area); },
@@ -791,12 +791,12 @@ DDI.data = (function () {
     id: 'soulDrain', name: 'Soul Drain', icon: '🩸', element: 'lightning', color: '#b266ff',
     desc: 'A leeching tether arcs between foes, healing you per hit.',
     type: 'chain', maxLevel: 8,
-    base: { cooldown: 1.8, damage: 18, jumps: 3, range: 220, falloff: 0.85 },
+    base: { cooldown: 1.4, damage: 26, jumps: 4, range: 260, falloff: 0.88 },
     scale: function (lvl, b) {
       return Object.assign({}, b, {
-        damage: b.damage * (1 + 0.18 * lvl),
-        jumps:  b.jumps  + Math.floor(lvl / 2),
-        range:  b.range  * (1 + 0.04 * lvl),
+        damage: b.damage * (1 + 0.22 * lvl),
+        jumps:  b.jumps  + Math.floor((lvl + 1) / 2),
+        range:  b.range  * (1 + 0.05 * lvl),
         cooldown: b.cooldown * (1 - 0.05 * lvl),
       });
     },
@@ -806,11 +806,11 @@ DDI.data = (function () {
     id: 'deathGrip', name: 'Death Grip', icon: '👻', element: 'physical', color: '#9aa3b0',
     desc: 'Wreathing skulls orbit, gnashing through whatever they touch.',
     type: 'orbital', maxLevel: 8,
-    base: { count: 3, damage: 9, radius: 60, rps: 1.4, hitCd: 0.30 },
+    base: { count: 4, damage: 14, radius: 75, rps: 1.6, hitCd: 0.25 },
     scale: function (lvl, b) {
       return Object.assign({}, b, {
-        count:  b.count  + Math.floor(lvl / 2),
-        damage: b.damage * (1 + 0.18 * lvl),
+        count:  b.count  + Math.floor((lvl + 1) / 2),
+        damage: b.damage * (1 + 0.22 * lvl),
         radius: b.radius * (1 + 0.10 * lvl),
         rps:    b.rps    * (1 + 0.05 * lvl),
       });
@@ -1151,7 +1151,10 @@ DDI.data = (function () {
     necromancer: {
       name: 'Necromancer',
       requiredRank: 8,
-      starters: ['boneLance', 'curse'],
+      // Bone Lance + Raise Skeleton — two on-target damage abilities so the
+      // necromancer plays aggressive from turn one (curse aura felt too
+      // passive as a starter).
+      starters: ['boneLance', 'raiseSkeleton'],
       pool:     ['boneLance', 'raiseSkeleton', 'curse', 'corpseBomb', 'soulDrain', 'deathGrip'],
     },
   };
