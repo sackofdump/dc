@@ -25,11 +25,18 @@ DDI.party = (function () {
   let _partnerState = null;      // {user_id, x, y, vx, vy, facing, hpPct, hp, maxHp, character, display_name, lastSeen}
   let _beatT  = null;
   let _sweepT = null;
-  const BEAT_HZ = 15;     // 66ms — smoother than 10Hz for live position updates
+  // Cut from 15Hz back to 10Hz — at 15Hz the client's per-beat snapshot
+  // apply (enemy/loot/projectile iteration + DOM mutations + array allocs)
+  // was producing a steady stutter on the non-host.  10Hz keeps position
+  // updates lively while leaving ~50% more headroom for the client to
+  // render between beats.  Dead-reckoning + smooth-toward-target hides the
+  // lower update rate.
+  const BEAT_HZ = 10;
   const BEAT_MS = Math.round(1000 / BEAT_HZ);
   const STALE_MS = 4000;     // 4s of silence -> partner considered gone
   let _partnerProjectiles = [];     // [{x, y, vx, vy, color, radius, kind, shape, recvAt}]
   let _partnerProjectilesAt = 0;
+  let _lastHudRenderAt = 0;
   let _partnerDowned = false;       // is the partner currently in the 8s revive window?
   let _reviveStandT  = 0;            // my hero's current accumulated stand-in-circle time
   const REVIVE_RADIUS = 80;          // px — how close I have to stand to count
@@ -229,7 +236,14 @@ DDI.party = (function () {
       const myId = DDI.auth.user && DDI.auth.user() && DDI.auth.user().id;
       if (d.user_id === myId) return;
       _partnerState = Object.assign({}, _partnerState || {}, d, { lastSeen: Date.now() });
-      _renderPartyHud();
+      // Throttle the party-HUD redraw to ~3Hz.  Name / zone / HP don't
+      // change fast enough to need 10Hz DOM writes — running it every
+      // beat was contributing measurable client-side stutter.
+      const now = Date.now();
+      if (!_lastHudRenderAt || now - _lastHudRenderAt > 330) {
+        _lastHudRenderAt = now;
+        _renderPartyHud();
+      }
       // Zone match check — host's enemies / loot only apply when we're
       // in the same zone.  When host enters a building (interior zone),
       // their enemy positions are in interior coordinates that would
