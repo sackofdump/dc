@@ -273,11 +273,11 @@
       }, 500);
     }
 
-    persist() {
+    persist(immediate) {
       if (!this.save) return;
       if (DDI.save && DDI.save.write) DDI.save.write(this.save);    // local cache
       if (this.isGuest) return;                                       // guests don't sync
-      if (DDI.auth && DDI.auth.saveSave) DDI.auth.saveSave(this.save); // throttled remote sync
+      if (DDI.auth && DDI.auth.saveSave) DDI.auth.saveSave(this.save, !!immediate); // remote sync (throttled or forced)
     }
 
     // ============================================================
@@ -2125,7 +2125,15 @@
       // (Setting a setTimeout in a bounty zone then exiting before it fires
       // would otherwise leak a bounty into the main map.)
       if (!z || z.name === 'main' || z.objective !== 'bounty') return;
+      // Boss has spawned (or transition started) — no more bounties.
+      if (z.finalEliteSpawned || z.fadeOutBegan) return;
       if (!z.bountyQueue || !z.bountyQueue.length) return;
+      // Hard throttle: at most one new bounty spawn per second, regardless of
+      // how many code paths try to fire one.  Prevents accidental
+      // double-spawns when something racy upstream pings the queue twice.
+      const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+      if (z._lastBountySpawn && (now - z._lastBountySpawn) < 1000) return;
+      z._lastBountySpawn = now;
       const cfg = z.bountyQueue.shift();
       const ENEMIES = DDI.data.ENEMIES;
       const def = ENEMIES[cfg.id];
@@ -2234,6 +2242,11 @@
     beginBossTransition() {
       if (this.zone.finalEliteSpawned) return;
       this.zone.finalEliteSpawned = true;       // gate flag — Spawner sees this and stops
+      // Cancel any pending bounty respawn — boss has center stage now.
+      if (this.zone._bountyTimer) {
+        clearTimeout(this.zone._bountyTimer);
+        this.zone._bountyTimer = null;
+      }
       this.zone.fadeOutBegan = true;
       this.fx.toast('★  THE BOSS APPROACHES  ★');
       this.fx.flash(this.zone.color || '#ff3d52', 0.5);

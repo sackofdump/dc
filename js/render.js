@@ -3238,28 +3238,46 @@ DDI.Renderer = (function () {
           }
         } else if (z.kind === 'toxic_pool') {
           if (z.telegraph > 0) {
-            // Brief landing splash
+            // Brief landing splash flattened as a ground splat
             ctx.save();
             ctx.globalCompositeOperation = 'screen';
             ctx.fillStyle = 'rgba(159,223,127,0.55)';
-            ctx.beginPath(); ctx.arc(z.x, z.y, z.radius * (1 - z.telegraph / 0.5), 0, TAU); ctx.fill();
+            const sR = z.radius * (1 - z.telegraph / 0.5);
+            ctx.beginPath(); ctx.ellipse(z.x, z.y, sR, sR * 0.40, 0, 0, TAU); ctx.fill();
             ctx.restore();
           } else {
-            // Lingering puddle — bubbling green
+            // Lingering puddle — flat ground splat with wet sheen + sub-surface
+            // bubbles that pop on the puddle's surface (not floating above).
             ctx.save();
-            ctx.fillStyle = 'rgba(80,140,60,0.55)';
-            ctx.beginPath(); ctx.ellipse(z.x, z.y + 4, z.radius, z.radius * 0.55, 0, 0, TAU); ctx.fill();
-            ctx.strokeStyle = 'rgba(159,223,127,0.85)';
-            ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.ellipse(z.x, z.y + 4, z.radius, z.radius * 0.55, 0, 0, TAU); ctx.stroke();
-            // Bubbles
-            const bubbles = 5;
+            // Dark wet-stain ring under the puddle
+            ctx.fillStyle = 'rgba(20,40,15,0.65)';
+            ctx.beginPath(); ctx.ellipse(z.x, z.y + 1, z.radius * 1.05, z.radius * 0.42, 0, 0, TAU); ctx.fill();
+            // Main puddle body — heavily squashed ellipse so it reads as flat
+            const grd = ctx.createRadialGradient(z.x, z.y, 4, z.x, z.y, z.radius);
+            grd.addColorStop(0, 'rgba(120,200,80,0.85)');
+            grd.addColorStop(0.7, 'rgba(60,130,40,0.75)');
+            grd.addColorStop(1, 'rgba(30,80,20,0.55)');
+            ctx.fillStyle = grd;
+            ctx.beginPath(); ctx.ellipse(z.x, z.y, z.radius, z.radius * 0.36, 0, 0, TAU); ctx.fill();
+            // Glossy rim highlight on the upper edge
+            ctx.strokeStyle = 'rgba(200,255,140,0.65)';
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            ctx.ellipse(z.x, z.y - 1, z.radius - 2, z.radius * 0.34, 0, Math.PI * 1.05, Math.PI * 1.95);
+            ctx.stroke();
+            // Specular highlight blob
+            ctx.fillStyle = 'rgba(220,255,170,0.35)';
+            ctx.beginPath();
+            ctx.ellipse(z.x - z.radius * 0.30, z.y - z.radius * 0.10, z.radius * 0.35, z.radius * 0.08, 0, 0, TAU);
+            ctx.fill();
+            // Surface bubbles — small, stay near the puddle plane, fade quick
+            const bubbles = 4;
             for (let b = 0; b < bubbles; b++) {
-              const bb = (t * 1.2 + b * 0.7) % 1;
-              const bx = z.x + Math.sin(t * 2 + b) * z.radius * 0.5;
-              const by = z.y + 6 - bb * 14;
-              ctx.fillStyle = 'rgba(168,255,102,' + (0.7 * (1 - bb)) + ')';
-              ctx.beginPath(); ctx.arc(bx, by, 2 + Math.sin(t * 4 + b) * 0.5, 0, TAU); ctx.fill();
+              const bb = (t * 1.5 + b * 0.6) % 1;
+              const bx = z.x + Math.sin(t * 1.6 + b) * z.radius * 0.55;
+              const by = z.y + Math.cos(t * 1.2 + b * 1.4) * z.radius * 0.12 - bb * 3;
+              ctx.fillStyle = 'rgba(180,255,120,' + (0.55 * (1 - bb)) + ')';
+              ctx.beginPath(); ctx.arc(bx, by, 1.6 + (1 - bb) * 1.2, 0, TAU); ctx.fill();
             }
             ctx.restore();
           }

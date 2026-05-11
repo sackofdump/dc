@@ -159,25 +159,47 @@ DDI.auth = (function () {
     return data || null;
   }
 
-  // Throttled save — clients should call freely; we coalesce writes to ~once/3s.
+  // Throttled save — clients should call freely; we coalesce writes to ~once/2.5s.
+  // saveSave(data) defers; saveSave(data, true) writes immediately (used for
+  // critical moments like Save & Quit so the snapshot can't be lost to a tab
+  // close during the throttle window).
   let _saveTimer = null;
   let _pendingSave = null;
-  function saveSave(saveData) {
+  async function _flushSave(payload) {
+    if (!client || !currentUser || !payload) return;
+    const { error } = await client
+      .from('profiles')
+      .update({ save_data: payload })
+      .eq('id', currentUser.id);
+    if (error) console.error('[auth] saveSave', error);
+  }
+  function saveSave(saveData, immediate) {
     if (!client || !currentUser) return;
     _pendingSave = saveData;
+    if (immediate) {
+      if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
+      const payload = _pendingSave; _pendingSave = null;
+      return _flushSave(payload);
+    }
     if (_saveTimer) return;
-    _saveTimer = setTimeout(async function () {
+    _saveTimer = setTimeout(function () {
       _saveTimer = null;
-      const payload = _pendingSave;
-      _pendingSave = null;
-      if (!payload) return;
-      const { error } = await client
-        .from('profiles')
-        .update({ save_data: payload })
-        .eq('id', currentUser.id);
-      if (error) console.error('[auth] saveSave', error);
+      const payload = _pendingSave; _pendingSave = null;
+      _flushSave(payload);
     }, 2500);
   }
+  // Flush any pending throttled write — called on page unload + after critical
+  // state changes.  Best-effort, swallows errors.
+  function flushPendingSave() {
+    if (!_pendingSave) return Promise.resolve();
+    if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
+    const payload = _pendingSave; _pendingSave = null;
+    return _flushSave(payload);
+  }
+  // Best-effort unload flush — uses sendBeacon if available to survive the
+  // page transition.
+  addEventListener('pagehide', function () { flushPendingSave(); });
+  addEventListener('beforeunload', function () { flushPendingSave(); });
 
   // ---------- LEADERBOARD ----------
 
@@ -255,7 +277,7 @@ DDI.auth = (function () {
     getSession, user, profile,
     signUp, signIn, signOut, sendPasswordReset,
     ensureProfile,
-    loadSave, saveSave,
+    loadSave, saveSave, flushPendingSave,
     submitScore, fetchLeaderboard,
   };
 })();
