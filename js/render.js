@@ -25,8 +25,8 @@ DDI.Renderer = (function () {
       this.ctx = this.cv.getContext('2d');
       this.dpr = Math.min(2, window.devicePixelRatio || 1);
       this.shake = 0;
-      this.shakeDecay = 22;          // recovers to calm faster between bursts
-      this.shakeMax = 22;            // visible cap — a hard ceiling on jitter
+      this.shakeDecay = 28;          // recovers to calm faster between bursts
+      this.shakeMax = 16;            // tighter visible cap — even ranger spam stays calm
       this.flashAlpha = 0;
       this.flashColor = '#fff';
       const self = this;
@@ -49,8 +49,11 @@ DDI.Renderer = (function () {
     // Diminishing returns: when current shake is already high, new additions
     // contribute less. Prevents projectile spam from constantly maxing out the
     // jitter — each hit still registers, but a barrage doesn't compound.
+    // Respects the settings toggle — Screen Shake = off short-circuits.
     addShake(amount) {
-      const cap = this.shakeMax || 22;
+      const s = this.app && this.app.save && this.app.save.settings;
+      if (s && s.screenShake === false) { this.shake = 0; return; }
+      const cap = this.shakeMax || 16;
       const headroom = Math.max(0, 1 - this.shake / cap);
       this.shake = Math.min(this.shake + amount * headroom, cap);
     }

@@ -53,7 +53,9 @@ DDI.FX = (function () {
           size: rand(10, 18), kind: 'smoke',
         });
       }
-      this.app.renderer.addShake(5);
+      // Fireball impact gets a small accent — still loud + visible, just
+      // restrained so 6-fireball volleys don't rattle the camera.
+      this.app.renderer.addShake(2);
     }
 
     // Projectile-on-enemy impact — dramatic burst (matches fireball drama).
@@ -92,10 +94,11 @@ DDI.FX = (function () {
         x: x + rand(-2,2), y: y + rand(-2,2), vx: 0, vy: -20,
         life: 0.45, color: 'rgba(40,20,60,0.45)', size: r * 0.8, kind: 'smoke', fade: 1,
       });
-      // Slight shake on every hit (not just crits) — kept small because
-      // hundreds of projectiles a second otherwise rattle the camera. The
-      // diminishing-returns curve in addShake handles the worst spikes.
-      this.app.renderer.addShake(isCrit ? 2 : 1);
+      // Per-hit shake removed entirely — the visual flash + damage number
+      // already sell the impact. With ranger/multishot builds spitting
+      // dozens of projectiles a second, any shake adds up to a constantly-
+      // rattling camera no matter how small. Big set-pieces (boss kill,
+      // ULT, leap slam, hero hurt) still shake the screen.
     }
 
     hitSpark(x, y, color, isCrit) {
