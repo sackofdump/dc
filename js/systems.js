@@ -1023,11 +1023,11 @@ DDI.systems = (function () {
           const lvlScale = Math.max(0.5, Math.min(2, 1 + (eLvl - heroLvl) * 0.08));
           let raw = e.dmg * lvlScale;
           // Hard cap: a single contact hit can never one-shot from full HP.
-          // Early acts cap at 55% so a stray brush isn't fatal. Late acts
-          // raise the ceiling so a careless step into an act-4/5 boss
-          // actually punishes you.
+          // Act 1 caps at 55% so a stray brush isn't fatal. Act 2 raises to
+          // 70%, act 3 (the climax) to 85% so a careless step into the
+          // final boss actually punishes you.
           const _act = (app.game && app.game.act) || 1;
-          const biteCap = _act >= 5 ? 0.85 : _act >= 4 ? 0.70 : 0.55;
+          const biteCap = _act >= 3 ? 0.85 : _act >= 2 ? 0.70 : 0.55;
           const maxBite = hero.maxHp * biteCap;
           if (raw > maxBite) raw = maxBite;
           const dealt = hero.takeDamage(raw);
@@ -1047,10 +1047,10 @@ DDI.systems = (function () {
     },
     gainXp: function (app, amount) {
       // Late-act XP brake — a stacked build was racing past level 900 in one
-      // tele-zone, which made level-ups meaningless. Cut hard so the player
-      // still progresses but the leveling cadence stays interesting.
+      // tele-zone, which made level-ups meaningless. Three-act layout: act 2
+      // gets a gentle brake, act 3 (the climax) clamps down hard.
       const act = (app.game && app.game.act) || 1;
-      const actDiv = act >= 5 ? 10 : act >= 4 ? 4 : 1;
+      const actDiv = act >= 3 ? 10 : act >= 2 ? 4 : 1;
       const adj = (amount * app.hero.xpMult) / actDiv;
       app.game.xp += adj;
       while (app.game.xp >= app.game.xpNeed) {

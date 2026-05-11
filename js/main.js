@@ -232,11 +232,13 @@
       const rootEl = document.getElementById('game-root');
       if (rootEl) rootEl.classList.remove('in-game');
       // Dust breakdown — shown in death summary so players see where it came from.
-      const dustFromKills  = Math.floor(this.game.kills * 0.5);
-      const dustFromElites = this.game.elites * 25;
-      const dustFromBosses = this.game.bosses * 200;
-      const dustFromLevel  = this.game.level * 8;
-      const dustFromGold   = Math.floor(this.game.gold / 25);   // gold → dust at run end
+      // Rates trimmed significantly: a stacked late-act run was banking
+      // millions of dust per run and unlocking the entire forge in one go.
+      const dustFromKills  = Math.floor(this.game.kills * 0.15);   // was 0.5
+      const dustFromElites = this.game.elites * 8;                  // was 25
+      const dustFromBosses = this.game.bosses * 60;                 // was 200
+      const dustFromLevel  = Math.floor(this.game.level * 2);       // was 8
+      const dustFromGold   = Math.floor(this.game.gold / 80);       // was /25
       const dustTotal = dustFromKills + dustFromElites + dustFromBosses + dustFromLevel + dustFromGold;
       // If the player revived earlier in this run, dust/kills were already paid out at that point.
       // Pay only the delta this time so revives don't double-credit.
@@ -1585,7 +1587,7 @@
         if (DDI.audio) DDI.audio.play('pickup_gold');
       } else if (l.kind === 'gem') {
         const _act = (this.game && this.game.act) || 1;
-        const _div = _act >= 5 ? 10 : _act >= 4 ? 4 : 1;
+        const _div = _act >= 3 ? 10 : _act >= 2 ? 4 : 1;
         const gain = Math.max(1, Math.floor((l.value * 0.5) / _div));
         this.save.dust += gain;
         this.fx.toast('+' + gain + ' DUST');
@@ -1597,7 +1599,7 @@
         const gold = 30 + Math.floor(rand(0, 80));
         this.game.gold += gold;
         const _act = (this.game && this.game.act) || 1;
-        const _div = _act >= 5 ? 10 : _act >= 4 ? 4 : 1;
+        const _div = _act >= 3 ? 10 : _act >= 2 ? 4 : 1;
         this.save.dust += Math.max(1, Math.floor(10 / _div));
         for (let i = 0; i < 12; i++) {
           const a = rand(0, Math.PI * 2);
@@ -1645,8 +1647,8 @@
             const rdef = RARITY[f.rarity] || RARITY.common;
             const _baseDust = ({ common: 5, magic: 12, rare: 25, epic: 50, legendary: 120, mythic: 250, primal: 500 })[f.rarity] || 5;
             const _act = (self.game && self.game.act) || 1;
-            const _div = _act >= 5 ? 10 : _act >= 4 ? 4 : 1;
-            const dustGain = Math.max(1, Math.floor(_baseDust / _div));
+            const _div3 = _act >= 3 ? 10 : _act >= 2 ? 4 : 1;
+            const dustGain = Math.max(1, Math.floor(_baseDust / _div3));
             const goldGain = 30 + Math.floor(Math.random() * (rdef.beam * 200 + 30));
             self.game.gold += goldGain;
             self.save.dust += dustGain;
@@ -2365,12 +2367,14 @@
       // something other than walk. Pool varies a bit by act so a Lv 30 magma
       // tyrant feels different from a Lv 5 one.
       if (!e.def.eliteAbility) {
-        const pool = (act >= 4)
+        // Act 3 (the climax) gets the wider pool with faster cooldowns —
+        // earlier acts use the gentler set.
+        const pool = (act >= 3)
           ? ['holy_beam','meteor_burst','spore_bloom','toxic_pool','shadow_dash','shrapnel']
           : ['meteor_burst','spore_bloom','shrapnel','toxic_pool'];
         e._castableAbility = pool[Math.floor(Math.random() * pool.length)];
-        e._eliteCdMin = act >= 4 ? 1.6 : 2.2;
-        e._eliteCdMax = act >= 4 ? 2.8 : 3.8;
+        e._eliteCdMin = act >= 3 ? 1.6 : 2.2;
+        e._eliteCdMax = act >= 3 ? 2.8 : 3.8;
       }
       if (fadeIn) { e._fadeIn = true; e._fadeT = 0; }
       this.zone.finalElite = e;
@@ -2477,13 +2481,12 @@
       const x = Math.max(160, Math.min(this.world.width  - 160, this.hero.x + Math.cos(ang) * dist));
       const y = Math.max(160, Math.min(this.world.height - 160, this.hero.y + Math.sin(ang) * dist));
       const dm = this.getDifficultyMult();
-      // Late-act bosses scale up sharply — act 4 is the prelude to the climax
-      // and the final-act boss is the climax itself. Earlier acts stay tuned
-      // for fresh builds.
-      const isFinalAct = act >= 5;
-      const isAct4 = act === 4;
-      const hpMul  = isFinalAct ? 9.0 : isAct4 ? 5.5 : 4.0;
-      const dmgMul = isFinalAct ? 3.2 : isAct4 ? 2.3 : 2.0;
+      // Act 3 is the dungeon-ending climax boss in the new three-act layout.
+      // Act 2 is a notch tougher than act 1; act 1 stays tuned for fresh builds.
+      const isFinalAct = act >= 3;
+      const isAct2 = act === 2;
+      const hpMul  = isFinalAct ? 9.0 : isAct2 ? 5.5 : 4.0;
+      const dmgMul = isFinalAct ? 3.2 : isAct2 ? 2.3 : 2.0;
       const e = this.enemies.spawn(def, x, y, hpMul * dm, dmgMul * dm);
       e.level = (this.game.level || 1) + (isFinalAct ? 12 : 6);
       e._actBoss = true;
@@ -2529,9 +2532,11 @@
       this.particles.spawn({ x: cx, y: cy, life: 1.0, size: 540, color: '#ff7b1f', kind: 'ring', fade: 1 });
       this.game.paused = true;
       const self = this;
-      // Act 5 boss = end of the dungeon. Trigger a "RUN COMPLETE" win path
-      // instead of the usual ACT COMPLETE intermission.
-      if ((this.game.act || 1) >= 5) {
+      // Act 3 boss = end of the dungeon. Trigger a "RUN COMPLETE" win path
+      // instead of the usual ACT COMPLETE intermission. (Was act 5 — three
+      // acts is enough for a satisfying run without trivializing the forge
+      // economy.)
+      if ((this.game.act || 1) >= 3) {
         setTimeout(function () { self.endRun(true); }, 900);
         return;
       }
@@ -2547,12 +2552,11 @@
       this.game.zonesCleared = {};
       this.game.actBossActive = null;
       this.game.pendingActBoss = false;
-      // Difficulty bump per act. Acts 2–3 use the gentle +0.5 ramp (was +1.0,
-      // which one-shot fresh heroes). Acts 4 and 5 are the late-game gauntlet
-      // and should actually push the player — a fully-stacked Lv 50+ hero
-      // walked through them before this.
+      // Difficulty bump per act. Three-act layout: act 2 stays a gentle
+      // step-up; act 3 is the climax and should genuinely punish a
+      // fully-stacked hero.
       const nextAct = this.game.act;
-      const bump = nextAct === 4 ? 1.25 : nextAct >= 5 ? 1.75 : 0.5;
+      const bump = nextAct >= 3 ? 1.75 : 0.5;
       this.runDifficulty = (this.runDifficulty || 1) + bump;
       // Persist best-act + first-act-1-clear time for the leaderboard
       if (this.save) {
