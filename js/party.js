@@ -217,7 +217,52 @@ DDI.party = (function () {
     } else if (ev === 'dmg' && _party && _party.iAm === 'host') {
       // Client hit one of our enemies — apply the damage canonically
       _applyClientDamage(d);
+    } else if (ev === 'leave') {
+      // Partner left the party — abort any in-flight start countdown and
+      // show a prominent banner so they're not left wondering why their
+      // friend's dot went dark.
+      const partner = _party && _party.members && _party.members.find(function (m) {
+        const me = DDI.auth.user && DDI.auth.user();
+        return !me || m.user_id !== me.id;
+      });
+      const partnerName = (_partnerState && _partnerState.display_name)
+                       || (partner && partner.display_name)
+                       || 'Your partner';
+      _showLeaveBanner(partnerName);
+      _abortCountdown();
+      _hideAllStartModals();
+      leaveParty(false);     // local cleanup only — they already left
+    } else if (ev === 'start_request' || ev === 'start_accept' || ev === 'start_decline' ||
+               ev === 'start_cancel'  || ev === 'start_go') {
+      _handleStartEvent(ev, d);
     }
+  }
+
+  // "X left the party" banner — drops down from the top edge, dismissible
+  // by click, auto-hides after 6s.
+  function _showLeaveBanner(name) {
+    let banner = document.getElementById('party-leave-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'party-leave-banner';
+      banner.innerHTML =
+        '<span class="plb-glyph">⚠</span>' +
+        '<span class="plb-text"><em></em> left the party</span>' +
+        '<button class="plb-close" type="button" title="Dismiss">✕</button>';
+      document.body.appendChild(banner);
+      banner.querySelector('.plb-close').addEventListener('click', function () {
+        banner.classList.remove('shown');
+      });
+      banner.addEventListener('click', function (e) {
+        if (e.target && e.target.classList && e.target.classList.contains('plb-close')) return;
+        banner.classList.remove('shown');
+      });
+    }
+    const em = banner.querySelector('em');
+    if (em) em.textContent = name;
+    banner.classList.add('shown');
+    clearTimeout(banner._timer);
+    banner._timer = setTimeout(function () { banner.classList.remove('shown'); }, 6000);
   }
 
   // ---------- Phase 2b: enemy state sync (host -> client) ----------
@@ -297,6 +342,176 @@ DDI.party = (function () {
     });
   }
 
+  // ============================================================
+  // Co-op START flow (Phase 2b polish)
+  // Host clicks NEW GAME -> sends 'start_request' -> client accepts
+  // -> host broadcasts 'start_go' with target timestamp -> both clients
+  // show a 10-second countdown -> both call app.startRun() at zero.
+  // ============================================================
+  let _startTimer = null;
+
+  function requestStartGame() {
+    if (!_partyChannel || !_party) return false;
+    if (_party.iAm !== 'host') return false;     // only host triggers
+    const me = DDI.auth.user && DDI.auth.user();
+    const myName = (DDI.auth.profile && DDI.auth.profile() && DDI.auth.profile().display_name) || 'Host';
+    DDI.auth.sendPartyMessage(_partyChannel, 'start_request', {
+      user_id: me ? me.id : null,
+      requesterName: myName,
+    });
+    _showWaitingForPartnerModal();
+    return true;
+  }
+
+  function _hostCancelStart() {
+    if (!_partyChannel || !_party) return;
+    DDI.auth.sendPartyMessage(_partyChannel, 'start_cancel', {});
+    _hideAllStartModals();
+  }
+
+  // Wire the start-flow events into the existing party-channel handler.
+  // Append to _onPartyEvent's switch logic by patching the function — we
+  // can't easily modify the existing one inline, so use a small extension:
+  function _handleStartEvent(ev, d) {
+    if (ev === 'start_request') {
+      // Client side — show accept modal
+      if (!_party || _party.iAm !== 'client') return;
+      _showAcceptStartModal(d && d.requesterName);
+    } else if (ev === 'start_accept') {
+      // Host side — partner accepted; schedule the countdown
+      if (!_party || _party.iAm !== 'host') return;
+      const startAt = Date.now() + 10000;
+      DDI.auth.sendPartyMessage(_partyChannel, 'start_go', { startAt: startAt });
+      _hideAllStartModals();
+      _startCountdown(startAt);
+    } else if (ev === 'start_decline') {
+      if (!_party || _party.iAm !== 'host') return;
+      _hideAllStartModals();
+      if (app.fx && app.fx.toast) app.fx.toast('★ PARTNER DECLINED ★');
+    } else if (ev === 'start_cancel') {
+      // Host cancelled — close any client-side modal/countdown
+      _hideAllStartModals();
+      _abortCountdown();
+      if (app.fx && app.fx.toast) app.fx.toast('★ START CANCELLED ★');
+    } else if (ev === 'start_go') {
+      // Client side — host says "we're going at startAt"; start the countdown
+      if (!_party || _party.iAm !== 'client') return;
+      _hideAllStartModals();
+      _startCountdown((d && d.startAt) || (Date.now() + 10000));
+    }
+  }
+
+  function _showAcceptStartModal(hostName) {
+    let modal = document.getElementById('modal-party-start');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'modal-party-start';
+      modal.className = 'modal';
+      modal.innerHTML =
+        '<div class="modal-card party-start-card">' +
+          '<h2>★ START GAME? ★</h2>' +
+          '<p class="tagline"><em class="hl"></em> wants to start a co-op run.</p>' +
+          '<p class="party-start-note">After you accept, a 10-second countdown begins on both screens, then the run starts together.</p>' +
+          '<div class="modal-foot pause-buttons">' +
+            '<button class="ghost-btn party-start-decline">DECLINE</button>' +
+            '<button class="primary-btn party-start-accept">ACCEPT</button>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(modal);
+    }
+    const nameEl = modal.querySelector('em.hl');
+    if (nameEl) nameEl.textContent = hostName || 'Host';
+    modal.querySelector('.party-start-accept').onclick = function () {
+      modal.classList.add('hidden');
+      DDI.auth.sendPartyMessage(_partyChannel, 'start_accept', {});
+      // Client doesn't start countdown yet — waits for host's 'start_go'
+      // so both sides are synchronized to the same target time.
+    };
+    modal.querySelector('.party-start-decline').onclick = function () {
+      modal.classList.add('hidden');
+      DDI.auth.sendPartyMessage(_partyChannel, 'start_decline', {});
+    };
+    modal.classList.remove('hidden');
+  }
+
+  function _showWaitingForPartnerModal() {
+    let modal = document.getElementById('modal-party-waiting');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'modal-party-waiting';
+      modal.className = 'modal';
+      modal.innerHTML =
+        '<div class="modal-card party-waiting-card">' +
+          '<h2>WAITING FOR PARTNER…</h2>' +
+          '<div class="party-waiting-spinner"><span></span><span></span><span></span></div>' +
+          '<p class="party-start-note">They\'re seeing an accept prompt.</p>' +
+          '<div class="modal-foot pause-buttons">' +
+            '<button class="ghost-btn party-waiting-cancel">CANCEL</button>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(modal);
+      modal.querySelector('.party-waiting-cancel').onclick = function () {
+        _hostCancelStart();
+      };
+    }
+    modal.classList.remove('hidden');
+  }
+
+  function _hideAllStartModals() {
+    ['modal-party-start', 'modal-party-waiting'].forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('hidden');
+    });
+  }
+
+  function _startCountdown(startAt) {
+    _abortCountdown();
+    let overlay = document.getElementById('party-countdown');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'party-countdown';
+      overlay.innerHTML =
+        '<div class="pcd-title">CO-OP STARTS IN</div>' +
+        '<div class="pcd-num">10</div>' +
+        '<div class="pcd-sub">Get ready, descend together.</div>';
+      document.body.appendChild(overlay);
+    }
+    overlay.classList.remove('hidden');
+    const numEl = overlay.querySelector('.pcd-num');
+    const tick = function () {
+      const remainMs = startAt - Date.now();
+      if (remainMs <= 0) {
+        clearInterval(_startTimer);
+        _startTimer = null;
+        overlay.classList.add('hidden');
+        // Both sides call startRun() — host's enemies broadcast will kick
+        // in once both are running, populating the client's mirror pool.
+        if (app && app.startRun) app.startRun();
+        return;
+      }
+      const remainS = Math.ceil(remainMs / 1000);
+      if (numEl) {
+        const prev = numEl.textContent;
+        const cur = String(remainS);
+        if (prev !== cur) {
+          numEl.textContent = cur;
+          // Tiny pop animation on every tick
+          numEl.classList.remove('pcd-pop');
+          void numEl.offsetWidth;
+          numEl.classList.add('pcd-pop');
+        }
+      }
+    };
+    tick();     // immediate render so it doesn't flash from "10"
+    _startTimer = setInterval(tick, 100);
+  }
+
+  function _abortCountdown() {
+    if (_startTimer) { clearInterval(_startTimer); _startTimer = null; }
+    const overlay = document.getElementById('party-countdown');
+    if (overlay) overlay.classList.add('hidden');
+  }
+
   // ---------- Phase 2b: client damage -> host applies ----------
   function sendDamageHit(d) {
     if (!_partyChannel || !_party || _party.iAm !== 'client') return;
@@ -353,6 +568,7 @@ DDI.party = (function () {
       floor:        (app.game && app.game.floor) || 1,
       act:          (app.game && app.game.act)   || 1,
       kills:        (app.game && app.game.kills) || 0,
+      lobby:        false,     // explicit so Object.assign on the receiver clears the previous lobby beat
     });
     // Host: also broadcast the enemy snapshot (Phase 2b)
     if (_party && _party.iAm === 'host') _sendEnemySnapshot();
@@ -421,7 +637,9 @@ DDI.party = (function () {
           status.textContent = '· ' + (z === 'main' ? ('FLOOR ' + f) : z.toUpperCase());
         }
       } else {
-        status.textContent = '· connecting…';
+        // No beat received yet (or stale-swept after silence) — partner's
+        // tab is closed or they signed out.
+        status.textContent = '· offline';
       }
     }
     const hpFill = hud.querySelector('.ph-hp-fill');
@@ -443,5 +661,6 @@ DDI.party = (function () {
     inviteToParty, leaveParty,
     partnerState, inParty, party, iAmHost, iAmClient,
     sendDamageHit,
+    requestStartGame,
   };
 })();

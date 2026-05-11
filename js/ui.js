@@ -73,7 +73,20 @@ DDI.UI = (function () {
         const D = DDI.data || {};
         const cls = (D.CLASSES && D.CLASSES[charKey]) || { name: charKey };
         const hasSaved = !!(save && save.runStates && save.runStates[charKey]);
-        const begin = function () { self.app.startRun(); };
+        // Co-op flow: when in a party as HOST, route through party.requestStartGame
+        // so both players get the ready check + countdown.  Client can't
+        // start their own — the host's countdown launches them.
+        const inHostParty = DDI.party && DDI.party.iAmHost && DDI.party.iAmHost();
+        const inClientParty = DDI.party && DDI.party.iAmClient && DDI.party.iAmClient();
+        const begin = function () {
+          if (inHostParty) { DDI.party.requestStartGame(); }
+          else             { self.app.startRun(); }
+        };
+        if (inClientParty) {
+          // Client — wait for the host to trigger the start.
+          if (self.app.fx && self.app.fx.toast) self.app.fx.toast('★ WAIT FOR HOST TO START ★');
+          return;
+        }
         if (hasSaved) {
           self.showConfirm({
             title: 'DISCARD ' + (cls.name || charKey).toUpperCase() + ' SAVE?',

@@ -1074,6 +1074,11 @@ DDI.systems = (function () {
       app.enemies.forEach(function (e) {
         if (!e._alive) return;
         if (e._fadeOut || e._fadeIn) return;     // intangible during transition
+        // Co-op CLIENT: mirrors don't have authoritative AI — the host's
+        // own contact damage isn't reflected in their snapshot, and we
+        // shouldn't damage the client's hero from a mirror that the host
+        // already considers idle.  Skip the contact check.
+        if (e._mirror) return;
         const r = e.radius + hero.radius - 4;
         if (dist2(hero.x, hero.y, e.x, e.y) < r * r) {
           // Enemy-level vs hero-level scales contact damage. +/-8% per level diff, capped 0.5..2x

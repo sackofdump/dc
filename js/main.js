@@ -1122,6 +1122,12 @@
       const zs = this._zoneSerial;
       this.enemies.forEach(function (e) {
         if (!e._alive) return;
+        // Co-op CLIENT: mirrors are driven entirely by host snapshots.  We
+        // must NOT run local AI, contact damage, or off-screen culling on
+        // them — the cull in particular was killing the mirrors instantly
+        // because the host's enemy positions are usually far from the
+        // client's hero (each player has independent camera coords).
+        if (e._mirror) return;
         // Stale — spawned in a previous zone, somehow survived the cleanup.
         // Kill it immediately so it can't move, contact, or render.
         if (e._zs != null && e._zs !== zs) { e._alive = false; return; }

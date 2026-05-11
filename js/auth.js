@@ -117,8 +117,10 @@ DDI.auth = (function () {
     if (!client) return;
     // Leave realtime channels BEFORE blowing away the session so other
     // clients see us drop off cleanly rather than detecting a stale ref.
+    try { if (DDI.party && DDI.party.leaveParty) DDI.party.leaveParty(true); } catch (e) {}
     try { await leavePresence(); } catch (e) {}
     try { await unsubscribeFriendChanges(); } catch (e) {}
+    try { await unsubscribeInvites(); } catch (e) {}
     await client.auth.signOut();
     currentUser    = null;
     currentProfile = null;
@@ -631,8 +633,14 @@ DDI.auth = (function () {
     return data ? data.display_name : null;
   }
 
-  // Clean up presence on tab close so we don't leave ghost online entries.
-  addEventListener('beforeunload', function () { leavePresence(); unsubscribeFriendChanges(); unsubscribeInvites(); });
+  // Clean up presence + party + channels on tab close so we don't leave
+  // ghost online entries or stranded party members on the other side.
+  addEventListener('beforeunload', function () {
+    try { if (DDI.party && DDI.party.leaveParty) DDI.party.leaveParty(true); } catch (e) {}
+    leavePresence();
+    unsubscribeFriendChanges();
+    unsubscribeInvites();
+  });
 
   // ============================================================
   // CO-OP PARTY (Phase 2a)
@@ -710,7 +718,12 @@ DDI.auth = (function () {
       config: { broadcast: { self: false } },
     });
     // Bind all in-party events through one callback for simplicity
-    ['pos', 'leave', 'chat'].forEach(function (ev) {
+    const PARTY_EVENTS = [
+      'pos', 'leave', 'chat',
+      'enemies', 'dmg',                 // phase 2b
+      'start_request', 'start_accept', 'start_decline', 'start_cancel', 'start_go',
+    ];
+    PARTY_EVENTS.forEach(function (ev) {
       ch.on('broadcast', { event: ev }, function (msg) {
         if (typeof cb === 'function') {
           try { cb({ event: ev, payload: (msg && msg.payload) || null }); }
