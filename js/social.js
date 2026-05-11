@@ -52,24 +52,6 @@ DDI.social = (function () {
         panel.classList.add('hidden');
       }
     });
-    // The new in-card FRIENDS button on the title screen — opens the same
-    // panel as the floating pill, but lets the user reach friends from the
-    // main menu directly.  Anchored differently in CSS so the panel pops
-    // up over the title card.
-    const titleBtn = $('btn-title-friends');
-    if (titleBtn) titleBtn.addEventListener('click', function (e) {
-      e.stopPropagation();
-      if (!panel) return;
-      const willOpen = panel.classList.contains('hidden');
-      if (willOpen) {
-        // Position the panel near the title button so it pops up over the
-        // card naturally rather than hanging off the screen edge.
-        panel.classList.remove('hidden');
-        refreshFriends();
-      } else {
-        panel.classList.add('hidden');
-      }
-    });
     if (closeBtn) closeBtn.addEventListener('click', function () {
       if (panel) panel.classList.add('hidden');
     });
@@ -268,17 +250,10 @@ DDI.social = (function () {
     const reqs = _incomingRequests.length;
     const online = _onlineCount();
     const txt = reqs > 0 ? ('!' + reqs) : String(online);
-    // Floating pill badge
     const el = $('friends-online-count');
     if (el) {
       el.textContent = txt;
       el.classList.toggle('alert', reqs > 0);
-    }
-    // Title-card badge (in the menu button)
-    const t = $('title-friends-badge');
-    if (t) {
-      t.textContent = txt;
-      t.classList.toggle('alert', reqs > 0);
     }
   }
 

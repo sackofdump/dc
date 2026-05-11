@@ -2609,47 +2609,21 @@ body.hud-edit .hud-draggable::after {
 }
 /* In-game: shift below the currency bar (top-right) so they don't overlap */
 #game-root.in-game #friends-widget { top: 56px; }
-/* On the title menu the FRIENDS pill lives INSIDE the menu card now
-   (#btn-title-friends in the button stack), so hide the floating one. */
-body.on-title #friends-widget { display: none; }
-/* Friends panel still uses the same DOM node — but on title it floats
-   centered over the menu card so it doesn't hang off the side. */
+/* Title menu: floating friends pill anchored to the top-LEFT corner of
+   the viewport.  Mirrors the placement the user wanted — visible on the
+   title overlay without crowding the centered card. */
+body.on-title #friends-widget {
+  top: 14px;
+  left: 14px;
+  right: auto;
+  bottom: auto;
+}
 body.on-title #friends-panel {
-  position: fixed;
-  top: 50%; left: 50%;
-  right: auto; bottom: auto;
-  transform: translate(-50%, -50%);
-  z-index: 70;
-  width: min(320px, 92vw);
-}
-
-/* In-card FRIENDS button (title menu) — same look as the GEAR BETA pill
-   but with the cyan accent that matches the floating friends pill. */
-.friends-card-btn {
-  display: inline-flex !important;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  position: relative;
-}
-.friends-card-btn .tfb-glyph {
-  color: var(--accent-gold);
-  filter: drop-shadow(0 0 4px rgba(255,217,102,0.55));
-}
-.friends-card-btn .tfb-badge {
-  background: var(--accent-violet);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 800;
-  padding: 1px 7px;
-  border-radius: 999px;
-  letter-spacing: 0;
-  min-width: 18px;
-  text-align: center;
-}
-.friends-card-btn .tfb-badge.alert {
-  background: #ff3d52;
-  animation: fwBadgePulse 1.4s ease-in-out infinite;
+  /* Hangs down from the pill in the top-left corner */
+  top: 44px;
+  left: 0;
+  right: auto;
+  bottom: auto;
 }
 #friends-toggle {
   display: inline-flex;
