@@ -1766,6 +1766,12 @@
     // Enter a biome zone — clear enemies, regen features without portals, set kill goal.
     enterZone(biome, displayName, color, requiredLevel) {
       const D = DDI.data;
+      // Cancel any pending bounty-respawn from a previous zone before
+      // replacing this.zone.
+      if (this.zone && this.zone._bountyTimer) {
+        clearTimeout(this.zone._bountyTimer);
+        this.zone._bountyTimer = null;
+      }
       // Pick a random objective, but never the same one as the previous zone.
       // Track the last id on the App so it survives between zones.
       let objId = (D.pickObjective ? D.pickObjective() : 'standard');
@@ -2059,7 +2065,11 @@
     // gets a "warning" flash + toast so the player notices a new target appear.
     spawnNextBounty() {
       const z = this.zone;
-      if (!z || !z.bountyQueue || !z.bountyQueue.length) return;
+      // Defensive: only spawn while we're still inside the bounty zone.
+      // (Setting a setTimeout in a bounty zone then exiting before it fires
+      // would otherwise leak a bounty into the main map.)
+      if (!z || z.name === 'main' || z.objective !== 'bounty') return;
+      if (!z.bountyQueue || !z.bountyQueue.length) return;
       const cfg = z.bountyQueue.shift();
       const ENEMIES = DDI.data.ENEMIES;
       const def = ENEMIES[cfg.id];
@@ -2086,15 +2096,20 @@
         this.completeZone();
         return;
       }
-      // Bounty target kill counts separately
-      if (enemy && enemy._bounty) {
+      // Bounty target kill counts separately — guard to the active bounty zone.
+      if (enemy && enemy._bounty && this.zone.objective === 'bounty') {
         this.zone.bountyKilled = (this.zone.bountyKilled || 0) + 1;
         this.fx.toast('★  ' + (enemy._bountyName || 'BOUNTY') + ' SLAIN  ★');
         this.fx.flash('#ffd966', 0.4);
-        // Spawn the next bounty in the queue after a short beat so it doesn't
-        // overlap with the first kill's death VFX.
+        // Spawn the next bounty in the queue after a short beat.  Track the
+        // timer id on the zone so we can cancel it on exit (otherwise it
+        // would leak a bounty into the next zone).
         const self = this;
-        setTimeout(function () { self.spawnNextBounty(); }, 1200);
+        if (this.zone._bountyTimer) clearTimeout(this.zone._bountyTimer);
+        this.zone._bountyTimer = setTimeout(function () {
+          self.zone._bountyTimer = null;
+          self.spawnNextBounty();
+        }, 1200);
       }
       this.zone.killsInZone = (this.zone.killsInZone || 0) + 1;
       this.checkZoneComplete();
@@ -2253,6 +2268,12 @@
     returnToMain() {
       this._zoneCompleting = false;
       if (this.ui && this.ui.hideZoneExitButton) this.ui.hideZoneExitButton();
+      // Cancel any pending bounty-respawn timer from the zone we're leaving so
+      // it can't fire after we're back in the main map.
+      if (this.zone && this.zone._bountyTimer) {
+        clearTimeout(this.zone._bountyTimer);
+        this.zone._bountyTimer = null;
+      }
       this.zone = { name: 'main', displayName: 'WHISPERING CRYPTS', color: '#b266ff', killsInZone: 0, killsNeeded: 0 };
       this.zoneDifficulty = 1;     // zone bonus reset, but runDifficulty persists
       this.zoneRequiredLevel = 0;
