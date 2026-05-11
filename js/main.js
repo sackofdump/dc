@@ -1174,13 +1174,26 @@
       const zs = this._zoneSerial;
       this.enemies.forEach(function (e) {
         if (!e._alive) return;
-        // Co-op CLIENT: mirrors are driven by host snapshots.  No AI /
-        // contact / cull, BUT advance position using the snapshot's
-        // velocity so they look smooth at 60fps instead of stepping at
-        // 15Hz.  Tick the flash decay so hit feedback still fades.
+        // Co-op CLIENT: mirrors use entity interpolation between the
+        // last two snapshots.  Always renders ~66ms behind authoritative
+        // but is rock-smooth and immune to AI direction changes (which
+        // dead-reckoning couldn't predict).
         if (e._mirror) {
-          e.x += (e.vx || 0) * dt;
-          e.y += (e.vy || 0) * dt;
+          if (e._targetAt != null && e._prevAt != null && e._targetAt > e._prevAt) {
+            const now = Date.now();
+            // Render in the past (renderAt = now - 1 snapshot interval)
+            // so we're always interpolating between two known states.
+            const renderAt = now - 66;
+            let alpha = (renderAt - e._prevAt) / (e._targetAt - e._prevAt);
+            if (alpha < 0) alpha = 0;
+            if (alpha > 1.4) alpha = 1.4;     // tiny extrapolation cushion
+            e.x = e._prevX + (e._targetX - e._prevX) * alpha;
+            e.y = e._prevY + (e._targetY - e._prevY) * alpha;
+          } else {
+            // Pre-first-snapshot fallback
+            e.x += (e.vx || 0) * dt;
+            e.y += (e.vy || 0) * dt;
+          }
           if (e.flash > 0) e.flash = Math.max(0, e.flash - dt);
           return;
         }
