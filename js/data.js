@@ -640,7 +640,7 @@ DDI.data = (function () {
     id: 'venomStrike', name: 'Venom Strike', icon: '☣️', element: 'poison', color: '#a8ff66',
     desc: 'Hurls a poisoned blade that bleeds toxic DoT on hit.',
     type: 'projectile', maxLevel: 8,
-    base: { cooldown: 1.0, damage: 12, count: 2, speed: 400, pierce: 0, area: 12, life: 1.1, dotDps: 8, dotDur: 4 },
+    base: { cooldown: 1.0, damage: 15, count: 2, speed: 400, pierce: 0, area: 12, life: 1.1, dotDps: 8, dotDur: 4 },
     scale: function (lvl, b) {
       return Object.assign({}, b, {
         damage:   b.damage   * (1 + 0.18 * lvl),

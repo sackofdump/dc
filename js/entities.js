@@ -148,6 +148,7 @@ DDI.entities = (function () {
       this.slowAmt = 0; this.slowDur = 0;
       this.areaOnHit = 0;
       this.hostile = false;
+      this._zs = 0;
       this.sprite = null;
       this.spriteFrame = 0;
       this.animFrames = null;
@@ -183,6 +184,7 @@ DDI.entities = (function () {
       this.slowDur = opts.slowDur || 0;
       this.areaOnHit = opts.areaOnHit || 0;
       this.hostile = !!opts.hostile;
+      this._zs = opts._zs != null ? opts._zs : 0;
       this.sprite = opts.sprite || null;
       this.spriteFrame = opts.spriteFrame != null ? opts.spriteFrame : 0;
       this.animFrames = opts.animFrames || null;

@@ -64,28 +64,11 @@ DDI.UI = (function () {
       const btnNewCancel = this.$('btn-new-cancel');
       const profilePill = this.$('profile-pill');
       if (btnStart)   btnStart.addEventListener('click', function () {
-        // Guard the active character's saved run — DESCEND silently overwrote
-        // it before. Now we ask first so an existing save is never lost by
-        // accident.
-        const a = self.app;
-        const active = (a && a.activeSavedRun) ? a.activeSavedRun() : null;
-        if (active) {
-          const ck = (a.save && a.save.character) || 'default';
-          const D = DDI.data || {};
-          const cls = (D.CLASSES && D.CLASSES[ck]) || { name: ck };
-          self.showConfirm({
-            title: 'DISCARD ' + (cls.name || ck).toUpperCase() + ' SAVE?',
-            message:
-              'You have a saved run on <em class="hl">' + (cls.name || ck).toUpperCase() + '</em>.\n' +
-              'Starting a new run will permanently overwrite it.',
-            confirmText: 'START NEW RUN',
-            cancelText: 'KEEP MY SAVE',
-            danger: true,
-            onConfirm: function () { a.startRun(); },
-          });
-          return;
-        }
-        a.startRun();
+        // NEW GAME — always opens the character-select picker first.  The
+        // confirm-on-existing-save runs after they pick, scoped to the
+        // chosen class.
+        self._newRunFlow = true;
+        self.showCharacterSelect();
       });
       if (btnRestart) btnRestart.addEventListener('click', function () { self.app.startRun(); });
       const btnDeathMenu = this.$('btn-death-menu');
@@ -435,17 +418,52 @@ DDI.UI = (function () {
       // ability roster won't match.
       // Per-character runStates: switching classes no longer discards
       // saved runs — each class keeps its own snapshot.
-      const commit = function (choice) {
-        if (!choice || !self.app.save) return;
+      const finishCommit = function (choice, andStart) {
         self.app.save.character = choice;
         self.app.persist();
         modal.classList.add('hidden');
         self.modalOpen = false;
         self._charFromTitle = false;
-        self.showTitle();
-        if (self.app.fx && self.app.fx.toast) {
-          self.app.fx.toast('CHARACTER: ' + choice.toUpperCase());
+        self._newRunFlow = false;
+        if (andStart) {
+          self.app.startRun();
+        } else {
+          self.showTitle();
+          if (self.app.fx && self.app.fx.toast) {
+            self.app.fx.toast('CHARACTER: ' + choice.toUpperCase());
+          }
         }
+      };
+      const commit = function (choice) {
+        if (!choice || !self.app.save) return;
+        // NEW GAME flow: picking a class triggers a run start.  If that
+        // class already has a saved run, confirm before overwriting.
+        if (self._newRunFlow) {
+          const D = DDI.data || {};
+          const cls = (D.CLASSES && D.CLASSES[choice]) || { name: choice };
+          const map = self.app.save.runStates || {};
+          if (map[choice]) {
+            self.showConfirm({
+              title: 'DISCARD ' + (cls.name || choice).toUpperCase() + ' SAVE?',
+              message:
+                'You have a saved run on <em class="hl">' + (cls.name || choice).toUpperCase() + '</em>.\n' +
+                'Starting a new run will permanently overwrite it.',
+              confirmText: 'START NEW RUN',
+              cancelText: 'KEEP MY SAVE',
+              danger: true,
+              onConfirm: function () {
+                delete self.app.save.runStates[choice];
+                self.app.persist();
+                finishCommit(choice, true);
+              },
+            });
+            return;
+          }
+          finishCommit(choice, true);
+          return;
+        }
+        // Standard "Change Character" flow — just swap class, return to title.
+        finishCommit(choice, false);
       };
       picks.forEach(function (el) {
         const myChar = el.getAttribute('data-char');

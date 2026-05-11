@@ -18,6 +18,12 @@
       // holy beam stripes, expanding spore rings). Updated each frame; hits the
       // hero only after the active phase begins (telegraph -> strike -> linger).
       this.hazards = [];
+      // Monotonic counter bumped on every zone transition. Hazards and hostile
+      // projectiles are tagged with the serial at spawn time; anything whose tag
+      // doesn't match the current serial is dropped in the update loops. This
+      // is a belt-and-suspenders catch for boss abilities leaking across zones
+      // even when explicit clear calls were made.
+      this._zoneSerial = 0;
       this.features = [];
       // Zone state: 'main' has portals; biome zones have no portals and a kill goal.
       this.zone = { name: 'main', displayName: 'WHISPERING CRYPTS', color: '#b266ff', killsInZone: 0, killsNeeded: 0 };
@@ -187,7 +193,7 @@
       this.loot.live.forEach(function (l) { l._alive = false; });         this.loot.sweep();
       this.particles.live.forEach(function (p) { p._alive = false; });   this.particles.sweep();
       this.dmgnums.live.forEach(function (d) { d._alive = false; });     this.dmgnums.sweep();
-      this.hazards = [];     // clear lingering elite hazards from a previous run
+      this._clearTransientCombat();     // bump zone serial + clear hazards from a previous run
       this.hero.reset(HERO_BASE, this.world.width / 2, this.world.height / 2);
       this.zone = { name: 'main', displayName: 'WHISPERING CRYPTS', color: '#b266ff', killsInZone: 0, killsNeeded: 0 };
       this.zoneDifficulty = 1;
@@ -509,7 +515,7 @@
       this.loot.live.forEach(function (l) { l._alive = false; });        this.loot.sweep();
       this.particles.live.forEach(function (p) { p._alive = false; });   this.particles.sweep();
       this.dmgnums.live.forEach(function (d) { d._alive = false; });    this.dmgnums.sweep();
-      this.hazards = [];
+      this._clearTransientCombat();
       // Rebuild hero — base stats first, then overlay saved values
       this.hero.reset(HERO_BASE, rs.hero.x || this.world.width / 2, rs.hero.y || this.world.height / 2);
       DDI.data.applyMetaUpgrades(this.hero, this.save.permUpgrades);
@@ -1149,6 +1155,7 @@
         color: '#ffd966',
         sourceId: e.id,
         hitOnce: false,
+        _zs: this._zoneSerial,
       });
     }
 
@@ -1166,6 +1173,7 @@
           life: 1.4, damage: dmg,
           color: '#e8dcc0', radius: 6, pierce: 0,
           kind: 'projectile', hostile: true,
+          _zs: this._zoneSerial,
         });
       }
     }
@@ -1185,6 +1193,7 @@
           telegraph: 0.5, strike: 0.0, linger: 5.5,
           damage: dmg,
           color: '#9fdf7f',
+          _zs: this._zoneSerial,
         });
       }
     }
@@ -1207,6 +1216,7 @@
           kind: 'meteor', hostile: true,
           spawnY: ty - 380, gravityFall: ty,
           areaOnHit: 50, delay: i * 0.3,
+          _zs: this._zoneSerial,
         });
       }
     }
@@ -1231,6 +1241,7 @@
         x: tx, y: ty, radius: 70,
         telegraph: 0.0, strike: 0.25, linger: 0.0,
         damage: dmg, color: '#b266ff', hitOnce: false,
+        _zs: this._zoneSerial,
       });
     }
 
@@ -1243,6 +1254,7 @@
         x: e.x, y: e.y, radius: 0, maxRadius: 220,
         telegraph: 0.0, strike: 0.7, linger: 0.0,
         damage: dmg, color: '#ff7b1f', hitOnce: false,
+        _zs: this._zoneSerial,
       });
     }
 
@@ -1250,8 +1262,11 @@
     updateHazards(dt) {
       const h = this.hero;
       const live = [];
+      const zs = this._zoneSerial;
       for (let i = 0; i < this.hazards.length; i++) {
         const z = this.hazards[i];
+        // Stale — left over from a previous zone. Drop without ticking.
+        if (z._zs != null && z._zs !== zs) continue;
         // Phase machine: telegraph -> strike -> linger
         if (z.telegraph > 0) {
           z.telegraph -= dt;
@@ -1319,6 +1334,7 @@
         damage: (enemy.def.rangedDmg || 8) * lvlScale,
         color, radius: 8, pierce: 0,
         kind: 'projectile', hostile: true,
+        _zs: this._zoneSerial,
       });
     }
 
@@ -1332,6 +1348,8 @@
 
         // Hostile (enemy) projectiles target hero, not enemies
         if (p.hostile) {
+          // Stale projectile from a previous zone — drop without applying.
+          if (p._zs != null && p._zs !== self._zoneSerial) { p._alive = false; return; }
           p.x += p.vx * dt;
           p.y += p.vy * dt;
           const r = h.radius + p.radius * 0.6;
@@ -1817,6 +1835,23 @@
       this.features = this.features.filter(function (f) { return removed.indexOf(f) === -1; });
     }
 
+    // Single source of truth for "the boss/zone is over — drop everything that
+    // would let an ability outlive its zone". Bumps the zone serial so any
+    // hazard/hostile projectile spawned before this call is auto-filtered by
+    // the update loops on the next tick, even if a delayed cast lands after.
+    _clearTransientCombat() {
+      this.hazards = [];
+      this.projectiles.live.forEach(function (p) {
+        if (p && p.hostile) p._alive = false;
+      });
+      this.projectiles.sweep();
+      if (this.zone && this.zone._bountyTimer) {
+        clearTimeout(this.zone._bountyTimer);
+        this.zone._bountyTimer = null;
+      }
+      this._zoneSerial = (this._zoneSerial || 0) + 1;
+    }
+
     // Enter a biome zone — clear enemies, regen features without portals, set kill goal.
     enterZone(biome, displayName, color, requiredLevel) {
       const D = DDI.data;
@@ -1870,7 +1905,7 @@
       this.loot.sweep();
       this.projectiles.live.forEach(function (p) { p._alive = false; });
       this.projectiles.sweep();
-      this.hazards = [];     // clear lingering elite hazards on zone change
+      this._clearTransientCombat();     // bump zone serial + clear lingering hazards
       Spawner.reset();
       this.hero.x = this.world.width / 2;
       this.hero.y = this.world.height / 2;
@@ -1943,7 +1978,7 @@
       // pull stuff from the world we just left.
       this.loot.live.forEach(function (l) { l._alive = false; });
       this.loot.sweep();
-      this.hazards = [];
+      this._clearTransientCombat();
       Spawner.reset();
       // Build the interior features: chests, gold piles, ambush enemies, and
       // the exit door north of the spawn point.
@@ -2025,7 +2060,7 @@
       this.loot.sweep();
       this.projectiles.live.forEach(function (p) { p._alive = false; });
       this.projectiles.sweep();
-      this.hazards = [];     // clear lingering elite hazards on zone change
+      this._clearTransientCombat();     // bump zone serial + clear lingering hazards
       Spawner.reset();
       this.hero.x = stash.returnX;
       this.hero.y = stash.returnY;
@@ -2246,8 +2281,9 @@
         this.zone._bountyTimer = null;
       }
       // Clear pre-boss hazards so old plague pools / holy beams don't keep
-      // ticking through the boss intro.
-      this.hazards = [];
+      // ticking through the boss intro. Bumps the zone serial so any in-flight
+      // cast from a pre-boss elite stops applying.
+      this._clearTransientCombat();
       this.zone.fadeOutBegan = true;
       this.fx.toast('★  THE BOSS APPROACHES  ★');
       this.fx.flash(this.zone.color || '#ff3d52', 0.5);
@@ -2326,9 +2362,10 @@
     completeZone() {
       if (this._zoneCompleting) return;
       this._zoneCompleting = true;
-      // Clear any lingering hazards (boss's plague pools, holy beams, etc.)
-      // so the player isn't still being chipped after the boss is dead.
-      this.hazards = [];
+      // Clear any lingering hazards + in-flight hostile projectiles (plague
+      // pools, meteors, shrapnel shards) and bump the zone serial so any
+      // further boss-ability casts in this zone become no-ops on the next tick.
+      this._clearTransientCombat();
       // Persistent run difficulty bump — main map gets harder after each zone clear
       this.runDifficulty = (this.runDifficulty || 1) + 0.20;
       // Seal this portal for the rest of the run — and track for act-boss gate
@@ -2372,7 +2409,7 @@
       this.loot.sweep();
       this.projectiles.live.forEach(function (p) { p._alive = false; });
       this.projectiles.sweep();
-      this.hazards = [];     // clear lingering elite hazards on zone change
+      this._clearTransientCombat();     // bump zone serial + clear lingering hazards
       Spawner.reset();
       this.hero.x = this.world.width / 2;
       this.hero.y = this.world.height / 2;
@@ -2437,6 +2474,9 @@
     advanceAct() {
       this.game.actBossActive = null;
       this.game.pendingActBoss = false;
+      // Wipe boss-cast hazards/projectiles so the post-fight victory beat
+      // isn't still being chipped by an in-flight ability.
+      this._clearTransientCombat();
       this.ui.hideBoss();
       this.fx.flash('#ffe14d', 0.85);
       this.fx.shake(34);
