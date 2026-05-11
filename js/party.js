@@ -194,8 +194,22 @@ DDI.party = (function () {
     if (_sweepT) clearInterval(_sweepT);
     _sweepT = setInterval(function () {
       if (_partnerState && Date.now() - _partnerState.lastSeen > STALE_MS) {
+        // Partner went silent — tab closed, signed out, or crashed.
+        // If we were actively in a party, treat this as a disconnect
+        // so the user actually sees that their teammate is gone, not
+        // just a quietly-disappearing dot.  This is the safety net for
+        // when the explicit 'leave' broadcast doesn't reach us.
+        const wasName = _partnerState.display_name;
         _partnerState = null;
         _renderPartyHud();
+        if (_party && !_party.pending && wasName) {
+          _showLeaveBanner(wasName + ' (disconnected)');
+          _abortCountdown();
+          _hideAllStartModals();
+          // Local-only cleanup — they're already gone, no point trying
+          // to broadcast a leave back at them.
+          leaveParty(false);
+        }
       }
     }, 1000);
   }
@@ -575,20 +589,33 @@ DDI.party = (function () {
   }
 
   function leaveParty(notify) {
-    if (notify !== false && _partyChannel && _party && DDI.auth && DDI.auth.sendPartyMessage) {
-      try {
-        DDI.auth.sendPartyMessage(_partyChannel, 'leave', { partyId: _party.id });
-      } catch (e) {}
+    // Capture refs locally so we can delay the channel close without
+    // racing against in-flight sends.  This is the critical fix for
+    // "the leave banner never showed" — we used to close the channel
+    // synchronously while the broadcast was still being awaited.
+    const chToClose = _partyChannel;
+    const stillNotify = (notify !== false) && chToClose && _party && DDI.auth && DDI.auth.sendPartyMessage;
+    const myPartyId = _party ? _party.id : null;
+    if (stillNotify) {
+      try { DDI.auth.sendPartyMessage(chToClose, 'leave', { partyId: myPartyId }); } catch (e) {}
     }
     if (_beatT)  { clearInterval(_beatT);  _beatT  = null; }
     if (_sweepT) { clearInterval(_sweepT); _sweepT = null; }
-    if (_partyChannel && DDI.auth && DDI.auth.closePartyChannel) {
-      try { DDI.auth.closePartyChannel(_partyChannel); } catch (e) {}
-    }
+    _abortCountdown();
+    _hideAllStartModals();
+    // Clear local state immediately so the UI updates
     _partyChannel = null;
     _party        = null;
     _partnerState = null;
     _renderPartyHud();
+    // Defer the channel teardown so the 'leave' broadcast has time to
+    // flush.  500ms is short enough not to be noticeable but long
+    // enough for Supabase's WebSocket to ack the message.
+    if (chToClose && DDI.auth && DDI.auth.closePartyChannel) {
+      setTimeout(function () {
+        try { DDI.auth.closePartyChannel(chToClose); } catch (e) {}
+      }, 500);
+    }
   }
 
   // ---------- Party HUD ----------

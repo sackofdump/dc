@@ -2847,7 +2847,21 @@
     }
 
     getDifficultyMult() {
-      return (this.zoneDifficulty || 1) * (this.runDifficulty || 1);
+      return (this.zoneDifficulty || 1) * (this.runDifficulty || 1) * this.partyDifficultyMult();
+    }
+    // Co-op scaling: HP-only multiplier applied at every spawn site.
+    // Picked sub-linear so 2 players still feel powerful — 1.7x at 2
+    // players (host + 1) means each player gets ~85% of solo HP-per-
+    // contribution but the encounter actually takes time to grind through.
+    // Damage isn't scaled here so a wandering hit isn't suddenly lethal.
+    partyDifficultyMult() {
+      if (!DDI.party || !DDI.party.inParty || !DDI.party.inParty()) return 1;
+      // Always 2 players for now (Phase 2a/2b is pair-only); future-proof
+      // by reading members length so 3-4 player parties scale gracefully.
+      const p = DDI.party.party && DDI.party.party();
+      const n = (p && p.members && p.members.length) || 2;
+      // 1 -> 1.0, 2 -> 1.7, 3 -> 2.3, 4 -> 2.8
+      return 1 + Math.max(0, n - 1) * 0.7 - Math.max(0, n - 2) * 0.15 - Math.max(0, n - 3) * 0.1;
     }
 
     magnetPulse() {
