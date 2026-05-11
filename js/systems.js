@@ -914,16 +914,17 @@ DDI.systems = (function () {
       if (isCrit) this.app.fx.shake(2);
       // Audio — short throttled thud, crunchier on crits
       if (DDI.audio) DDI.audio.play(isCrit ? 'crit' : 'hit');
-      // Tiny "trail" drops on elite/boss hits — pleasant slot-machine feel without being free loot
+      // Trail drops on elite/boss hits — a steady visible drip of loot so
+      // long boss fights feel rewarding (was 14% / 22% — too sparse).
       if (enemy._alive && enemy.def && (enemy.def.isElite || enemy.def.isBoss)) {
-        // Bosses bleed slightly more often
-        const baseChance = enemy.def.isBoss ? 0.22 : 0.14;
-        const critBonus  = isCrit ? 0.10 : 0;
+        const baseChance = enemy.def.isBoss ? 0.42 : 0.24;
+        const critBonus  = isCrit ? 0.15 : 0;
         if (chance(baseChance + critBonus)) {
           const kind = (Math.random() < 0.55) ? 'xp' : 'gold';
+          const isBoss = !!enemy.def.isBoss;
           const value = (kind === 'xp')
-            ? 1 + Math.floor(Math.random() * 2)        // 1-2 xp
-            : 1 + Math.floor(Math.random() * 3);       // 1-3 gold
+            ? (isBoss ? 2 + Math.floor(Math.random() * 3) : 1 + Math.floor(Math.random() * 2))
+            : (isBoss ? 2 + Math.floor(Math.random() * 5) : 1 + Math.floor(Math.random() * 3));
           const ox = (Math.random() - 0.5) * enemy.radius * 0.8;
           const oy = (Math.random() - 0.5) * enemy.radius * 0.6;
           this.app.loot.spawn(kind, enemy.x + ox, enemy.y + oy, value);
