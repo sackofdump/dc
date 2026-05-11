@@ -125,6 +125,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
 }
 #stamina-fill.sprinting { background: linear-gradient(180deg, #ffe14d, #ff7b1f 70%); box-shadow: 0 0 10px rgba(255,217,102,0.6); }
 #stamina-fill.empty     { background: linear-gradient(180deg, #5a3030, #3a1515); box-shadow: none; }
+#stamina-text { font-size: 10px; color: #b3ecff; display: block; margin-top: 1px; letter-spacing: 0.05em; }
 
 #floor-info { text-align: center; flex: 0 0 auto; min-width: auto; padding: 0 6px; }
 #floor-num { font-size: 13px; color: var(--ink); letter-spacing: 0.15em; font-weight: 800; }
@@ -230,6 +231,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
   #hp-bar { height: 9px; }
   #hp-text { font-size: 9px; }
   #stamina-bar { height: 3px; margin-top: 2px; }
+  #stamina-text { font-size: 8px; }
   #cata-combo-stack { min-width: 110px; gap: 2px; flex: 1 1 110px; }
   #cata-combo-stack #ult-bar { height: 14px; }
   #cata-combo-stack #slaughter-bar { height: 9px; }

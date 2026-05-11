@@ -1418,6 +1418,12 @@ DDI.UI = (function () {
         stEl.classList.toggle('sprinting', !!a.hero.sprinting);
         stEl.classList.toggle('empty', stPct <= 0.02);
       }
+      const stTxt = this.$('stamina-text');
+      if (stTxt) {
+        const cur = (a.hero.stamina || 0);
+        const max = (a.hero.maxStamina || 1);
+        stTxt.textContent = cur.toFixed(1) + ' / ' + max.toFixed(1);
+      }
 
       // Zone header — current location at the top of the screen
       const zh = this.$('zone-header');

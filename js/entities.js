@@ -102,6 +102,19 @@ DDI.entities = (function () {
       this.facing = -1;
       this.animT = rand(0, 1);
       this.level = 1;
+      // Clear ALL tags from the entity's previous life. The Pool recycles
+      // dead enemies, so any flag we don't blow away here will leak into
+      // the next spawn (e.g. a regular mob inheriting _bounty from a dead
+      // bounty target → ghost gold-star markers on the minimap, or a basic
+      // mob inheriting _castableAbility from a dead boss → random meteors).
+      this._bounty = false;
+      this._bountyName = null;
+      this._actBoss = false;
+      this._interior = false;
+      this._castableAbility = null;
+      this._eliteCd = 0;
+      this._eliteCdMin = null;
+      this._eliteCdMax = null;
     }
     takeHit(amount, isCrit, fromX, fromY) {
       this.hp -= amount;
