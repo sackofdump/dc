@@ -2462,12 +2462,13 @@
       const x = Math.max(160, Math.min(this.world.width  - 160, this.hero.x + Math.cos(ang) * dist));
       const y = Math.max(160, Math.min(this.world.height - 160, this.hero.y + Math.sin(ang) * dist));
       const dm = this.getDifficultyMult();
-      // Final-act boss is significantly tougher: 7x HP, 2.6x damage, comes
-      // with an elite-style ability that fires on a cooldown so the fight
-      // is a real climax — telegraph + dodge alongside the melee pressure.
+      // Late-act bosses scale up sharply — act 4 is the prelude to the climax
+      // and the final-act boss is the climax itself. Earlier acts stay tuned
+      // for fresh builds.
       const isFinalAct = act >= 5;
-      const hpMul = isFinalAct ? 7.0 : 4.0;
-      const dmgMul = isFinalAct ? 2.6 : 2.0;
+      const isAct4 = act === 4;
+      const hpMul  = isFinalAct ? 9.0 : isAct4 ? 5.5 : 4.0;
+      const dmgMul = isFinalAct ? 3.2 : isAct4 ? 2.3 : 2.0;
       const e = this.enemies.spawn(def, x, y, hpMul * dm, dmgMul * dm);
       e.level = (this.game.level || 1) + (isFinalAct ? 12 : 6);
       e._actBoss = true;
@@ -2531,9 +2532,13 @@
       this.game.zonesCleared = {};
       this.game.actBossActive = null;
       this.game.pendingActBoss = false;
-      // Difficulty bump per act — was +1.0 (doubled act 2) which one-shot
-      // fresh heroes. +0.5 is still a meaningful spike without being lethal.
-      this.runDifficulty = (this.runDifficulty || 1) + 0.5;
+      // Difficulty bump per act. Acts 2–3 use the gentle +0.5 ramp (was +1.0,
+      // which one-shot fresh heroes). Acts 4 and 5 are the late-game gauntlet
+      // and should actually push the player — a fully-stacked Lv 50+ hero
+      // walked through them before this.
+      const nextAct = this.game.act;
+      const bump = nextAct === 4 ? 1.25 : nextAct >= 5 ? 1.75 : 0.5;
+      this.runDifficulty = (this.runDifficulty || 1) + bump;
       // Persist best-act + first-act-1-clear time for the leaderboard
       if (this.save) {
         if ((this.save.bestAct || 1) < this.game.act) this.save.bestAct = this.game.act;

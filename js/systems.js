@@ -1022,10 +1022,13 @@ DDI.systems = (function () {
           const eLvl = e.level || 1;
           const lvlScale = Math.max(0.5, Math.min(2, 1 + (eLvl - heroLvl) * 0.08));
           let raw = e.dmg * lvlScale;
-          // Hard cap: a single contact hit can never take more than 55% of
-          // the hero's max HP.  Bosses + elites can still pressure you, but
-          // not snap-kill from full health.
-          const maxBite = hero.maxHp * 0.55;
+          // Hard cap: a single contact hit can never one-shot from full HP.
+          // Early acts cap at 55% so a stray brush isn't fatal. Late acts
+          // raise the ceiling so a careless step into an act-4/5 boss
+          // actually punishes you.
+          const _act = (app.game && app.game.act) || 1;
+          const biteCap = _act >= 5 ? 0.85 : _act >= 4 ? 0.70 : 0.55;
+          const maxBite = hero.maxHp * biteCap;
           if (raw > maxBite) raw = maxBite;
           const dealt = hero.takeDamage(raw);
           if (dealt > 0) {
