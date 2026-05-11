@@ -120,6 +120,10 @@ DDI.entities = (function () {
       this._eliteCd = null;
       this._eliteCdMin = null;
       this._eliteCdMax = null;
+      // Co-op mirror tags — cleared on every pool reuse so a host-side
+      // enemy never inherits a client-mirror flag from its previous life.
+      this._remoteId = null;
+      this._mirror   = false;
       // Zone serial — overwritten by the Pool factory immediately after this
       // reset returns (see App ctor). Listed here so the field is enumerable.
       this._zs = 0;

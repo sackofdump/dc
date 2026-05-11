@@ -211,7 +211,108 @@ DDI.party = (function () {
       if (d.user_id === myId) return;
       _partnerState = Object.assign({}, _partnerState || {}, d, { lastSeen: Date.now() });
       _renderPartyHud();
+    } else if (ev === 'enemies' && _party && _party.iAm === 'client') {
+      // Host's authoritative enemy snapshot — sync our local pool to mirror it
+      _applyEnemySnapshot(d && d.enemies);
+    } else if (ev === 'dmg' && _party && _party.iAm === 'host') {
+      // Client hit one of our enemies — apply the damage canonically
+      _applyClientDamage(d);
     }
+  }
+
+  // ---------- Phase 2b: enemy state sync (host -> client) ----------
+  // Host packs each live enemy into a small descriptor and broadcasts the
+  // whole list 10x/sec.  Client uses this to populate its app.enemies pool,
+  // creating/updating/killing mirrors keyed by the host's enemy.id.
+  function _sendEnemySnapshot() {
+    if (!_partyChannel || !app || !app.enemies) return;
+    const out = [];
+    app.enemies.forEach(function (e) {
+      if (!e || !e._alive || !e.def) return;
+      out.push({
+        id:      e.id,
+        defId:   e.def.id || null,
+        x:       Math.round(e.x),
+        y:       Math.round(e.y),
+        hp:      Math.round(e.hp),
+        maxHp:   Math.round(e.maxHp),
+        level:   e.level || 1,
+        flash:   e.flash > 0 ? 1 : 0,
+        fadeIn:  !!e._fadeIn,
+        fadeOut: !!e._fadeOut,
+      });
+    });
+    DDI.auth.sendPartyMessage(_partyChannel, 'enemies', { enemies: out });
+  }
+
+  function _applyEnemySnapshot(list) {
+    if (!app || !app.enemies || !list) return;
+    const ENEMIES = (DDI.data && DDI.data.ENEMIES) || {};
+    // Nuke any non-mirror enemies still floating around — they're leftovers
+    // from before the party formed (or from a stuck local Spawner tick).
+    // The client only renders host-authoritative enemies.
+    app.enemies.forEach(function (e) {
+      if (e._alive && e._remoteId == null) e._alive = false;
+    });
+    // Index existing mirrors by _remoteId
+    const existing = {};
+    app.enemies.forEach(function (e) {
+      if (e._alive && e._remoteId != null) existing[e._remoteId] = e;
+    });
+    const seen = {};
+    for (let i = 0; i < list.length; i++) {
+      const s = list[i];
+      seen[s.id] = true;
+      const def = (s.defId && ENEMIES[s.defId]) || null;
+      if (!def) continue;
+      let e = existing[s.id];
+      if (!e) {
+        // Spawn a fresh mirror.  Combat is gated client-side via
+        // app.iAmClient so the mirror's HP doesn't get mutated locally;
+        // it'll be overwritten by the next snapshot anyway.
+        e = app.enemies.spawn(def, s.x, s.y, 1, 1);
+        if (!e) continue;
+        e._remoteId = s.id;
+        e._mirror   = true;     // tag so combat / drops know to skip side effects
+        e.maxHp     = s.maxHp;
+        e.level     = s.level;
+      }
+      // Smoothly catch the snapshot position rather than teleporting —
+      // 30% lerp per snapshot looks responsive without jitter at 10Hz.
+      const lerp = 0.55;
+      e.x = e.x + (s.x - e.x) * lerp;
+      e.y = e.y + (s.y - e.y) * lerp;
+      e.hp = s.hp;
+      e.maxHp = s.maxHp;
+      e.level = s.level;
+      e._fadeIn  = s.fadeIn;
+      e._fadeOut = s.fadeOut;
+      if (s.flash) e.flash = 0.12;
+    }
+    // Kill mirrors the host didn't send (host considers them dead/despawned)
+    app.enemies.forEach(function (e) {
+      if (e._alive && e._remoteId != null && !seen[e._remoteId]) {
+        e._alive = false;
+      }
+    });
+  }
+
+  // ---------- Phase 2b: client damage -> host applies ----------
+  function sendDamageHit(d) {
+    if (!_partyChannel || !_party || _party.iAm !== 'client') return;
+    DDI.auth.sendPartyMessage(_partyChannel, 'dmg', d);
+  }
+
+  function _applyClientDamage(d) {
+    if (!d || d.id == null || !app || !app.enemies || !app.combat) return;
+    let target = null;
+    app.enemies.forEach(function (e) { if (!target && e._alive && e.id === d.id) target = e; });
+    if (!target) return;
+    // Apply via the existing combat path so death + loot + xp all run
+    // normally on the host.
+    try {
+      app.combat.dealDamage(target, d.amount, d.element || 'physical', !!d.isCrit, d.fromX || target.x, d.fromY || target.y, d.color || '#fff');
+    } catch (e) { console.error('[party] applyClientDamage', e); }
   }
 
   function _sendBeat() {
@@ -221,9 +322,21 @@ DDI.party = (function () {
     if (!me) return;
     const myName = (DDI.auth.profile && DDI.auth.profile() && DDI.auth.profile().display_name) || 'Friend';
     const ch = (app.save && app.save.character) || 'default';
-    // Only beat while actually running a game — otherwise we'd send (0,0)
-    // garbage on the title screen.
-    if (!app.game.running) return;
+    // Lobby beat — sent when not in a run so partner sees "in lobby" status
+    // on their party HUD instead of "connecting…"
+    if (!app.game.running) {
+      DDI.auth.sendPartyMessage(_partyChannel, 'pos', {
+        user_id:      me.id,
+        display_name: myName,
+        x: null, y: null,
+        hpPct:        1,
+        character:    ch,
+        zone:         'lobby',
+        floor:        0, act: 0, kills: 0,
+        lobby:        true,
+      });
+      return;
+    }
     DDI.auth.sendPartyMessage(_partyChannel, 'pos', {
       user_id:      me.id,
       display_name: myName,
@@ -241,6 +354,8 @@ DDI.party = (function () {
       act:          (app.game && app.game.act)   || 1,
       kills:        (app.game && app.game.kills) || 0,
     });
+    // Host: also broadcast the enemy snapshot (Phase 2b)
+    if (_party && _party.iAm === 'host') _sendEnemySnapshot();
   }
 
   function leaveParty(notify) {
@@ -298,9 +413,13 @@ DDI.party = (function () {
     if (status) {
       if (_party.pending) status.textContent = '· waiting…';
       else if (_partnerState) {
-        const z = _partnerState.zone || 'main';
-        const f = _partnerState.floor || 1;
-        status.textContent = '· ' + (z === 'main' ? ('FLOOR ' + f) : z.toUpperCase());
+        if (_partnerState.lobby || _partnerState.zone === 'lobby') {
+          status.textContent = '· in lobby';
+        } else {
+          const z = _partnerState.zone || 'main';
+          const f = _partnerState.floor || 1;
+          status.textContent = '· ' + (z === 'main' ? ('FLOOR ' + f) : z.toUpperCase());
+        }
       } else {
         status.textContent = '· connecting…';
       }
@@ -316,10 +435,13 @@ DDI.party = (function () {
   function partnerState() { return _partnerState; }
   function inParty() { return !!(_party && !_party.pending); }
   function party() { return _party; }
+  function iAmHost()   { return !!(_party && !_party.pending && _party.iAm === 'host'); }
+  function iAmClient() { return !!(_party && !_party.pending && _party.iAm === 'client'); }
 
   return {
     init, start, stop,
     inviteToParty, leaveParty,
-    partnerState, inParty, party,
+    partnerState, inParty, party, iAmHost, iAmClient,
+    sendDamageHit,
   };
 })();

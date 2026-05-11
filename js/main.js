@@ -69,6 +69,11 @@
       Combat.app = this;
       this.combat = Combat;
 
+      // Role helpers for co-op systems (Combat checks these before mutating
+      // enemy state — clients send damage messages instead of applying).
+      this.iAmClient = function () { return !!(DDI.party && DDI.party.iAmClient && DDI.party.iAmClient()); };
+      this.iAmHost   = function () { return !!(DDI.party && DDI.party.iAmHost   && DDI.party.iAmHost()); };
+
       this.lastT = performance.now();
     }
 
@@ -970,7 +975,12 @@
       // Sim only advances when not paused (level-up modal pauses everything)
       if (!this.game.paused) {
         Abilities.tick(this, dt);
-        Spawner.tick(this, dt);
+        // Co-op client: enemies are authoritative on the host's machine,
+        // so we don't spawn locally — host's snapshot stream populates
+        // app.enemies via party.js.
+        if (!(DDI.party && DDI.party.iAmClient && DDI.party.iAmClient())) {
+          Spawner.tick(this, dt);
+        }
         this.updateEnemies(dt);
         this.updateProjectiles(dt);
         Combat.handleHeroContact(this, dt);

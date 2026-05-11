@@ -908,6 +908,29 @@ DDI.systems = (function () {
       const eLvl = enemy.level || 1;
       const lvlScale = Math.max(0.4, Math.min(2.5, 1 + (heroLvl - eLvl) * 0.04));
       const dmg = raw * Slaughter.damageBonus() * lvlScale;
+      // Co-op CLIENT: enemies are host-authoritative.  Don't mutate the
+      // local mirror's HP — send the hit to the host, who'll apply it via
+      // their canonical Combat.dealDamage path.  We still play the local
+      // damage number + hit spark + audio so the player gets immediate
+      // visual feedback; the actual HP catches up on the next snapshot.
+      if (this.app.iAmClient && this.app.iAmClient() && enemy._mirror) {
+        if (DDI.party && DDI.party.sendDamageHit) {
+          DDI.party.sendDamageHit({
+            // Send the HOST's enemy.id (stored on the mirror as _remoteId)
+            // so the host can look up its canonical instance to apply to.
+            id:      enemy._remoteId,
+            amount:  raw,                     // host re-scales (their hero level differs)
+            element: element,
+            isCrit:  !!isCrit,
+            fromX:   fromX, fromY: fromY,
+            color:   color,
+          });
+        }
+        this.app.fx.damageNumber(enemy.x, enemy.y - enemy.radius * 0.6, dmg, color, isCrit);
+        this.app.fx.hitSpark(enemy.x, enemy.y, color, isCrit);
+        if (DDI.audio) DDI.audio.play(isCrit ? 'crit' : 'hit');
+        return;
+      }
       enemy.takeHit(dmg, isCrit, fromX, fromY);
       this.app.fx.damageNumber(enemy.x, enemy.y - enemy.radius * 0.6, dmg, color, isCrit);
       this.app.fx.hitSpark(enemy.x, enemy.y, color, isCrit);

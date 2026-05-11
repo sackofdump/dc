@@ -2609,12 +2609,17 @@ body.hud-edit .hud-draggable::after {
 }
 /* In-game: shift below the currency bar (top-right) so they don't overlap */
 #game-root.in-game #friends-widget { top: 56px; }
-/* On the title menu: move the pill to top-LEFT so it doesn't crowd the
-   centered logo + card.  Panel hangs down from that corner. */
+/* On the title menu: the centered logo + card occupy the top, and the
+   party HUD lives top-right when in a party.  Park the friends pill
+   bottom-LEFT so it's clear of both.  Panel opens UPWARD from there. */
 body.on-title #friends-widget {
-  top: 14px; right: auto; left: 14px;
+  top: auto; right: auto;
+  bottom: 14px; left: 14px;
 }
 body.on-title #friends-panel {
+  /* Open upward from the bottom-anchored toggle */
+  top: auto;
+  bottom: 44px;
   right: auto; left: 0;
 }
 #friends-toggle {
@@ -2821,7 +2826,12 @@ body.on-title #friends-panel {
   position: fixed;
   bottom: calc(env(safe-area-inset-bottom, 16px) + 180px);
   left: 14px;
-  z-index: 14;
+  /* Above modals (z 50) so it's visible on title / pause / forge while
+     in a party.  Below the friends widget (z 60) since the friends pill
+     overlaps when both are top-left on title — but on title we move the
+     friends pill to top-LEFT, so we drop the party HUD to top-RIGHT on
+     title via the body.on-title rule below. */
+  z-index: 65;
   background: linear-gradient(180deg, rgba(28,18,48,0.92), rgba(10,6,18,0.92));
   border: 1px solid var(--accent-cyan);
   border-radius: 10px;
@@ -2830,6 +2840,14 @@ body.on-title #friends-panel {
   font-family: inherit;
   min-width: 180px;
   pointer-events: auto;
+}
+/* On title screen: friends widget is top-left, party HUD floats top-right
+   so they don't stack on top of each other. */
+body.on-title #party-hud {
+  bottom: auto;
+  top: 14px;
+  left: auto;
+  right: 14px;
 }
 #party-hud.hidden { display: none; }
 #party-hud .ph-row {
