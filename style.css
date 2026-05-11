@@ -3090,6 +3090,55 @@ body.on-title #party-hud {
   line-height: 1;
 }
 #party-death-banner .pdb-close:hover { color: #ff8a99; border-color: #ff6477; }
+
+/* "X is DOWNED" banner — partner is in the 8s revive window.  Same
+   shape as the death banner but with revive-cyan accent. */
+#party-downed-banner {
+  position: fixed;
+  top: -80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 75;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 18px 10px 14px;
+  background: linear-gradient(180deg, #0e1a28 0%, #060b14 100%);
+  border: 2px solid var(--accent-cyan);
+  border-radius: 999px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.7), 0 0 26px rgba(102,217,255,0.55);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  transition: top 0.4s cubic-bezier(.2,1.2,.4,1);
+  white-space: nowrap;
+}
+#party-downed-banner.shown { top: 16px; }
+#party-downed-banner .pdb-glyph {
+  color: var(--accent-cyan);
+  font-size: 18px;
+  filter: drop-shadow(0 0 8px var(--accent-cyan));
+}
+#party-downed-banner .pdb-text { font-weight: 600; }
+#party-downed-banner .pdb-text em {
+  color: var(--accent-cyan);
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+#party-downed-banner .pdb-close {
+  width: 22px; height: 22px;
+  margin-left: 6px;
+  border: 1px solid rgba(255,255,255,0.25);
+  background: transparent;
+  color: var(--ink-fade);
+  border-radius: 50%;
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 11px;
+  cursor: pointer;
+  line-height: 1;
+}
+#party-downed-banner .pdb-close:hover { color: #ff8a99; border-color: #ff6477; }
 @media (max-width: 480px) {
   #party-death-banner {
     font-size: 11px;

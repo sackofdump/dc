@@ -30,6 +30,10 @@ DDI.party = (function () {
   const STALE_MS = 4000;     // 4s of silence -> partner considered gone
   let _partnerProjectiles = [];     // [{x, y, vx, vy, color, radius, kind, shape, recvAt}]
   let _partnerProjectilesAt = 0;
+  let _partnerDowned = false;       // is the partner currently in the 8s revive window?
+  let _reviveStandT  = 0;            // my hero's current accumulated stand-in-circle time
+  const REVIVE_RADIUS = 80;          // px — how close I have to stand to count
+  const REVIVE_FULL   = 8.0;         // seconds to complete revive
 
   function $(id) { return document.getElementById(id); }
   function genId() { return 'p_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); }
@@ -240,12 +244,31 @@ DDI.party = (function () {
         return Object.assign({}, p, { recvAt: Date.now() });
       });
       _partnerProjectilesAt = Date.now();
+    } else if (ev === 'downed') {
+      // Partner went down (8s revive window).  Do NOT tear down the
+      // party — revive is still possible.  Banner is informational.
+      const dname = (_partnerState && _partnerState.display_name) ||
+                    (d && d.display_name) || 'Your partner';
+      _showDownedBanner(dname);
+      _partnerDowned = true;
+    } else if (ev === 'revive_complete') {
+      // Survivor finished the 8s in the circle — that's me, my partner
+      // is the one being revived (handled by their own _reviveP).  Show
+      // a confirmation toast.
+      if (app && app.fx && app.fx.toast) app.fx.toast('★ PARTNER REVIVED ★');
+      _partnerDowned = false;
     } else if (ev === 'death') {
-      // Partner died — show a prominent banner.  Do NOT end the local
-      // run; if I'm the surviving player my run continues.
+      // Partner permanently died (downed timed out or they weren't in
+      // a revivable state).  Show banner, dissolve party so spawner
+      // resumes for the survivor.
       const partnerName = (_partnerState && _partnerState.display_name) ||
                           (d && d.display_name) || 'Your partner';
       _showDeathBanner(partnerName);
+      _partnerDowned = false;
+      if (app && app.enemies) {
+        app.enemies.forEach(function (e) { if (e._alive && e._mirror) e._alive = false; });
+      }
+      leaveParty(false);
     } else if (ev === 'leave') {
       // Partner left the party — abort any in-flight start countdown and
       // show a prominent banner so they're not left wondering why their
@@ -290,9 +313,7 @@ DDI.party = (function () {
     banner._timer = setTimeout(function () { banner.classList.remove('shown'); }, 8000);
   }
 
-  // Called from main.js when the local hero dies / run ends — broadcasts
-  // 'death' so the partner sees the fall banner.  Best-effort: the
-  // channel teardown that follows endRun might race, so don't await.
+  // Called from main.js when the local hero permanently dies.
   function broadcastDeath() {
     if (!_partyChannel || !_party) return;
     const myName = (DDI.auth.profile && DDI.auth.profile() && DDI.auth.profile().display_name)
@@ -301,8 +322,88 @@ DDI.party = (function () {
       DDI.auth.sendPartyMessage(_partyChannel, 'death', { display_name: myName });
     } catch (e) {}
   }
+  // Called when the local hero enters the 8s downed state — partner
+  // can revive me by standing on my body for 8s.
+  function broadcastDowned() {
+    if (!_partyChannel || !_party) return;
+    const myName = (DDI.auth.profile && DDI.auth.profile() && DDI.auth.profile().display_name)
+                || (app.save && app.save.character) || 'Your partner';
+    try {
+      DDI.auth.sendPartyMessage(_partyChannel, 'downed', { display_name: myName });
+    } catch (e) {}
+  }
+  function broadcastReviveComplete() {
+    if (!_partyChannel || !_party) return;
+    try {
+      DDI.auth.sendPartyMessage(_partyChannel, 'revive_complete', {});
+    } catch (e) {}
+  }
+
+  // Called per-frame from main.js update loop.  If my hero is alive and
+  // within REVIVE_RADIUS of the partner's downed body, accumulate stand
+  // time.  When the 8s mark hits, broadcast revive_complete so the
+  // downed partner wakes up.  Out-of-circle resets to 0.
+  function tickRevive(dt) {
+    if (!_party || _party.pending) return;
+    // Only attempt revive if partner is currently downed
+    const downed = _isPartnerDowned();
+    if (!downed) { _reviveStandT = 0; return; }
+    // My hero must be alive + reasonably close
+    if (!app || !app.hero || app.hero._downed) { _reviveStandT = 0; return; }
+    const ps = _partnerState;
+    if (!ps || ps.x == null) return;
+    const dx = app.hero.x - ps.x;
+    const dy = app.hero.y - ps.y;
+    const inCircle = (dx * dx + dy * dy) < REVIVE_RADIUS * REVIVE_RADIUS;
+    if (inCircle) {
+      _reviveStandT += dt;
+      if (_reviveStandT >= REVIVE_FULL) {
+        _reviveStandT = 0;
+        _partnerDowned = false;
+        broadcastReviveComplete();
+        if (app.fx && app.fx.toast) app.fx.toast('★ PARTNER REVIVED ★');
+        if (app.fx && app.fx.flash) app.fx.flash('#66d9ff', 0.4);
+      }
+    } else {
+      // Drift back to zero quickly if they step out
+      _reviveStandT = Math.max(0, _reviveStandT - dt * 1.5);
+    }
+  }
+
+  // Partner is downed if we got a 'downed' event OR their latest pos
+  // beat reports hpPct == 0 while game.running.
+  function _isPartnerDowned() {
+    if (_partnerDowned) return true;
+    if (_partnerState && _partnerState.hpPct === 0 && _partnerState.x != null && !_partnerState.lobby) {
+      return true;
+    }
+    return false;
+  }
 
   function partnerProjectiles() { return _partnerProjectiles; }
+  function partnerDowned() { return _isPartnerDowned(); }
+  function reviveProgress() { return Math.min(1, _reviveStandT / REVIVE_FULL); }
+
+  function _showDownedBanner(name) {
+    let banner = document.getElementById('party-downed-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'party-downed-banner';
+      banner.innerHTML =
+        '<span class="pdb-glyph">▼</span>' +
+        '<span class="pdb-text"><em></em> is DOWNED — stand near them to revive</span>' +
+        '<button class="pdb-close" type="button" title="Dismiss">✕</button>';
+      document.body.appendChild(banner);
+      banner.querySelector('.pdb-close').addEventListener('click', function () {
+        banner.classList.remove('shown');
+      });
+    }
+    const em = banner.querySelector('em');
+    if (em) em.textContent = name;
+    banner.classList.add('shown');
+    clearTimeout(banner._timer);
+    banner._timer = setTimeout(function () { banner.classList.remove('shown'); }, 6000);
+  }
 
   // "X left the party" banner — drops down from the top edge, dismissible
   // by click, auto-hides after 6s.
@@ -345,6 +446,11 @@ DDI.party = (function () {
         defId:   e.def.id || null,
         x:       Math.round(e.x),
         y:       Math.round(e.y),
+        // Velocity included so the client can dead-reckon between beats —
+        // mirror enemies stay smooth at 60fps instead of stepping forward
+        // every 66ms (which looked like 15fps animation).
+        vx:      Math.round(e.vx || 0),
+        vy:      Math.round(e.vy || 0),
         hp:      Math.round(e.hp),
         maxHp:   Math.round(e.maxHp),
         level:   e.level || 1,
@@ -388,11 +494,14 @@ DDI.party = (function () {
         e.maxHp     = s.maxHp;
         e.level     = s.level;
       }
-      // Smoothly catch the snapshot position rather than teleporting —
-      // 30% lerp per snapshot looks responsive without jitter at 10Hz.
-      const lerp = 0.55;
+      // Snap close to the snapshot position (correcting any drift from
+      // dead reckoning) and update velocity so the client can keep
+      // animating smoothly until the next beat.
+      const lerp = 0.75;     // most of the way — drift correction
       e.x = e.x + (s.x - e.x) * lerp;
       e.y = e.y + (s.y - e.y) * lerp;
+      e.vx = s.vx || 0;
+      e.vy = s.vy || 0;
       e.hp = s.hp;
       e.maxHp = s.maxHp;
       e.level = s.level;
@@ -453,9 +562,9 @@ DDI.party = (function () {
       if (!_party || _party.iAm !== 'client') return;
       _showAcceptStartModal(d && d.requesterName);
     } else if (ev === 'start_accept') {
-      // Host side — partner accepted; schedule the countdown
+      // Host side — partner accepted; schedule the countdown (5s)
       if (!_party || _party.iAm !== 'host') return;
-      const startAt = Date.now() + 10000;
+      const startAt = Date.now() + 5000;
       DDI.auth.sendPartyMessage(_partyChannel, 'start_go', { startAt: startAt });
       _hideAllStartModals();
       _startCountdown(startAt);
@@ -486,7 +595,7 @@ DDI.party = (function () {
         '<div class="modal-card party-start-card">' +
           '<h2>★ START GAME? ★</h2>' +
           '<p class="tagline"><em class="hl"></em> wants to start a co-op run.</p>' +
-          '<p class="party-start-note">After you accept, a 10-second countdown begins on both screens, then the run starts together.</p>' +
+          '<p class="party-start-note">After you accept, a 5-second countdown begins on both screens, then the run starts together.</p>' +
           '<div class="modal-foot pause-buttons">' +
             '<button class="ghost-btn party-start-decline">DECLINE</button>' +
             '<button class="primary-btn party-start-accept">ACCEPT</button>' +
@@ -547,7 +656,7 @@ DDI.party = (function () {
       overlay.id = 'party-countdown';
       overlay.innerHTML =
         '<div class="pcd-title">CO-OP STARTS IN</div>' +
-        '<div class="pcd-num">10</div>' +
+        '<div class="pcd-num">5</div>' +
         '<div class="pcd-sub">Get ready, descend together.</div>';
       document.body.appendChild(overlay);
     }
@@ -779,5 +888,6 @@ DDI.party = (function () {
     sendDamageHit,
     requestStartGame,
     partnerProjectiles, broadcastDeath,
+    broadcastDowned, tickRevive, partnerDowned, reviveProgress,
   };
 })();

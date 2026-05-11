@@ -1033,7 +1033,45 @@
         this.ui.hideBoss();
       }
 
-      if (this.hero.hp <= 0) this.endRun(false);
+      // Co-op revive: in a party with a surviving partner, dying enters
+      // a 'downed' state for 8 seconds instead of ending the run.
+      // Partner stands inside the revive circle around your body to
+      // bring you back.  Timeout fires real endRun.
+      if (this.hero.hp <= 0 && !this.hero._downed) {
+        if (DDI.party && DDI.party.inParty && DDI.party.inParty()) {
+          this.hero._downed  = true;
+          this.hero._downedT = 8.0;
+          this.hero.hp       = 0;
+          this.hero.vx = 0; this.hero.vy = 0;
+          this.hero.iframes  = 99;
+          if (DDI.party.broadcastDowned) DDI.party.broadcastDowned();
+          if (this.fx && this.fx.toast)  this.fx.toast('★ DOWNED — PARTNER MUST REVIVE YOU ★');
+          if (this.fx && this.fx.shake)  this.fx.shake(14);
+        } else {
+          this.endRun(false);
+        }
+      }
+      if (this.hero._downed) {
+        // Did the survivor finish the 8s in the revive circle?
+        if (this.hero._reviveP && this.hero._reviveP >= 1.0) {
+          this.hero._downed  = false;
+          this.hero._reviveP = 0;
+          this.hero.hp       = Math.round(this.hero.maxHp * 0.5);
+          this.hero.iframes  = 2.0;
+          this.hero.flash    = 0.4;
+          if (this.fx && this.fx.toast) this.fx.toast('★ REVIVED ★');
+          if (this.fx && this.fx.flash) this.fx.flash('#66d9ff', 0.5);
+        } else {
+          this.hero._downedT -= dt;
+          if (this.hero._downedT <= 0) {
+            this.hero._downed = false;
+            this.hero.iframes = 0;
+            this.endRun(false);
+          }
+        }
+      }
+      // Tick the revive interaction (survivor side)
+      if (DDI.party && DDI.party.tickRevive) DDI.party.tickRevive(dt);
 
       this.enemies.sweep();
       this.projectiles.sweep();
@@ -1133,12 +1171,16 @@
       const zs = this._zoneSerial;
       this.enemies.forEach(function (e) {
         if (!e._alive) return;
-        // Co-op CLIENT: mirrors are driven entirely by host snapshots.  We
-        // must NOT run local AI, contact damage, or off-screen culling on
-        // them — the cull in particular was killing the mirrors instantly
-        // because the host's enemy positions are usually far from the
-        // client's hero (each player has independent camera coords).
-        if (e._mirror) return;
+        // Co-op CLIENT: mirrors are driven by host snapshots.  No AI /
+        // contact / cull, BUT advance position using the snapshot's
+        // velocity so they look smooth at 60fps instead of stepping at
+        // 15Hz.  Tick the flash decay so hit feedback still fades.
+        if (e._mirror) {
+          e.x += (e.vx || 0) * dt;
+          e.y += (e.vy || 0) * dt;
+          if (e.flash > 0) e.flash = Math.max(0, e.flash - dt);
+          return;
+        }
         // Stale — spawned in a previous zone, somehow survived the cleanup.
         // Kill it immediately so it can't move, contact, or render.
         if (e._zs != null && e._zs !== zs) { e._alive = false; return; }

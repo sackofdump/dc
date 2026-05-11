@@ -1196,6 +1196,11 @@ DDI.UI = (function () {
     closeInventory() {
       this.invOpen = false;
       this.$('modal-inventory').classList.add('hidden');
+      // Hide any lingering hover tooltip — it's appended to document.body
+      // so it doesn't auto-hide when the modal closes, and the mouseleave
+      // event wouldn't fire if the cursor was over the tooltip itself
+      // when the modal was dismissed via keyboard or button click.
+      this.hideInventoryTooltip();
       // Only resume if no other modal grabbed control.
       if (!this.modalOpen && !this.pauseOpen && !document.querySelector('.modal:not(.hidden):not(#modal-inventory)')) {
         this.app.game.paused = false;
@@ -1235,6 +1240,10 @@ DDI.UI = (function () {
       const GEAR = DDI.gear;
       const RAR = (DDI.data && DDI.data.RARITY) || {};
       const self = this;
+      // Hide any stale tooltip — equip / salvage destroys the row that
+      // owned the mouseleave handler, so without this the tooltip from
+      // the old cell would stick around floating in space.
+      this.hideInventoryTooltip();
 
       // Header counters
       const goldEl = this.$('inv-gold');

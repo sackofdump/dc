@@ -87,6 +87,8 @@ DDI.Renderer = (function () {
       // Phase 2a co-op: draw the partner avatar from their broadcast state.
       // No sim — pure render based on last-known position with smoothing.
       if (DDI.party && DDI.party.partnerState) this.drawPartner(ctx);
+      // Revive circle around a downed partner's body
+      if (DDI.party && DDI.party.partnerDowned) this.drawReviveCircle(ctx);
       // Phase 2c: partner's friendly projectiles, dead-reckoned between
       // 15Hz snapshots so the spells look smooth.
       if (DDI.party && DDI.party.partnerProjectiles) this.drawPartnerProjectiles(ctx);
@@ -484,6 +486,26 @@ DDI.Renderer = (function () {
       ctx.fillStyle = '#ffd966';
       ctx.beginPath(); ctx.arc(hx, hy, 4, 0, TAU); ctx.fill();
       ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.stroke();
+
+      // Co-op partner — cyan dot on the minimap.  Reads off the same
+      // last-known position as the in-world avatar.  Skipped when the
+      // partner has no x (lobby state).
+      if (DDI.party && DDI.party.partnerState) {
+        const ps = DDI.party.partnerState();
+        if (ps && ps.x != null) {
+          const px = ps.x * sx, py = ps.y * sy;
+          // Pulsing halo around the dot so the eye finds it
+          ctx.save();
+          const downed = (ps.hpPct === 0);
+          ctx.fillStyle = downed ? 'rgba(255,61,82,0.55)' : 'rgba(102,217,255,0.45)';
+          ctx.beginPath(); ctx.arc(px, py, 6.5, 0, TAU); ctx.fill();
+          ctx.fillStyle = downed ? '#ff3d52' : '#66d9ff';
+          ctx.beginPath(); ctx.arc(px, py, 3.2, 0, TAU); ctx.fill();
+          ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.arc(px, py, 3.2, 0, TAU); ctx.stroke();
+          ctx.restore();
+        }
+      }
 
       // Viewport indicator (faint white rectangle)
       const vx = (app.hero.x - app.viewW / 2) * sx;
@@ -1971,6 +1993,52 @@ DDI.Renderer = (function () {
       ctx.strokeStyle = '#66d9ff';
       ctx.lineWidth = 1;
       ctx.strokeRect(px - barW / 2, py - 30, barW, barH);
+      ctx.restore();
+    }
+
+    // Revive circle — drawn around a downed partner's body.  Survivor
+    // must stand inside to fill the progress arc; full 8 seconds revives.
+    drawReviveCircle(ctx) {
+      if (!DDI.party || !DDI.party.partnerDowned || !DDI.party.partnerDowned()) return;
+      const ps = DDI.party.partnerState && DDI.party.partnerState();
+      if (!ps || ps.x == null) return;
+      const prog = (DDI.party.reviveProgress && DDI.party.reviveProgress()) || 0;
+      const t = performance.now() / 1000;
+      const R = 80;     // matches party.REVIVE_RADIUS
+      ctx.save();
+      ctx.translate(ps.x, ps.y);
+      // Pulsing outer halo (cyan)
+      ctx.globalCompositeOperation = 'screen';
+      const halo = ctx.createRadialGradient(0, 0, R * 0.4, 0, 0, R);
+      halo.addColorStop(0, 'rgba(102,217,255,0.10)');
+      halo.addColorStop(1, 'rgba(102,217,255,0)');
+      ctx.fillStyle = halo;
+      ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.fill();
+      // Dashed ring
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.strokeStyle = 'rgba(102,217,255,0.6)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 6]);
+      ctx.lineDashOffset = -t * 24;
+      ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.stroke();
+      ctx.setLineDash([]);
+      // Progress arc — clockwise from 12 o'clock
+      if (prog > 0) {
+        ctx.strokeStyle = '#66d9ff';
+        ctx.lineWidth = 5;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(0, 0, R, -Math.PI / 2, -Math.PI / 2 + prog * TAU);
+        ctx.stroke();
+      }
+      // "STAND HERE TO REVIVE" label above
+      ctx.font = '700 11px "Segoe UI", system-ui, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+      ctx.fillStyle = '#66d9ff';
+      const label = prog > 0 ? 'REVIVING… ' + Math.round(prog * 100) + '%' : 'STAND HERE TO REVIVE';
+      ctx.strokeText(label, 0, -R - 8);
+      ctx.fillText(label, 0, -R - 8);
       ctx.restore();
     }
 
