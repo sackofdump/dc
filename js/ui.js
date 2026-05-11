@@ -64,11 +64,34 @@ DDI.UI = (function () {
       const btnNewCancel = this.$('btn-new-cancel');
       const profilePill = this.$('profile-pill');
       if (btnStart)   btnStart.addEventListener('click', function () {
-        // NEW GAME — always opens the character-select picker first.  The
-        // confirm-on-existing-save runs after they pick, scoped to the
-        // chosen class.
-        self._newRunFlow = true;
-        self.showCharacterSelect();
+        // NEW GAME — start a run on the currently-active character. If that
+        // character has a saved run, confirm before overwriting it. The
+        // character picker is reached via the separate "Change Character"
+        // button on the Playing-As card.
+        const save = self.app && self.app.save;
+        const charKey = (save && save.character) || 'default';
+        const D = DDI.data || {};
+        const cls = (D.CLASSES && D.CLASSES[charKey]) || { name: charKey };
+        const hasSaved = !!(save && save.runStates && save.runStates[charKey]);
+        const begin = function () { self.app.startRun(); };
+        if (hasSaved) {
+          self.showConfirm({
+            title: 'DISCARD ' + (cls.name || charKey).toUpperCase() + ' SAVE?',
+            message:
+              'You have a saved run on <em class="hl">' + (cls.name || charKey).toUpperCase() + '</em>.\n' +
+              'Starting a new run will permanently overwrite it.',
+            confirmText: 'START NEW RUN',
+            cancelText: 'KEEP MY SAVE',
+            danger: true,
+            onConfirm: function () {
+              delete save.runStates[charKey];
+              self.app.persist();
+              begin();
+            },
+          });
+          return;
+        }
+        begin();
       });
       if (btnRestart) btnRestart.addEventListener('click', function () { self.app.startRun(); });
       const btnDeathMenu = this.$('btn-death-menu');
