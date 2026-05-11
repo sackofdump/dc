@@ -1059,12 +1059,12 @@
       if (this.hero.hp <= 0 && !this.hero._downed) {
         if (DDI.party && DDI.party.inParty && DDI.party.inParty()) {
           this.hero._downed  = true;
-          this.hero._downedT = 8.0;
+          this.hero._downedT = 180.0;     // 3 minutes for the partner to reach you
           this.hero.hp       = 0;
           this.hero.vx = 0; this.hero.vy = 0;
           this.hero.iframes  = 99;
           if (DDI.party.broadcastDowned) DDI.party.broadcastDowned();
-          if (this.fx && this.fx.toast)  this.fx.toast('★ DOWNED — PARTNER MUST REVIVE YOU ★');
+          if (this.fx && this.fx.toast)  this.fx.toast('★ DOWNED — PARTNER HAS 3 MIN TO REVIVE ★');
           if (this.fx && this.fx.shake)  this.fx.shake(14);
         } else {
           this.endRun(false);
@@ -1103,6 +1103,13 @@
 
     updateHero(dt) {
       const h = this.hero;
+      // Co-op downed: hero is paralyzed waiting for partner revive.
+      // Skip ALL input + ability state changes; freeze in place.
+      if (h._downed) {
+        h.vx = 0; h.vy = 0;
+        h.moving = false;
+        return;
+      }
       // Leap-Slam in progress: hero is airborne; arc to target and slam on landing.
       if (h._leapT != null) {
         h._leapT = Math.max(0, h._leapT - dt);

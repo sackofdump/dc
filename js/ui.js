@@ -1156,6 +1156,37 @@ DDI.UI = (function () {
         if (root) root.classList.add('in-game');
       }
     }
+    // ---- Co-op downed overlay (the dying player's revive countdown) ----
+    // Builds the overlay lazily on first downed event so it doesn't sit
+    // in the DOM otherwise.  Shows a big mm:ss timer + flavor text.
+    _refreshDownedOverlay() {
+      const h = this.app && this.app.hero;
+      let el = document.getElementById('downed-overlay');
+      if (!h || !h._downed) {
+        if (el) el.classList.add('hidden');
+        return;
+      }
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'downed-overlay';
+        el.innerHTML =
+          '<div class="dov-glyph">☠</div>' +
+          '<div class="dov-title">YOU\'VE FALLEN</div>' +
+          '<div class="dov-timer">3:00</div>' +
+          '<div class="dov-sub">your partner has to stand on you for 8 seconds</div>';
+        document.body.appendChild(el);
+      }
+      el.classList.remove('hidden');
+      const t = Math.max(0, h._downedT || 0);
+      const m = Math.floor(t / 60);
+      const s = Math.floor(t % 60);
+      const fmt = m + ':' + (s < 10 ? '0' : '') + s;
+      const num = el.querySelector('.dov-timer');
+      if (num && num.textContent !== fmt) num.textContent = fmt;
+      // Pulse red in the last 15s so the urgency reads at a glance
+      el.classList.toggle('urgent', t < 15);
+    }
+
     // ---- MEGA Potion bar refresh ----
     // Called on pickup, on consume, and on run-start/resume.  Updates the
     // count badge per slot + toggles the dimmed 'empty' style.  A pickup
@@ -1867,6 +1898,9 @@ DDI.UI = (function () {
         if (want && !has)      _root.classList.add('in-game');
         else if (!want && has) _root.classList.remove('in-game');
       }
+      // Co-op revive countdown overlay — visible to the downed player
+      // so they see exactly how long their partner has to revive them.
+      this._refreshDownedOverlay();
       const hp = Math.max(0, a.hero.hp);
       const max = a.hero.maxHp || 1;
       const pct = clamp(hp / max, 0, 1);

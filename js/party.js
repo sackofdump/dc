@@ -274,10 +274,16 @@ DDI.party = (function () {
       _showDownedBanner(dname);
       _partnerDowned = true;
     } else if (ev === 'revive_complete') {
-      // Survivor finished the 8s in the circle — that's me, my partner
-      // is the one being revived (handled by their own _reviveP).  Show
-      // a confirmation toast.
-      if (app && app.fx && app.fx.toast) app.fx.toast('★ PARTNER REVIVED ★');
+      // The survivor completed the 8s revive.  Two cases:
+      //   1. I'M the downed player -> set _reviveP=1 so the main update
+      //      loop wakes me up at 50% HP next frame.
+      //   2. I'M the survivor receiving my own broadcast echo -> just
+      //      confirmation, clear partner-downed flag.
+      if (app && app.hero && app.hero._downed) {
+        app.hero._reviveP = 1.0;
+      } else {
+        if (app && app.fx && app.fx.toast) app.fx.toast('★ PARTNER REVIVED ★');
+      }
       _partnerDowned = false;
     } else if (ev === 'death') {
       // Partner permanently died (downed timed out or they weren't in
