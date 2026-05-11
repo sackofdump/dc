@@ -142,13 +142,6 @@ DDI.UI = (function () {
       const btnAuthGuest = this.$('btn-auth-guest');
       if (btnAuthGuest) btnAuthGuest.addEventListener('click', function () { self.app.playAsGuest(); });
 
-      // Admin: skip to next act (testing aid — only meaningful while a run is live)
-      const btnAdminAct = this.$('btn-admin-act');
-      if (btnAdminAct) btnAdminAct.addEventListener('click', function () {
-        if (!self.app.game.running) { self.app.fx && self.app.fx.toast && self.app.fx.toast('NOT IN A RUN'); return; }
-        if (self.app.adminSkipAct) self.app.adminSkipAct();
-      });
-
       // Title leaderboard button
       const btnLb = this.$('btn-leaderboard');
       if (btnLb) btnLb.addEventListener('click', function () { self.showLeaderboard(); });

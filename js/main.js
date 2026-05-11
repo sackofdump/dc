@@ -2383,26 +2383,6 @@
       this.game.pendingActAdvance = false;
     }
 
-    // Admin/dev helper — instantly satisfies the act-clear path so the player
-    // jumps straight to the post-act intermission.  Wired to #btn-admin-act.
-    adminSkipAct() {
-      if (!this.game || !this.game.running) return;
-      this.fx.toast('▶ ADMIN: SKIP ACT');
-      this.game.actBossActive = null;
-      this.game.pendingActBoss = false;
-      this.game.pendingActAdvance = false;
-      // Bump the player up so the new act's portal level reqs make sense
-      const D = DDI.data;
-      const nextAct = (this.game.act || 1) + 1;
-      const theme = (D && D.actTheme) ? D.actTheme(nextAct) : null;
-      if (theme && this.game.level < theme.portalLevels[0]) {
-        this.game.level = Math.max(this.game.level, theme.portalLevels[0]);
-      }
-      if (this.ui && this.ui.hideActProceedButton) this.ui.hideActProceedButton();
-      if (this.ui && this.ui.hideZoneExitButton)   this.ui.hideZoneExitButton();
-      this.advanceAct();
-    }
-
     getDifficultyMult() {
       return (this.zoneDifficulty || 1) * (this.runDifficulty || 1);
     }
