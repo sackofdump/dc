@@ -1584,8 +1584,11 @@
           life: 0.3, color: '#ffd966', size: 2, kind: 'spark' });
         if (DDI.audio) DDI.audio.play('pickup_gold');
       } else if (l.kind === 'gem') {
-        this.save.dust += Math.max(1, Math.floor(l.value * 0.5));
-        this.fx.toast('+' + l.value + ' DUST');
+        const _act = (this.game && this.game.act) || 1;
+        const _div = _act >= 5 ? 10 : _act >= 4 ? 4 : 1;
+        const gain = Math.max(1, Math.floor((l.value * 0.5) / _div));
+        this.save.dust += gain;
+        this.fx.toast('+' + gain + ' DUST');
         if (DDI.audio) DDI.audio.play('pickup_gem');
         this.persist();
       } else if (l.kind === 'xp') {
@@ -1593,7 +1596,9 @@
       } else if (l.kind === 'chest') {
         const gold = 30 + Math.floor(rand(0, 80));
         this.game.gold += gold;
-        this.save.dust += 10;
+        const _act = (this.game && this.game.act) || 1;
+        const _div = _act >= 5 ? 10 : _act >= 4 ? 4 : 1;
+        this.save.dust += Math.max(1, Math.floor(10 / _div));
         for (let i = 0; i < 12; i++) {
           const a = rand(0, Math.PI * 2);
           this.particles.spawn({ x: l.x, y: l.y, vx: Math.cos(a)*200, vy: Math.sin(a)*200,
@@ -1638,7 +1643,10 @@
           if (d2 < 50 * 50) {
             f.opened = true;
             const rdef = RARITY[f.rarity] || RARITY.common;
-            const dustGain = ({ common: 5, magic: 12, rare: 25, epic: 50, legendary: 120, mythic: 250, primal: 500 })[f.rarity] || 5;
+            const _baseDust = ({ common: 5, magic: 12, rare: 25, epic: 50, legendary: 120, mythic: 250, primal: 500 })[f.rarity] || 5;
+            const _act = (self.game && self.game.act) || 1;
+            const _div = _act >= 5 ? 10 : _act >= 4 ? 4 : 1;
+            const dustGain = Math.max(1, Math.floor(_baseDust / _div));
             const goldGain = 30 + Math.floor(Math.random() * (rdef.beam * 200 + 30));
             self.game.gold += goldGain;
             self.save.dust += dustGain;
