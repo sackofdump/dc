@@ -1002,8 +1002,13 @@
         Abilities.tick(this, dt);
         // Co-op client: enemies are authoritative on the host's machine,
         // so we don't spawn locally — host's snapshot stream populates
-        // app.enemies via party.js.
-        if (!(DDI.party && DDI.party.iAmClient && DDI.party.iAmClient())) {
+        // app.enemies via party.js.  BUT only when we're in the same
+        // zone as the host; if host's in a building and we're outside
+        // (or vice versa), the client runs its own spawner so the
+        // outdoor world isn't empty.
+        const inMirrorMode = DDI.party && DDI.party.iAmClient && DDI.party.iAmClient()
+                             && DDI.party.inSameZone && DDI.party.inSameZone();
+        if (!inMirrorMode) {
           Spawner.tick(this, dt);
         }
         this.updateEnemies(dt);

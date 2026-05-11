@@ -225,22 +225,41 @@ DDI.party = (function () {
     const d  = payload && payload.payload;
     if (!ev || !d) return;
     if (ev === 'state') {
-      // Single batched beat — pos + enemies + projs + loot all in one
-      // message so we stay well under Supabase Realtime's per-channel
-      // broadcast rate limit (previously 4 sends per beat × 15Hz = 60/s
-      // approached the cap and queued, manifesting as "client is laggy").
       if (!d.user_id || !_party) return;
       const myId = DDI.auth.user && DDI.auth.user() && DDI.auth.user().id;
       if (d.user_id === myId) return;
       _partnerState = Object.assign({}, _partnerState || {}, d, { lastSeen: Date.now() });
       _renderPartyHud();
-      if (d.enemies && _party.iAm === 'client') _applyEnemySnapshot(d.enemies);
-      if (d.loot    && _party.iAm === 'client') _applyLootSnapshot(d.loot);
-      if (d.projs) {
+      // Zone match check — host's enemies / loot only apply when we're
+      // in the same zone.  When host enters a building (interior zone),
+      // their enemy positions are in interior coordinates that would
+      // teleport mirrors all over the client's outdoor world.  Only
+      // mirror when zones match; when they don't, wipe stale mirrors and
+      // the spawner kicks back on (handled via _samePartnerZone).
+      const myZone = (app && app.zone && app.zone.name) || 'main';
+      const partnerZone = d.zone || 'main';
+      const sameZone = (myZone === partnerZone) && !d.lobby;
+      if (sameZone && d.enemies && _party.iAm === 'client') {
+        _applyEnemySnapshot(d.enemies);
+      } else if (!sameZone && _party.iAm === 'client') {
+        // Different zones — wipe any leftover mirrors so the client's
+        // outdoor world isn't haunted by frozen interior mobs.
+        _wipeMirrorEnemies();
+      }
+      if (sameZone && d.loot && _party.iAm === 'client') {
+        _applyLootSnapshot(d.loot);
+      } else if (!sameZone && _party.iAm === 'client') {
+        _wipeMirrorLoot();
+      }
+      // Projectiles are visual only — show them only when in same zone
+      // so we don't see ghost fireballs from a partner who's elsewhere.
+      if (sameZone && d.projs) {
         _partnerProjectiles = d.projs.map(function (p) {
           return Object.assign({}, p, { recvAt: Date.now() });
         });
         _partnerProjectilesAt = Date.now();
+      } else if (!sameZone) {
+        _partnerProjectiles = [];
       }
     } else if (ev === 'dmg' && _party && _party.iAm === 'host') {
       // Client hit one of our enemies — apply the damage canonically
@@ -386,6 +405,25 @@ DDI.party = (function () {
   function partnerProjectiles() { return _partnerProjectiles; }
   function partnerDowned() { return _isPartnerDowned(); }
   function reviveProgress() { return Math.min(1, _reviveStandT / REVIVE_FULL); }
+  // True when both players are in the same zone (and the partner is in
+  // an actual run, not the lobby).  Used to gate enemy/loot mirroring
+  // and the spawner-disable on the client — when zones differ, the
+  // client falls back to solo behavior in their current zone.
+  function inSameZone() {
+    if (!_partnerState || !app || !app.zone) return false;
+    if (_partnerState.lobby) return false;
+    const myZone = app.zone.name || 'main';
+    const partnerZone = _partnerState.zone || 'main';
+    return myZone === partnerZone;
+  }
+  function _wipeMirrorEnemies() {
+    if (!app || !app.enemies) return;
+    app.enemies.forEach(function (e) { if (e._alive && e._mirror) e._alive = false; });
+  }
+  function _wipeMirrorLoot() {
+    if (!app || !app.loot) return;
+    app.loot.forEach(function (l) { if (l._alive && l._mirror) l._alive = false; });
+  }
 
   function broadcastUlt(info) {
     if (!_partyChannel || !_party) return;
@@ -1047,6 +1085,7 @@ DDI.party = (function () {
     requestStartGame,
     partnerProjectiles, broadcastDeath, broadcastUlt,
     broadcastDowned, tickRevive, partnerDowned, reviveProgress,
+    inSameZone,
     markLootPickedUp: _markLootPickedUp,
     clearPickedUpLoot: _clearPickedUpLoot,
   };

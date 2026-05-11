@@ -489,8 +489,8 @@ DDI.Renderer = (function () {
 
       // Co-op partner — cyan dot on the minimap.  Reads off the same
       // last-known position as the in-world avatar.  Skipped when the
-      // partner has no x (lobby state).
-      if (DDI.party && DDI.party.partnerState) {
+      // partner has no x (lobby state) or is in a different zone.
+      if (DDI.party && DDI.party.partnerState && (!DDI.party.inSameZone || DDI.party.inSameZone())) {
         const ps = DDI.party.partnerState();
         if (ps && ps.x != null) {
           const px = ps.x * sx, py = ps.y * sy;
@@ -1902,6 +1902,11 @@ DDI.Renderer = (function () {
       if (!DDI.party || !DDI.party.partnerState) return;
       const ps = DDI.party.partnerState();
       if (!ps || ps.x == null) return;
+      // Don't render the partner's avatar when they're in a different
+      // zone (e.g., they entered a building and we're still outside).
+      // Their position is in their zone's coordinate space, which would
+      // render as a teleport on our screen.
+      if (DDI.party.inSameZone && !DDI.party.inSameZone()) return;
       // Dead reckoning: extrapolate partner position using their last
       // broadcast velocity + time since the beat.  Eliminates the
       // "jumpy every 66ms" feel — partner moves smoothly between beats.
@@ -2046,6 +2051,9 @@ DDI.Renderer = (function () {
     // own client runs the projectile sim canonically, so these are visual
     // mirrors with dead-reckoning to look smooth at 15Hz beats.
     drawPartnerProjectiles(ctx) {
+      // Same-zone gate as drawPartner — partner's spells are in their
+      // zone's coordinate frame, not ours.
+      if (DDI.party.inSameZone && !DDI.party.inSameZone()) return;
       const list = DDI.party.partnerProjectiles && DDI.party.partnerProjectiles();
       if (!list || !list.length) return;
       const now = Date.now();
