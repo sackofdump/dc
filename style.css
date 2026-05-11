@@ -453,7 +453,10 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
 
 /* ===== Zone progress bar (top-center inside biome zones) ===== */
 #zone-progress-wrap {
-  top: 60px;
+  /* Sits below the combo banner so the two don't crash into each other.
+     Boss bar reuses ~this position (they're mutually exclusive in practice
+     — zone progress hides when the boss appears). */
+  top: 110px;
   left: 50%;
   transform: translateX(-50%);
   width: min(420px, calc(100vw - 32px));
