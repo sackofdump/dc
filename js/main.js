@@ -95,6 +95,12 @@
         if (session) {
           // Auto-login (remember-me) — show a brief loading splash so the
           // transition into the title doesn't feel like a hard cut.
+          // CRITICAL: hide modal-auth IMMEDIATELY (it's visible by default
+          // in the HTML markup).  Otherwise when the boot splash fades out
+          // there's a frame where the auth screen flashes through before
+          // showTitle hides it — looks like "kicked back to login".
+          const authEl = document.getElementById('modal-auth');
+          if (authEl) authEl.classList.add('hidden');
           if (this.ui && this.ui.showBootSplash) this.ui.showBootSplash();
           await this.onAuthChanged();
           // Hold the splash a bit so the user actually sees it.
