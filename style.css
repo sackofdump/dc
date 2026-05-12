@@ -1359,16 +1359,16 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
   font-size: 11px; font-weight: 800; letter-spacing: 0.10em;
 }
 .char-recommend {
-  /* Floats above the card without contributing to flex layout — otherwise
-     the mage card sits ~25px taller than the rest of the grid and the
-     portraits / names go out of alignment.
+  /* Stays INSIDE the card — the surrounding .char-grid has overflow-y:auto
+     which clips anything above the card border, so a "floats above the
+     top edge" approach gets cropped.  Instead, anchor the badge to the
+     top of the card (inset slightly) and give the recommended card extra
+     padding-top so the portrait sits cleanly below it.
      Centering uses left:0 + right:0 + margin:auto with width:fit-content
      instead of the transform trick — the button-element parent was
-     anchoring the absolute child to the left in some browsers.
-     Sits fully ABOVE the card border now; the half-overlap top:-10px
-     was clipping the mage's hood under the badge. */
+     anchoring the absolute child to the left in some browsers. */
   position: absolute;
-  top: -18px;
+  top: 6px;
   left: 0;
   right: 0;
   margin-left: auto;
@@ -1390,9 +1390,9 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
   z-index: 2;
   pointer-events: none;
 }
-/* Extra breathing room at the top of the recommended card so the portrait
-   can't ride up under the badge area even when the badge dips closer. */
-.char-pick:has(> .char-recommend) { padding-top: 16px; }
+/* Recommended card gets extra top padding so the portrait sits cleanly
+   below the badge instead of behind it.  Other cards stay at 10px. */
+.char-pick:has(> .char-recommend) { padding-top: 32px; }
 .char-pick { position: relative; }
 .char-portrait {
   width: 100%; aspect-ratio: 1 / 1;
