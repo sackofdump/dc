@@ -1401,6 +1401,23 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
   object-fit: contain;
   filter: drop-shadow(0 4px 12px rgba(0,0,0,0.7));
 }
+/* Sprite-sheet portraits — pulls a single frame from the in-game sheet
+   so the character-select preview matches what you'll see while playing.
+   Each .*-frame class sets the sheet URL + background-position to pick
+   one cell out of the cols x rows grid declared in assets.js. */
+.char-portrait-frame {
+  width: 92%; height: 92%;
+  background-repeat: no-repeat;
+  background-color: transparent;
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.7));
+}
+/* Mage sheet: 4 cols x 2 rows.  Show frame (col 0, row 0) — the
+   neutral standing pose with staff held in front, blue orb glowing. */
+.mage-frame {
+  background-image: url('Assets/Characters/new_mage_sprites.png');
+  background-size: 400% 200%;
+  background-position: 0% 0%;
+}
 .char-name {
   font-family: Cinzel, "Cinzel Decorative", serif;
   font-weight: 800; letter-spacing: 0.16em; font-size: 14px;
