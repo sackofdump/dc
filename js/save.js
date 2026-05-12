@@ -20,15 +20,14 @@ DDI.save = (function () {
     potionHp:   '1',
     potionUlt:  '2',
     potionStam: '3',
-    // Level-up choices — moved off 1/2/3 so a mid-combat potion mash can't
-    // accidentally pick an upgrade (and vice-versa).  Q / W / E sit under
-    // the resting WASD hand; the game is paused during the level-up modal
-    // so the W reuse with moveUp doesn't collide in practice.
+    // Level-up choices — Q / E / R, all close to the resting WASD hand
+    // but NOT W (which is moveUp).  Reroll + skip continue rightward on
+    // the top row so the whole modal lives under the left hand.
     upgrade1:      'q',
-    upgrade2:      'w',
-    upgrade3:      'e',
-    upgradeReroll: 'r',
-    upgradeSkip:   't',
+    upgrade2:      'e',
+    upgrade3:      'r',
+    upgradeReroll: 't',
+    upgradeSkip:   'y',
   };
 
   const DEFAULT_SAVE = {
@@ -115,6 +114,22 @@ DDI.save = (function () {
     writeProfiles(profiles);
   }
 
+  // One-time keybind migration: the older default for upgrade-pick #2 was
+  // 'w' (which collides with moveUp).  Newer default is 'e'.  Detect the
+  // legacy layout (q / w / e + reroll on r + skip on t) and rewrite to
+  // the current defaults so existing saves don't keep the broken W bind.
+  function _migrateUpgradeKeybinds(save) {
+    if (!save || !save.keybinds) return;
+    const k = save.keybinds;
+    if (k.upgrade2 === 'w' && k.upgrade1 === 'q' && k.upgrade3 === 'e') {
+      k.upgrade1      = DEFAULT_KEYBINDS.upgrade1;
+      k.upgrade2      = DEFAULT_KEYBINDS.upgrade2;
+      k.upgrade3      = DEFAULT_KEYBINDS.upgrade3;
+      k.upgradeReroll = DEFAULT_KEYBINDS.upgradeReroll;
+      k.upgradeSkip   = DEFAULT_KEYBINDS.upgradeSkip;
+    }
+  }
+
   // Load the active profile's save (or null if no active profile)
   function load() {
     migrateLegacy();
@@ -122,7 +137,9 @@ DDI.save = (function () {
     if (!id) return null;
     const profiles = readProfiles();
     if (!profiles[id]) return null;
-    return Object.assign({}, DEFAULT_SAVE, profiles[id].save || {});
+    const save = Object.assign({}, DEFAULT_SAVE, profiles[id].save || {});
+    _migrateUpgradeKeybinds(save);
+    return save;
   }
 
   function write(saveData) {
