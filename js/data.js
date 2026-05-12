@@ -1194,6 +1194,197 @@ DDI.data = (function () {
     },
   };
 
+  // ============================================================
+  //  DEMON HUNTER — dark ranged mobility, dual bolts, lifesteal
+  //  Distinct kit: crossbow spread, teleport-burst, sticky bolt that
+  //  bursts on impact, soul-sucking lifesteal beam, sweeping chakram,
+  //  rain of bolts.  Uses existing ability TYPES (projectile / leap /
+  //  chain / nova / meteor / orbital) so no new combat plumbing — just
+  //  new stat / scale / flavour tunings.
+  // ============================================================
+  ABILITIES.crossbowSalvo = {
+    id: 'crossbowSalvo', name: 'Crossbow Salvo', icon: '🏹', element: 'physical', color: '#ff3d52',
+    desc: 'Twin crossbows unload a fan of bolts at the nearest foe.',
+    type: 'projectile', maxLevel: 8,
+    base: { cooldown: 0.75, damage: 9, count: 4, speed: 540, pierce: 0, area: 9, life: 1.0 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage:   b.damage   * (1 + 0.16 * lvl),
+        count:    b.count    + Math.floor(lvl / 2),
+        cooldown: b.cooldown * (1 - 0.04 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return s.count + ' bolts · ' + Math.round(s.damage) + ' dmg each · CD ' + s.cooldown.toFixed(2) + 's'; },
+  };
+  ABILITIES.shadowDash = {
+    id: 'shadowDash', name: 'Shadow Dash', icon: '💨', element: 'physical', color: '#7a3aff',
+    desc: 'Blink to a foe with a violet trail — slam-shot on arrival.',
+    type: 'leap', maxLevel: 8,
+    base: { cooldown: 2.6, damage: 52, count: 1, area: 80, range: 380 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage: b.damage * (1 + 0.20 * lvl),
+        area:   b.area   * (1 + 0.08 * lvl),
+        range:  b.range  * (1 + 0.06 * lvl),
+        cooldown: b.cooldown * (1 - 0.05 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · radius ' + Math.round(s.area) + ' · range ' + Math.round(s.range); },
+  };
+  ABILITIES.explosiveBolt = {
+    id: 'explosiveBolt', name: 'Explosive Bolt', icon: '💥', element: 'fire', color: '#ff7b1f',
+    desc: 'A heavy bolt detonates on impact — splash flame to nearby foes.',
+    type: 'projectile', maxLevel: 8,
+    base: { cooldown: 1.5, damage: 32, count: 1, speed: 480, pierce: 0, area: 60, life: 1.6, blast: true },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage: b.damage * (1 + 0.22 * lvl),
+        area:   b.area   * (1 + 0.10 * lvl),
+        cooldown: b.cooldown * (1 - 0.04 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · blast radius ' + Math.round(s.area); },
+  };
+  ABILITIES.vampiricShot = {
+    id: 'vampiricShot', name: 'Vampiric Shot', icon: '🩸', element: 'shadow', color: '#b266ff',
+    desc: 'Crimson bolts — every hit feeds you life from the wounded.',
+    type: 'chain', maxLevel: 8,
+    base: { cooldown: 1.8, damage: 24, jumps: 3, range: 220, falloff: 0.8 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage: b.damage * (1 + 0.20 * lvl),
+        jumps:  b.jumps  + Math.floor(lvl / 2),
+        range:  b.range  * (1 + 0.05 * lvl),
+        cooldown: b.cooldown * (1 - 0.05 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · ' + s.jumps + ' jumps · heals 25% per hit'; },
+  };
+  ABILITIES.chakram = {
+    id: 'chakram', name: 'Chakram', icon: '🪯', element: 'physical', color: '#ff3d52',
+    desc: 'Bladed discs orbit you — shred anything that drifts close.',
+    type: 'orbital', maxLevel: 8,
+    base: { count: 2, damage: 14, radius: 70, rps: 1.4, hitCd: 0.32 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        count:  b.count  + Math.floor(lvl / 2),
+        damage: b.damage * (1 + 0.18 * lvl),
+        radius: b.radius * (1 + 0.06 * lvl),
+        rps:    b.rps    * (1 + 0.06 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return s.count + ' discs · ' + Math.round(s.damage) + ' dmg/hit'; },
+  };
+  ABILITIES.rainOfBolts = {
+    id: 'rainOfBolts', name: 'Rain of Bolts', icon: '🌧️', element: 'physical', color: '#7a3aff',
+    desc: 'A black-feathered storm — bolts plummet across the field.',
+    type: 'meteor', maxLevel: 8,
+    base: { cooldown: 2.2, damage: 24, count: 8, area: 26 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage: b.damage * (1 + 0.18 * lvl),
+        count:  b.count  + Math.floor(lvl / 2),
+        cooldown: b.cooldown * (1 - 0.04 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return s.count + ' bolts · ' + Math.round(s.damage) + ' dmg each'; },
+  };
+
+  // ============================================================
+  //  FROST KNIGHT — tanky frost-melee, slows / shockwaves / armor
+  //  Distinct kit: pulsing cold aura, ground-slam shockwave that
+  //  freezes briefly, defensive ice-armor buff, chilling chain,
+  //  vertical ice spike volley, sweeping frost cleave.
+  // ============================================================
+  ABILITIES.frostNova = {
+    id: 'frostNova', name: 'Frost Nova', icon: '❄️', element: 'frost', color: '#66d9ff',
+    desc: 'A burst of cold radiates from you — damages and slows all foes.',
+    type: 'aura', maxLevel: 8,
+    base: { tickCd: 0.6, damage: 7, area: 150, slow: 0.30, slowDur: 0.9 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage: b.damage * (1 + 0.18 * lvl),
+        area:   b.area   * (1 + 0.10 * lvl),
+        slow:   Math.min(0.65, b.slow + 0.04 * lvl),
+        tickCd: b.tickCd * (1 - 0.04 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg/tick · radius ' + Math.round(s.area) + ' · slow ' + Math.round(s.slow*100) + '%'; },
+  };
+  ABILITIES.iceCrash = {
+    id: 'iceCrash', name: 'Ice Crash', icon: '🧊', element: 'frost', color: '#66d9ff',
+    desc: 'Slam the ground — a shattering shockwave freezes the field.',
+    type: 'nova', maxLevel: 8,
+    base: { cooldown: 2.8, damage: 70, area: 210, slow: 0.55, slowDur: 1.6 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage: b.damage * (1 + 0.22 * lvl),
+        area:   b.area   * (1 + 0.10 * lvl),
+        slow:   Math.min(0.80, b.slow + 0.03 * lvl),
+        cooldown: b.cooldown * (1 - 0.05 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · radius ' + Math.round(s.area) + ' · slow ' + Math.round(s.slow*100) + '%'; },
+  };
+  ABILITIES.glacialArmor = {
+    id: 'glacialArmor', name: 'Glacial Armor', icon: '🛡️', element: 'frost', color: '#a8e0ff',
+    desc: 'A rime-locked plate — flat damage reduction + cold heal pulse.',
+    type: 'buff', maxLevel: 8,
+    base: { cooldown: 2.0, heal: 4, dr: 0.05 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        heal:     b.heal     * (1 + 0.22 * lvl),
+        dr:       Math.min(0.40, b.dr + 0.02 * lvl),
+        cooldown: b.cooldown * (1 - 0.04 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return '+' + Math.round(s.heal) + ' HP/' + s.cooldown.toFixed(1) + 's · ' + Math.round(s.dr*100) + '% DR'; },
+  };
+  ABILITIES.frozenChains = {
+    id: 'frozenChains', name: 'Frozen Chains', icon: '⛓️', element: 'frost', color: '#a8e0ff',
+    desc: 'Chains of ice arc between foes — slow on every link.',
+    type: 'chain', maxLevel: 8,
+    base: { cooldown: 1.6, damage: 22, jumps: 4, range: 240, falloff: 0.85, slow: 0.35, slowDur: 1.2 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage: b.damage * (1 + 0.20 * lvl),
+        jumps:  b.jumps  + Math.floor(lvl / 2),
+        slow:   Math.min(0.70, b.slow + 0.03 * lvl),
+        cooldown: b.cooldown * (1 - 0.04 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · ' + s.jumps + ' jumps · slow ' + Math.round(s.slow*100) + '%'; },
+  };
+  ABILITIES.avalanche = {
+    id: 'avalanche', name: 'Avalanche', icon: '⛰️', element: 'frost', color: '#66d9ff',
+    desc: 'Massive ice shards plummet — heavy blunt cold damage on impact.',
+    type: 'meteor', maxLevel: 8,
+    base: { cooldown: 2.6, damage: 40, count: 5, area: 50 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage: b.damage * (1 + 0.22 * lvl),
+        count:  b.count  + Math.floor(lvl / 2),
+        area:   b.area   * (1 + 0.10 * lvl),
+        cooldown: b.cooldown * (1 - 0.05 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return s.count + ' shards · ' + Math.round(s.damage) + ' dmg each'; },
+  };
+  ABILITIES.blizzardSpin = {
+    id: 'blizzardSpin', name: 'Blizzard Spin', icon: '🌀', element: 'frost', color: '#a8e0ff',
+    desc: 'A returning frost blade — pierces and chills everything in its arc.',
+    type: 'projectile', maxLevel: 8,
+    base: { cooldown: 1.6, damage: 24, count: 1, speed: 360, pierce: 6, area: 20, life: 1.5 },
+    scale: function (lvl, b) {
+      return Object.assign({}, b, {
+        damage: b.damage * (1 + 0.20 * lvl),
+        pierce: b.pierce + Math.floor(lvl / 2),
+        cooldown: b.cooldown * (1 - 0.04 * lvl),
+      });
+    },
+    desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · pierces ' + s.pierce; },
+  };
+
   const STARTER_ABILITY = 'fireball';
 
   // ============================================================
@@ -1247,27 +1438,23 @@ DDI.data = (function () {
       starters: ['boneLance', 'raiseSkeleton'],
       pool:     ['boneLance', 'raiseSkeleton', 'curse', 'corpseBomb', 'soulDrain', 'deathGrip'],
     },
-    // Dark ranged mobility class — dual crossbows, shadow dashes, lifesteal.
-    // Pool reuses existing ranger/rogue mechanics whose flavour fits the
-    // demon-hunter fantasy: multishot bolts, shadowstep teleport-strike,
-    // piercing bolts (Explosive Bolt), huntersMark (Vampiric Mark),
-    // arrowVolley (Rain of Bolts), bats (Chakrams swarm orbit).
+    // Dark ranged mobility class — every ability is unique to demonhunter
+    // (no overlap with ranger / rogue picks).  See ABILITIES.crossbowSalvo
+    // etc. above for stats / scaling.
     demonhunter: {
       name: 'Demon Hunter',
       requiredRank: 10,
-      starters: ['multishot', 'shadowstep'],
-      pool:     ['multishot', 'shadowstep', 'pierceShot', 'huntersMark', 'arrowVolley', 'bats'],
+      starters: ['crossbowSalvo', 'shadowDash'],
+      pool:     ['crossbowSalvo', 'shadowDash', 'explosiveBolt', 'vampiricShot', 'chakram', 'rainOfBolts'],
     },
-    // Tanky frost-melee class — slows, shockwaves, frost trails.  Pool
-    // built from mage / paladin / berserker mechanics that thematically fit
-    // freezing AoE: frostAura (Frost Nova), tremor (Ice Crash), divineShield
-    // (Glacial Armor), chain lightning (Frozen Chains), meteor (Avalanche),
-    // whirlingAxe (Blizzard Spin).
+    // Tanky frost-melee class — distinct pool, no overlap with mage /
+    // paladin / berserker frost-flavoured picks.  See ABILITIES.frostNova
+    // etc. above.
     frostknight: {
       name: 'Frost Knight',
       requiredRank: 12,
-      starters: ['frostAura', 'tremor'],
-      pool:     ['frostAura', 'tremor', 'divineShield', 'chain', 'meteor', 'whirlingAxe'],
+      starters: ['frostNova', 'iceCrash'],
+      pool:     ['frostNova', 'iceCrash', 'glacialArmor', 'frozenChains', 'avalanche', 'blizzardSpin'],
     },
   };
 

@@ -464,7 +464,7 @@ DDI.systems = (function () {
       const maxJumps = stats.jumps + Math.floor(hero.projMult / 2);
       // Lifesteal per hit — used by Soul Drain (25% of damage) and Bloodthirst (flat HP)
       const lifestealFlat = stats.lifesteal || 0;
-      const lifestealPct  = (def.id === 'soulDrain') ? 0.25 : 0;
+      const lifestealPct  = (def.id === 'soulDrain' || def.id === 'vampiricShot') ? 0.25 : 0;
       for (let j = 0; j <= maxJumps; j++) {
         if (!target) break;
         hits.push({ x: target.x, y: target.y });
@@ -472,7 +472,7 @@ DDI.systems = (function () {
         app.fx.lightning(from.x, from.y, target.x, target.y, def.color);
         // Soul Drain: spawn ghostly purple wisps that float from the target
         // toward the hero, plus a violet ring at the target.
-        if (def.id === 'soulDrain') {
+        if (def.id === 'soulDrain' || def.id === 'vampiricShot') {
           const wisps = 4;
           for (let w = 0; w < wisps; w++) {
             const ang = (w / wisps) * TAU + rand(-0.3, 0.3);
