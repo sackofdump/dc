@@ -1922,7 +1922,10 @@ DDI.Renderer = (function () {
       const lean = fwdLean + microSway;
       const flash = hero.flash > 0 ? Math.min(1, hero.flash * 4) : 0;
       const flipX = hero.lastMoveX < 0;
-      const d = hero.radius * 3.2;
+      // Render size multiplier — bumped from 3.2 to 4.4 so the hero
+      // reads at a more readable scale on screen.  Collision radius
+      // (hero.radius) is unchanged, so gameplay hitboxes stay the same.
+      const d = hero.radius * 4.4;
 
       // shadow (subtle stretch with bob)
       ctx.save();
@@ -2051,7 +2054,7 @@ DDI.Renderer = (function () {
       const fwdLean  = moving ? 0.05 * dirSign * (sprinting ? 1.3 : 1) : 0;
       const microSway = Math.sin(t * 2) * (moving ? 0.025 : 0.01);
       const lean = fwdLean + microSway;
-      const d       = 16 * 3.2;     // matches local hero size — radius * 3.2
+      const d       = 16 * 4.4;     // matches local hero render scale
 
       // Shadow
       ctx.save();

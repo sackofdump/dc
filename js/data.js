@@ -329,21 +329,23 @@ DDI.data = (function () {
     },
     // ---- NEW SHEET-DRIVEN ENEMIES ----
     // Crystal Golem — slow-moving tank with a heavy crystal-spike attack.
-    // Drops into cosmic / cursed / frost pools for that "void crystal" vibe.
+    // Reuses the elite_crystal sheet at smaller scale; the big version
+    // lives as `elite_crystal` below.
     crystal_golem: {
       id: 'crystal_golem', name: 'Crystal Golem', kind: 'crystal_golem',
       radius: 38, hp: 160, dmg: 18, speed: 55, xp: 24, gold: 10,
       color: '#7a3aff', tier: 2, scale: 1.4,
-      sheet: 'crystal_enemy_sheet',
+      sheet: 'elite_crystal_sheet',
       anim: { row: 0, frames: 4, col0: 0, fps: 5 },
     },
-    // Cursed Knight — armored melee, faster than the golem.  Heavy hitter
-    // for the cursed / cosmic biomes.
+    // Cursed Knight — armored melee, faster than the golem.  Reuses the
+    // boss_bloodfiend sheet rendered at the regular enemy radius (looks
+    // like a smaller crowned knight — the boss is the full-scale version).
     cursed_knight: {
       id: 'cursed_knight', name: 'Cursed Knight', kind: 'cursed_knight',
       radius: 32, hp: 96, dmg: 16, speed: 80, xp: 14, gold: 6,
       color: '#7a3aff', tier: 2, scale: 1.2,
-      sheet: 'cursedknight_enemy_sheet',
+      sheet: 'boss_bloodfiend_sheet',
       anim: { row: 0, frames: 4, col0: 0, fps: 7 },
     },
 
@@ -374,6 +376,7 @@ DDI.data = (function () {
       radius: 44, hp: 520, dmg: 14, speed: 90, xp: 36, gold: 25,
       color: '#66ff8c', tier: 3, scale: 1.7, isElite: true,
       eliteAbility: 'shrapnel',     // 8-shard radial volley
+      sheet: 'elite_slime_sheet', anim: { row: 0, frames: 4, col0: 0, fps: 5 },
     },
     elite_skel: {
       id: 'elite_skel', name: 'Bone Champion', kind: 'elite_skel',
@@ -386,6 +389,7 @@ DDI.data = (function () {
       radius: 50, hp: 820, dmg: 26, speed: 80, xp: 60, gold: 45,
       color: '#9fdf7f', tier: 3, scale: 2.0, isElite: true,
       eliteAbility: 'toxic_pool',   // drops 3 lingering puddles
+      sheet: 'elite_zombie_sheet', anim: { row: 0, frames: 4, col0: 0, fps: 4 },
     },
     elite_imp: {
       id: 'elite_imp', name: 'Imp Lord', kind: 'imp',
@@ -404,34 +408,56 @@ DDI.data = (function () {
       radius: 42, hp: 740, dmg: 22, speed: 140, xp: 56, gold: 40,
       color: '#b266ff', tier: 3, scale: 1.9, isElite: true,
       eliteAbility: 'holy_beam',    // sweeping beam from above — DODGE
+      sheet: 'elite_eye_sheet', anim: { row: 0, frames: 4, col0: 0, fps: 5 },
     },
+    // Renamed from "Patched King" — the mushroom_elite art is a mushroom
+    // creature, not a pumpkin.  spore_bloom telegraph fits both.
     elite_pumpkin: {
-      id: 'elite_pumpkin', name: 'Patched King', kind: 'pumpkin',
+      id: 'elite_pumpkin', name: 'Mycelium King', kind: 'pumpkin',
       radius: 44, hp: 880, dmg: 24, speed: 90, xp: 60, gold: 45,
-      color: '#ff7b1f', tier: 3, scale: 2.0, isElite: true,
+      color: '#b266ff', tier: 3, scale: 2.0, isElite: true,
       eliteAbility: 'spore_bloom',  // expanding ring of spores
+      sheet: 'elite_mushroom_sheet', anim: { row: 0, frames: 4, col0: 0, fps: 5 },
+    },
+    // Elite crystal golem — distinct from the regular crystal_golem entry
+    // (which reuses the same sheet at smaller scale).  This is the
+    // tier-3 isElite version that drops into the cosmic / frost elite
+    // pools as a heavy threat.
+    elite_crystal: {
+      id: 'elite_crystal', name: 'Crystalheart Sentinel', kind: 'crystal_golem',
+      radius: 50, hp: 900, dmg: 26, speed: 60, xp: 60, gold: 45,
+      color: '#7a3aff', tier: 3, scale: 2.0, isElite: true,
+      eliteAbility: 'shrapnel',     // radial crystal-shard volley
+      sheet: 'elite_crystal_sheet', anim: { row: 0, frames: 4, col0: 0, fps: 4 },
     },
 
     // ---- BOSSES ----
+    // All 16 boss defs now carry a sheet + anim so they render from the
+    // dedicated boss sprite sheets in Assets/Characters/Enemies/boss/.
+    // Walk-row idle: 4 frames @ 5fps (heavy / deliberate).
     boss_warden: {
       id: 'boss_warden', name: 'The Warden of Bones', kind: 'boss_warden',
       radius: 70, hp: 6000, dmg: 40, speed: 65, xp: 600, gold: 300,
       color: '#ff3d52', tier: 5, scale: 3.2, isBoss: true,
+      sheet: 'boss_warden_sheet', anim: { row: 0, frames: 4, col0: 0, fps: 5 },
     },
     boss_mushroom: {
       id: 'boss_mushroom', name: 'Spore Mother Myconid', kind: 'boss_mushroom',
       radius: 90, hp: 8400, dmg: 36, speed: 45, xp: 800, gold: 400,
       color: '#ff7b66', tier: 5, scale: 3.4, isBoss: true,
+      sheet: 'boss_mushroom_sheet', anim: { row: 0, frames: 4, col0: 0, fps: 5 },
     },
     boss_lich: {
       id: 'boss_lich', name: 'Astaroth, the Cosmic Lich', kind: 'cultist',
       radius: 80, hp: 7000, dmg: 35, speed: 55, xp: 700, gold: 350,
       color: '#b266ff', tier: 5, scale: 3.4, isBoss: true,
+      sheet: 'boss_lich_sheet', anim: { row: 0, frames: 4, col0: 0, fps: 5 },
     },
     boss_lava: {
       id: 'boss_lava', name: 'Pyron, the Magma Tyrant', kind: 'lava_imp',
       radius: 75, hp: 6500, dmg: 38, speed: 70, xp: 650, gold: 320,
       color: '#ff5030', tier: 5, scale: 3.5, isBoss: true,
+      sheet: 'boss_lava_sheet', anim: { row: 0, frames: 4, col0: 0, fps: 5 },
     },
     // ===== Ranged + variety bosses (acts 2+) =====
     boss_huntress: {
@@ -439,50 +465,59 @@ DDI.data = (function () {
       radius: 70, hp: 7200, dmg: 42, speed: 95, xp: 720, gold: 360,
       color: '#cdd5e0', tier: 5, scale: 3.0, isBoss: true,
       ranged: true, rangedDmg: 28,
+      sheet: 'boss_huntress_sheet', anim: { row: 0, frames: 4, col0: 0, fps: 6 },
     },
     boss_archmage: {
       id: 'boss_archmage', name: 'Mortis, the Hex Archmage', kind: 'cultist',
       radius: 75, hp: 8000, dmg: 45, speed: 60, xp: 800, gold: 400,
       color: '#b266ff', tier: 5, scale: 3.3, isBoss: true,
       ranged: true, rangedDmg: 34,
+      sheet: 'boss_archmage_sheet', anim: { row: 0, frames: 4, col0: 0, fps: 5 },
     },
     boss_pyromancer: {
       id: 'boss_pyromancer', name: 'Ignis, the Flame-Caller', kind: 'cultist',
       radius: 75, hp: 7800, dmg: 44, speed: 65, xp: 780, gold: 380,
       color: '#ff7b1f', tier: 5, scale: 3.2, isBoss: true,
       ranged: true, rangedDmg: 30,
+      sheet: 'boss_pyromancer_sheet', anim: { row: 0, frames: 4, col0: 0, fps: 5 },
     },
     boss_iceshade: {
       id: 'boss_iceshade', name: 'Glacira, the Iceshade', kind: 'wraith',
       radius: 72, hp: 7500, dmg: 40, speed: 75, xp: 740, gold: 370,
       color: '#66d9ff', tier: 5, scale: 3.1, isBoss: true,
       ranged: true, rangedDmg: 26,
+      sheet: 'boss_iceshade_sheet', anim: { row: 0, frames: 4, col0: 0, fps: 5 },
     },
     boss_titan: {
       id: 'boss_titan', name: 'Korvath, the Stone Titan', kind: 'brute',
       radius: 100, hp: 12000, dmg: 60, speed: 50, xp: 900, gold: 450,
       color: '#a8693a', tier: 5, scale: 4.0, isBoss: true,
+      sheet: 'boss_titan_sheet', anim: { row: 0, frames: 4, col0: 0, fps: 4 },
     },
     boss_voidweaver: {
       id: 'boss_voidweaver', name: 'Xathur, the Void-Weaver', kind: 'cultist',
       radius: 80, hp: 9500, dmg: 50, speed: 55, xp: 850, gold: 425,
       color: '#7a3aff', tier: 5, scale: 3.5, isBoss: true,
       ranged: true, rangedDmg: 38,
+      sheet: 'boss_voidweaver_sheet', anim: { row: 0, frames: 4, col0: 0, fps: 5 },
     },
-    // ===== New bosses — added for tele-zone variety so a single run doesn't
-    // see the same name twice.  Each pins a distinct telegraphed ability so
-    // the encounter pattern is recognisable.
     boss_skullking: {
       id: 'boss_skullking', name: 'Mortrek, the Skull King', kind: 'boss_warden',
       radius: 75, hp: 7400, dmg: 44, speed: 70, xp: 760, gold: 380,
       color: '#e8dcc0', tier: 5, scale: 3.3, isBoss: true,
       eliteAbility: 'shrapnel',
+      sheet: 'boss_skullking_sheet', anim: { row: 0, frames: 4, col0: 0, fps: 5 },
     },
+    // Repointed from "Magma Giant" — the actual Ogre_boss artwork is a
+    // green-skinned toxic brute with violet club / spore VFX, no molten
+    // theme.  Renamed + recoloured + ability swapped to spore_bloom to
+    // match what the cast row visibly does.
     boss_lava_giant: {
-      id: 'boss_lava_giant', name: 'Volgrim, the Magma Giant', kind: 'brute',
+      id: 'boss_lava_giant', name: "Mok'tar, the Toxic Ogre", kind: 'brute',
       radius: 105, hp: 13000, dmg: 64, speed: 48, xp: 920, gold: 460,
-      color: '#ff5030', tier: 5, scale: 4.1, isBoss: true,
-      eliteAbility: 'meteor_burst',
+      color: '#7a3aff', tier: 5, scale: 4.1, isBoss: true,
+      eliteAbility: 'spore_bloom',
+      sheet: 'boss_lava_giant_sheet', anim: { row: 0, frames: 4, col0: 0, fps: 4 },
     },
     boss_frost_queen: {
       id: 'boss_frost_queen', name: 'Selris, the Frost Queen', kind: 'cultist',
@@ -490,24 +525,36 @@ DDI.data = (function () {
       color: '#66d9ff', tier: 5, scale: 3.2, isBoss: true,
       ranged: true, rangedDmg: 30,
       eliteAbility: 'holy_beam',
+      sheet: 'boss_frost_queen_sheet', anim: { row: 0, frames: 4, col0: 0, fps: 5 },
     },
     boss_chaos_avatar: {
       id: 'boss_chaos_avatar', name: 'Nyrael, Avatar of Chaos', kind: 'wraith',
       radius: 72, hp: 8800, dmg: 50, speed: 110, xp: 840, gold: 420,
       color: '#b266ff', tier: 5, scale: 3.2, isBoss: true,
       eliteAbility: 'shadow_dash',
+      sheet: 'boss_chaos_avatar_sheet', anim: { row: 0, frames: 4, col0: 0, fps: 6 },
     },
+    // Repointed from the original "corpulent demon-knight" Bloodfiend
+    // concept — cursedknight_boss art is a fully-armored crowned dark
+    // knight with a purple sword + scythe-arc cast.  Renamed; toxic_pool
+    // ability stays because the purple sweeping arc fits as a ground AoE.
     boss_bloodfiend: {
-      id: 'boss_bloodfiend', name: 'Karnax, the Bloodfiend', kind: 'zombie',
+      id: 'boss_bloodfiend', name: 'Karnax, the Cursed Knight', kind: 'cursed_knight',
       radius: 85, hp: 10500, dmg: 54, speed: 60, xp: 880, gold: 440,
-      color: '#ff3d52', tier: 5, scale: 3.5, isBoss: true,
+      color: '#7a3aff', tier: 5, scale: 3.5, isBoss: true,
       eliteAbility: 'toxic_pool',
+      sheet: 'boss_bloodfiend_sheet', anim: { row: 0, frames: 4, col0: 0, fps: 5 },
     },
+    // Repointed from "Swarmlord pumpkin" — ShadowSkele_boss is a tall
+    // armored skeleton with violet shadow magic.  Renamed; spore_bloom
+    // stays because the cast frame sweeps a wide purple AoE around the
+    // boss (functions like an expanding bloom).
     boss_swarmlord: {
-      id: 'boss_swarmlord', name: 'Bazgul, the Swarmlord', kind: 'pumpkin',
+      id: 'boss_swarmlord', name: 'Bazgul, the Shadow Skeleton', kind: 'boss_warden',
       radius: 90, hp: 9800, dmg: 48, speed: 55, xp: 860, gold: 430,
-      color: '#ff7b1f', tier: 5, scale: 3.6, isBoss: true,
+      color: '#7a3aff', tier: 5, scale: 3.6, isBoss: true,
       eliteAbility: 'spore_bloom',
+      sheet: 'boss_swarmlord_sheet', anim: { row: 0, frames: 4, col0: 0, fps: 5 },
     },
   };
 
@@ -534,7 +581,7 @@ DDI.data = (function () {
       palette: { ground: '#0e1c2a', edge: '#04101c', accent: '#66d9ff', fog: 'rgba(40,90,140,0.2)' },
       // Crystal Golems fit the frozen-ruin vibe (ice-spike enemies).
       enemyPool: ['frost_wisp','frost_wisp','skeleton','archer','crystal_golem','wraith','imp'],
-      elitePool: ['elite_skel','elite_zombie','elite_wraith'],
+      elitePool: ['elite_skel','elite_zombie','elite_wraith','elite_crystal'],
       bossPool:  ['boss_warden'],
     },
     cursed: {
@@ -550,7 +597,7 @@ DDI.data = (function () {
       palette: { ground: '#0a0a3a', edge: '#040420', accent: '#ffe14d', fog: 'rgba(60,60,180,0.2)' },
       // Crystal Golems + Cursed Knights both read as "void/cosmic" threats.
       enemyPool: ['crystal_golem','cursed_knight','cursed_eye','cultist','wraith','goblin_rogue','goblin_bomber'],
-      elitePool: ['elite_eye','elite_slime','elite_zombie'],
+      elitePool: ['elite_eye','elite_slime','elite_zombie','elite_crystal'],
       bossPool:  ['boss_lich'],
     },
   };

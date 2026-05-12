@@ -51,13 +51,42 @@ DDI.assets = (function () {
     // New enemy sheets — uniform 4x2 grid (walk row + cast/attack row),
     // same convention as the new_*_sprites hero sheets.  Render code
     // reads def.sheet + def.anim to drive frame selection.
-    skeleton_enemy_sheet:        'Assets/Characters/Enemies/skeleton_enemy.png',
-    skel_archer_enemy_sheet:     'Assets/Characters/Enemies/SkeletonArcher_enemy.png',
-    slime_enemy_sheet:           'Assets/Characters/Enemies/slime_enemy.png',
-    cultist_enemy_sheet:         'Assets/Characters/Enemies/CultistMage_enemy.png',
-    mushroom_enemy_sheet:        'Assets/Characters/Enemies/mushroom_enemy.png',
-    crystal_enemy_sheet:         'Assets/Characters/Enemies/crystal_enemy.png',
-    cursedknight_enemy_sheet:    'Assets/Characters/Enemies/cursedknight_enemy.png',
+    // REGULAR enemy sheets — Enemies/Regular/ subfolder.
+    skeleton_enemy_sheet:        'Assets/Characters/Enemies/Regular/skeleton_enemy.png',
+    skel_archer_enemy_sheet:     'Assets/Characters/Enemies/Regular/SkeletonArcher_enemy.png',
+    slime_enemy_sheet:           'Assets/Characters/Enemies/Regular/slime_enemy.png',
+    cultist_enemy_sheet:         'Assets/Characters/Enemies/Regular/CultistMage_enemy.png',
+
+    // ELITE sheets — Enemies/Elite/.  4 tier-3 elites that fight at a
+    // distinct visual scale from their swarm counterparts.
+    elite_slime_sheet:           'Assets/Characters/Enemies/Elite/SlimeMom_elite.png',
+    elite_eye_sheet:             'Assets/Characters/Enemies/Elite/AllSeeingEye_elite.png',
+    elite_mushroom_sheet:        'Assets/Characters/Enemies/Elite/mushroom_elite.png',
+    elite_crystal_sheet:         'Assets/Characters/Enemies/Elite/crystal_ELITE.png',
+    elite_zombie_sheet:          'Assets/Characters/Enemies/Elite/PlagueFleshHulk_elite.png',
+
+    // BOSS sheets — Enemies/Boss/.  Same 1774x887 / 4x2 uniform grid.
+    // Walk-row on top, telegraphed cast/attack on bottom.
+    boss_warden_sheet:        'Assets/Characters/Enemies/Boss/WardenBones_boss.png',
+    boss_mushroom_sheet:      'Assets/Characters/Enemies/Boss/SporeMother_boss.png',
+    boss_lich_sheet:          'Assets/Characters/Enemies/Boss/CosmicLich_boss.png',
+    boss_lava_sheet:          'Assets/Characters/Enemies/Boss/Magma_Boss.png',
+    boss_huntress_sheet:      'Assets/Characters/Enemies/Boss/bonehuntress_boss.png',
+    boss_archmage_sheet:      'Assets/Characters/Enemies/Boss/HexMage_boss.png',
+    boss_pyromancer_sheet:    'Assets/Characters/Enemies/Boss/FlameCaller_boss.png',
+    boss_iceshade_sheet:      'Assets/Characters/Enemies/Boss/IceShade_boss.png',
+    boss_titan_sheet:         'Assets/Characters/Enemies/Boss/StoneTitan_boss.png',
+    boss_voidweaver_sheet:    'Assets/Characters/Enemies/Boss/VoidWeaver_boss.png',
+    boss_skullking_sheet:     'Assets/Characters/Enemies/Boss/SkullKing_boss.png',
+    boss_frost_queen_sheet:   'Assets/Characters/Enemies/Boss/FrostQueen.png',
+    boss_chaos_avatar_sheet:  'Assets/Characters/Enemies/Boss/AvatarChaos_boss.png',
+    // Repointed slots — art-directed by the actual sheet, not the old flavor text:
+    //   boss_lava_giant -> Ogre_boss        (green toxic ogre, not molten)
+    //   boss_bloodfiend -> cursedknight_boss (crowned dark-plate knight)
+    //   boss_swarmlord  -> ShadowSkele_boss  (purple shadow-magic skeleton)
+    boss_lava_giant_sheet:    'Assets/Characters/Enemies/Boss/Ogre_boss.png',
+    boss_bloodfiend_sheet:    'Assets/Characters/Enemies/Boss/cursedknight_boss.png',
+    boss_swarmlord_sheet:     'Assets/Characters/Enemies/Boss/ShadowSkele_boss.png',
 
     skeleton_sheet:      'Assets/Characters/Skeleton_Sprites.png',
     skel_archer_sheet:   'Assets/Characters/Skeleton_Archer_Sprites.png',
@@ -80,9 +109,28 @@ DDI.assets = (function () {
     skel_archer_enemy_sheet:     { cols: 4, rows: 2 },
     slime_enemy_sheet:           { cols: 4, rows: 2 },
     cultist_enemy_sheet:         { cols: 4, rows: 2 },
-    mushroom_enemy_sheet:        { cols: 4, rows: 2 },
-    crystal_enemy_sheet:         { cols: 4, rows: 2 },
-    cursedknight_enemy_sheet:    { cols: 4, rows: 2 },
+    elite_slime_sheet:           { cols: 4, rows: 2 },
+    elite_eye_sheet:             { cols: 4, rows: 2 },
+    elite_mushroom_sheet:        { cols: 4, rows: 2 },
+    elite_crystal_sheet:         { cols: 4, rows: 2 },
+    elite_zombie_sheet:          { cols: 4, rows: 2 },
+    // All 16 boss sheets share the same 4x2 layout.
+    boss_warden_sheet:        { cols: 4, rows: 2 },
+    boss_mushroom_sheet:      { cols: 4, rows: 2 },
+    boss_lich_sheet:          { cols: 4, rows: 2 },
+    boss_lava_sheet:          { cols: 4, rows: 2 },
+    boss_huntress_sheet:      { cols: 4, rows: 2 },
+    boss_archmage_sheet:      { cols: 4, rows: 2 },
+    boss_pyromancer_sheet:    { cols: 4, rows: 2 },
+    boss_iceshade_sheet:      { cols: 4, rows: 2 },
+    boss_titan_sheet:         { cols: 4, rows: 2 },
+    boss_voidweaver_sheet:    { cols: 4, rows: 2 },
+    boss_skullking_sheet:     { cols: 4, rows: 2 },
+    boss_frost_queen_sheet:   { cols: 4, rows: 2 },
+    boss_chaos_avatar_sheet:  { cols: 4, rows: 2 },
+    boss_lava_giant_sheet:    { cols: 4, rows: 2 },
+    boss_bloodfiend_sheet:    { cols: 4, rows: 2 },
+    boss_swarmlord_sheet:     { cols: 4, rows: 2 },
 
     skeleton_sheet:      { cols: 4, rows: 3 },
     skel_archer_sheet:   { cols: 3, rows: 2 },
