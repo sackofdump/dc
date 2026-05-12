@@ -47,7 +47,9 @@ DDI.Renderer = (function () {
     necromancer: {
       sheet: 'hero_necromancer_sheet',
       walk: { row: 0, frames: 4, fps: 7 },
-      idle: { row: 0, frames: 1, fps: 1, col0: 1 },
+      // Necromancer's col 1 has the right leg lifted (his "passing" pose
+      // happens to land on col 0 of his sheet, not col 1 like the others).
+      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
       cast: { row: 1, frames: 4, fps: 11 },
     },
     paladin: {
