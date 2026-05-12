@@ -22,9 +22,9 @@ DDI.Renderer = (function () {
     },
     rogue: {
       sheet: 'hero_rogue_sheet',
-      walk: { row: 0, frames: 3, fps: 7 },
-      idle: { row: 0, frames: 3, fps: 2.5 },
-      cast: { row: 1, frames: 3, fps: 12 },
+      walk: { row: 0, frames: 4, fps: 8 },
+      idle: { row: 0, frames: 4, fps: 2.5 },
+      cast: { row: 1, frames: 4, fps: 13 },
     },
     necromancer: {
       sheet: 'hero_necromancer_sheet',

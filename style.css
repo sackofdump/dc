@@ -1418,6 +1418,13 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
   background-size: 400% 200%;
   background-position: 0% 0%;
 }
+/* Rogue sheet: 4 cols x 2 rows.  Frame (col 0, row 0) — hooded assassin
+   facing camera with dual daggers. */
+.rogue-frame {
+  background-image: url('Assets/Characters/new_rogue_sprites.png');
+  background-size: 400% 200%;
+  background-position: 0% 0%;
+}
 .char-name {
   font-family: Cinzel, "Cinzel Decorative", serif;
   font-weight: 800; letter-spacing: 0.16em; font-size: 14px;
