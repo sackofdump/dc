@@ -16,58 +16,64 @@ DDI.Renderer = (function () {
   const HERO_ANIM = {
     // All "new_*_sprites" sheets share a 4x2 layout (4-frame walk row +
     // 4-frame cast row).  DemonHunter / FrostKnight are 3x2.
+    //
+    // Idle locks to frame 0 of the walk row (the cleanest standing pose).
+    // The earlier "row 0, frames N, fps 2.5" config cycled through the
+    // whole walk strip slowly, which read as "perpetually shuffling in
+    // place" — that was the paladin-walks-while-idle bug.  Procedural
+    // squash/bob in drawHero gives the static pose some breathing life.
     default: {
       sheet: 'hero_warrior_sheet',
       walk: { row: 0, frames: 4, fps: 8 },
-      idle: { row: 0, frames: 4, fps: 2.5 },
+      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
       cast: { row: 1, frames: 4, fps: 12 },
     },
     mage: {
       sheet: 'hero_mage_sheet',
       walk: { row: 0, frames: 4, fps: 8 },
-      idle: { row: 0, frames: 4, fps: 2.5 },
+      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
       cast: { row: 1, frames: 4, fps: 14 },
     },
     rogue: {
       sheet: 'hero_rogue_sheet',
       walk: { row: 0, frames: 4, fps: 8 },
-      idle: { row: 0, frames: 4, fps: 2.5 },
+      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
       cast: { row: 1, frames: 4, fps: 13 },
     },
     necromancer: {
       sheet: 'hero_necromancer_sheet',
       walk: { row: 0, frames: 4, fps: 7 },
-      idle: { row: 0, frames: 4, fps: 2.5 },
+      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
       cast: { row: 1, frames: 4, fps: 11 },
     },
     paladin: {
       sheet: 'hero_paladin_sheet',
       walk: { row: 0, frames: 4, fps: 7 },
-      idle: { row: 0, frames: 4, fps: 2.5 },
+      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
       cast: { row: 1, frames: 4, fps: 11 },
     },
     ranger: {
       sheet: 'hero_ranger_sheet',
       walk: { row: 0, frames: 4, fps: 7 },
-      idle: { row: 0, frames: 4, fps: 2.5 },
+      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
       cast: { row: 1, frames: 4, fps: 12 },
     },
     berserker: {
       sheet: 'hero_berserker_sheet',
       walk: { row: 0, frames: 4, fps: 8 },
-      idle: { row: 0, frames: 4, fps: 2.5 },
+      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
       cast: { row: 1, frames: 4, fps: 13 },
     },
     demonhunter: {
       sheet: 'hero_demonhunter_sheet',
       walk: { row: 0, frames: 3, fps: 8 },
-      idle: { row: 0, frames: 3, fps: 2.5 },
+      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
       cast: { row: 1, frames: 3, fps: 14 },
     },
     frostknight: {
       sheet: 'hero_frostknight_sheet',
       walk: { row: 0, frames: 3, fps: 6 },
-      idle: { row: 0, frames: 3, fps: 2.5 },
+      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
       cast: { row: 1, frames: 3, fps: 10 },
     },
   };
@@ -80,15 +86,21 @@ DDI.Renderer = (function () {
     const s = DDI.assets.sheet && DDI.assets.sheet(anim.sheet);
     if (!s) return null;     // sheet asset didn't load — caller falls back
     const moving = !!hero.moving;
+    const sprinting = !!hero.sprinting;
     const casting = (hero._castFlashT || 0) > 0;
     const t = (performance.now() / 1000);
     let role = casting ? anim.cast : (moving ? anim.walk : anim.idle);
     if (!role) role = anim.walk || anim.idle;
-    const fps = role.fps || 6;
+    // Sprint speeds the walk cycle by 1.6x so the legs visibly hustle
+    // when the hero is moving fast.  Idle / cast keep their declared fps.
+    const isWalkRole = (role === anim.walk);
+    const fpsMult = (isWalkRole && moving && sprinting) ? 1.6 : 1;
+    const fps = (role.fps || 6) * fpsMult;
     const frames = Math.max(1, role.frames || 1);
-    const col = Math.floor(t * fps) % frames;
+    const col0 = role.col0 || 0;
+    const col = col0 + (Math.floor(t * fps) % frames);
     const row = role.row || 0;
-    const cols = s.cols || frames;
+    const cols = s.cols || (frames + col0);
     const frameIdx = row * cols + col;
     return { sheetKey: anim.sheet, frameIdx };
   }
@@ -1922,10 +1934,10 @@ DDI.Renderer = (function () {
       const lean = fwdLean + microSway;
       const flash = hero.flash > 0 ? Math.min(1, hero.flash * 4) : 0;
       const flipX = hero.lastMoveX < 0;
-      // Render size multiplier — bumped from 3.2 to 4.4 so the hero
-      // reads at a more readable scale on screen.  Collision radius
+      // Render size multiplier — tuned to 4.0 (down from 4.4) for a
+      // slightly more compact hero silhouette.  Collision radius
       // (hero.radius) is unchanged, so gameplay hitboxes stay the same.
-      const d = hero.radius * 4.4;
+      const d = hero.radius * 4.0;
 
       // shadow (subtle stretch with bob)
       ctx.save();
@@ -2054,7 +2066,7 @@ DDI.Renderer = (function () {
       const fwdLean  = moving ? 0.05 * dirSign * (sprinting ? 1.3 : 1) : 0;
       const microSway = Math.sin(t * 2) * (moving ? 0.025 : 0.01);
       const lean = fwdLean + microSway;
-      const d       = 16 * 4.4;     // matches local hero render scale
+      const d       = 16 * 4.0;     // matches local hero render scale
 
       // Shadow
       ctx.save();
@@ -2083,7 +2095,7 @@ DDI.Renderer = (function () {
       // pickHeroFrame can pick the same walk vs idle vs cast frame the
       // local hero uses.  No _castFlashT broadcast yet, so cast frames
       // only fire when ult-vfx temporarily sets it; that's good enough.
-      const partnerPseudoHero = { moving: moving, _castFlashT: 0 };
+      const partnerPseudoHero = { moving: moving, sprinting: sprinting, _castFlashT: 0 };
       const partnerFrame = pickHeroFrame(charPick, partnerPseudoHero);
       let drewPartner = false;
       if (partnerFrame) {
