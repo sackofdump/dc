@@ -26,62 +26,75 @@ DDI.Renderer = (function () {
     // draw size — used to nudge specific classes up/down so the silhouette
     // matches their art (demon hunter is drawn smaller in the sheet so
     // we bump him +12%).
+    // Paladin's walk-fps 7 / 4-frame / idle-col-1 combo was reported as
+    // "PERFECT" — every other class is tuned relative to that baseline.
+    // The user also asked for paladin's legs slightly slower, so 7 -> 6.
     default: {
       sheet: 'hero_warrior_sheet',
-      walk: { row: 0, frames: 4, fps: 8 },
+      walk: { row: 0, frames: 4, fps: 6 },
       idle: { row: 0, frames: 1, fps: 1, col0: 1 },
       cast: { row: 1, frames: 4, fps: 12 },
     },
     mage: {
       sheet: 'hero_mage_sheet',
-      walk: { row: 0, frames: 4, fps: 8 },
+      walk: { row: 0, frames: 4, fps: 6 },
       idle: { row: 0, frames: 1, fps: 1, col0: 1 },
       cast: { row: 1, frames: 4, fps: 14 },
     },
     rogue: {
       sheet: 'hero_rogue_sheet',
-      walk: { row: 0, frames: 4, fps: 8 },
-      idle: { row: 0, frames: 1, fps: 1, col0: 1 },
+      walk: { row: 0, frames: 4, fps: 6 },
+      // Rogue's col 1 has the leg up — flip idle to col 0.
+      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
       cast: { row: 1, frames: 4, fps: 13 },
     },
     necromancer: {
       sheet: 'hero_necromancer_sheet',
-      walk: { row: 0, frames: 4, fps: 7 },
+      walk: { row: 0, frames: 4, fps: 6 },
       // Necromancer's entire walk row has a leg lifted in every frame —
-      // there's no true "feet planted" pose on row 0.  Cast row col 0 is
-      // the most-balanced standing pose on the whole sheet, so idle
-      // borrows from there instead.
+      // cast row col 0 is the most-balanced standing pose on the sheet.
       idle: { row: 1, frames: 1, fps: 1, col0: 0 },
       cast: { row: 1, frames: 4, fps: 11 },
     },
     paladin: {
       sheet: 'hero_paladin_sheet',
-      walk: { row: 0, frames: 4, fps: 7 },
+      walk: { row: 0, frames: 4, fps: 6 },
       idle: { row: 0, frames: 1, fps: 1, col0: 1 },
       cast: { row: 1, frames: 4, fps: 11 },
     },
     ranger: {
       sheet: 'hero_ranger_sheet',
-      walk: { row: 0, frames: 4, fps: 7 },
-      idle: { row: 0, frames: 1, fps: 1, col0: 1 },
+      walk: { row: 0, frames: 4, fps: 6 },
+      // Ranger/hunter: col 1 has the leg up — flip idle to col 0.
+      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
       cast: { row: 1, frames: 4, fps: 12 },
     },
     berserker: {
       sheet: 'hero_berserker_sheet',
-      walk: { row: 0, frames: 4, fps: 8 },
-      idle: { row: 0, frames: 1, fps: 1, col0: 1 },
+      // Berserker walk was too fast and idle col 1 had a slight lifted
+      // leg — drop fps + flip idle col.
+      walk: { row: 0, frames: 4, fps: 5 },
+      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
       cast: { row: 1, frames: 4, fps: 13 },
     },
     demonhunter: {
       sheet: 'hero_demonhunter_sheet',
-      walk: { row: 0, frames: 3, fps: 8 },
+      // DemonHunter only has 3 walk frames and the leg motion in the
+      // artwork is very subtle (the heavy cloak hides the legs almost
+      // completely) — boost fps so the cycle hits the leg-up frame more
+      // often.  Can't be fully fixed without repainting the sheet.
+      walk: { row: 0, frames: 3, fps: 10 },
       idle: { row: 0, frames: 1, fps: 1, col0: 1 },
       cast: { row: 1, frames: 3, fps: 14 },
       renderScale: 1.12,
     },
     frostknight: {
       sheet: 'hero_frostknight_sheet',
-      walk: { row: 0, frames: 3, fps: 6 },
+      // FrostKnight's 3 walk frames are nearly identical (heavy plate
+      // armor hides leg motion) — boost fps so frame changes are visible
+      // and the "gliding" feel softens.  Same caveat as demonhunter:
+      // really a re-paint job to fully fix.
+      walk: { row: 0, frames: 3, fps: 10 },
       idle: { row: 0, frames: 1, fps: 1, col0: 1 },
       cast: { row: 1, frames: 3, fps: 10 },
     },
