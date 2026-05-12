@@ -174,6 +174,26 @@ DDI.data = (function () {
       },
       desc_at: function (lvl, s) { return s.count + ' daggers · ' + Math.round(s.damage) + ' dmg · +' + Math.round(s.critBonus*100) + '% crit'; },
     },
+    // Warrior's new signature — a forward sword cleave.  Short-range,
+    // wide projectile that pierces a few foes and hits hard.  Tuned to
+    // FEEL like a melee strike: low travel speed, short life so the
+    // visual reach matches a sword swing, generous area so a single
+    // cast clears a small front arc.
+    cleavingStrike: {
+      id: 'cleavingStrike', name: 'Cleaving Strike', icon: '⚔️', element: 'physical', color: '#ff7b1f',
+      desc: 'A heavy forward sword sweep — pierces every foe in its arc.',
+      type: 'projectile', maxLevel: 8,
+      base: { cooldown: 0.85, damage: 16, count: 1, speed: 320, pierce: 4, area: 32, life: 0.55 },
+      scale: function (lvl, b) {
+        return Object.assign({}, b, {
+          damage:   b.damage   * (1 + 0.20 * lvl),
+          pierce:   b.pierce   + Math.floor(lvl / 2),
+          area:     b.area     * (1 + 0.10 * lvl),
+          cooldown: b.cooldown * (1 - 0.04 * lvl),
+        });
+      },
+      desc_at: function (lvl, s) { return Math.round(s.damage) + ' dmg · pierces ' + s.pierce + ' · arc ' + Math.round(s.area); },
+    },
   };
 
   // In-run UPGRADE picks (level-up choices). Two tunings:
@@ -1424,8 +1444,12 @@ DDI.data = (function () {
     default: {
       name: 'Warrior',
       requiredRank: 1,    // unlocked from the start (free starter class)
-      starters: ['daggers', 'blades'],
-      pool:     ['daggers', 'blades', 'boneSpear', 'bats', 'whirlwind', 'endurance'],
+      // Sword-first identity — Cleaving Strike is the main move, Spinning
+      // Blades the orbital companion.  Phantom Daggers no longer in the
+      // warrior's pool; that ability stays in ABILITIES for legacy saves
+      // mid-run but the level-up offers won't surface it again.
+      starters: ['cleavingStrike', 'blades'],
+      pool:     ['cleavingStrike', 'blades', 'boneSpear', 'bats', 'whirlwind', 'endurance'],
     },
     rogue: {
       name: 'Rogue',
