@@ -176,12 +176,13 @@ DDI.assets = (function () {
     if (s) {
       const col = frameIdx % s.cols;
       const row = Math.floor(frameIdx / s.cols) % s.rows;
-      // Inset a few pixels inside the cell so a stray pixel from the
-      // adjacent frame (sword tip, cloak edge) doesn't bleed in.  Scales
-      // with cell size — about 1.5% per side, min 4px.  Without this the
-      // warrior + paladin sheets show a tiny slice of the next frame on
-      // the right edge.
-      const inset = Math.max(4, Math.round(Math.min(s.fw, s.fh) * 0.015));
+      // Inset a chunk of pixels inside the cell so adjacent-frame content
+      // (sword tips, cast-row fire arcs, billowing cloaks) doesn't bleed
+      // in.  Scales with cell size — about 4% per side, min 8px.  The
+      // warrior sheet's mid-cast fire arc was sticking ~20px past its
+      // cell edge into the neighbouring walk-row frames at the previous
+      // 1.5% setting; 4% covers that comfortably.
+      const inset = Math.max(8, Math.round(Math.min(s.fw, s.fh) * 0.04));
       const sw = s.fw - inset * 2;
       const sh = s.fh - inset * 2;
       const sx = col * s.fw + inset, sy = row * s.fh + inset;
