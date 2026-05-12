@@ -2454,7 +2454,11 @@ DDI.Renderer = (function () {
         if (!e._alive) return;
         const flash = e.flash > 0;
         const sc = e.scale || 1;
-        const d = e.radius * 2.4 * sc;
+        // Bosses use a tighter base multiplier — their `scale` values were
+        // calibrated against procedural circles; on the new full-body boss
+        // sheets the same numbers fill ~1/3 of the screen.
+        const baseMult = e.def.isBoss ? 1.2 : 2.4;
+        const d = e.radius * baseMult * sc;
 
         // Fade transition during boss reveal — modulate alpha for the entire enemy block
         let fadeAlpha = 1;
@@ -2502,14 +2506,18 @@ DDI.Renderer = (function () {
 
         ctx.save();
         const isSlime = e.def.kind === 'slime';
+        // Sheet-animated enemies bring their own pose changes — damp the
+        // procedural squash/stretch/lean so it doesn't fight the artwork
+        // (full-body sprites read as "stuttering" with the old amplitudes).
+        const hasAnim = !!(sheetKey && sheet(sheetKey) && animCfg);
         const t = e.bobT || 0;
-        const bobAmount = isSlime ? 6 : 4;
+        const bobAmount = isSlime ? 6 : (hasAnim ? 2 : 4);
         const by = -Math.abs(Math.sin(t)) * bobAmount;          // hop UP (negative y)
-        const sxA = isSlime ? 0.22 : 0.10;
-        const syA = isSlime ? 0.28 : 0.13;
+        const sxA = isSlime ? 0.22 : (hasAnim ? 0.03 : 0.10);
+        const syA = isSlime ? 0.28 : (hasAnim ? 0.04 : 0.13);
         const sxe = 1 + Math.cos(t) * sxA;
         const sye = 1 - Math.cos(t) * syA;
-        const leanE = Math.sin(t * 2) * 0.10;
+        const leanE = Math.sin(t * 2) * (hasAnim ? 0.03 : 0.10);
         ctx.translate(e.x, e.y + by);
         ctx.rotate(leanE);
         ctx.scale(sxe, sye);
