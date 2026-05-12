@@ -14,6 +14,14 @@ DDI.Renderer = (function () {
   // a walk row and a cast row.  Default class falls back to a static
   // portrait below since Main_character.png isn't a uniform grid.
   const HERO_ANIM = {
+    // All "new_*_sprites" sheets share a 4x2 layout (4-frame walk row +
+    // 4-frame cast row).  DemonHunter / FrostKnight are 3x2.
+    default: {
+      sheet: 'hero_warrior_sheet',
+      walk: { row: 0, frames: 4, fps: 8 },
+      idle: { row: 0, frames: 4, fps: 2.5 },
+      cast: { row: 1, frames: 4, fps: 12 },
+    },
     mage: {
       sheet: 'hero_mage_sheet',
       walk: { row: 0, frames: 4, fps: 8 },
@@ -28,9 +36,9 @@ DDI.Renderer = (function () {
     },
     necromancer: {
       sheet: 'hero_necromancer_sheet',
-      walk: { row: 0, frames: 3, fps: 6 },
-      idle: { row: 0, frames: 3, fps: 2.5 },
-      cast: { row: 1, frames: 3, fps: 10 },
+      walk: { row: 0, frames: 4, fps: 7 },
+      idle: { row: 0, frames: 4, fps: 2.5 },
+      cast: { row: 1, frames: 4, fps: 11 },
     },
     paladin: {
       sheet: 'hero_paladin_sheet',
@@ -46,9 +54,21 @@ DDI.Renderer = (function () {
     },
     berserker: {
       sheet: 'hero_berserker_sheet',
-      walk: { row: 0, frames: 5, fps: 8 },
-      idle: { row: 0, frames: 5, fps: 2.5 },
-      cast: { row: 1, frames: 5, fps: 13 },
+      walk: { row: 0, frames: 4, fps: 8 },
+      idle: { row: 0, frames: 4, fps: 2.5 },
+      cast: { row: 1, frames: 4, fps: 13 },
+    },
+    demonhunter: {
+      sheet: 'hero_demonhunter_sheet',
+      walk: { row: 0, frames: 3, fps: 8 },
+      idle: { row: 0, frames: 3, fps: 2.5 },
+      cast: { row: 1, frames: 3, fps: 14 },
+    },
+    frostknight: {
+      sheet: 'hero_frostknight_sheet',
+      walk: { row: 0, frames: 3, fps: 6 },
+      idle: { row: 0, frames: 3, fps: 2.5 },
+      cast: { row: 1, frames: 3, fps: 10 },
     },
   };
   // Resolve {sheetKey, frameIdx} for the hero in its current state.
@@ -1926,6 +1946,8 @@ DDI.Renderer = (function () {
                     : charPick === 'paladin'     ? 'hero_paladin'
                     : charPick === 'ranger'      ? 'hero_ranger'
                     : charPick === 'berserker'   ? 'hero_berserker'
+                    : charPick === 'demonhunter' ? 'hero_demonhunter'
+                    : charPick === 'frostknight' ? 'hero_frostknight'
                     : 'hero';
       // Prefer the animated sprite sheet for this class; fall back to the
       // static portrait, and to a procedural silhouette if even the
@@ -2051,6 +2073,8 @@ DDI.Renderer = (function () {
                     : charPick === 'paladin'     ? 'hero_paladin'
                     : charPick === 'ranger'      ? 'hero_ranger'
                     : charPick === 'berserker'   ? 'hero_berserker'
+                    : charPick === 'demonhunter' ? 'hero_demonhunter'
+                    : charPick === 'frostknight' ? 'hero_frostknight'
                     : 'hero';
       // Partner: build a stand-in "hero" with the broadcast motion state so
       // pickHeroFrame can pick the same walk vs idle vs cast frame the

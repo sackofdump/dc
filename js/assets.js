@@ -9,22 +9,27 @@ DDI.assets = (function () {
     // (whose Main_character.png isn't a uniform grid) and for any sheet
     // that fails to load.  All non-default classes additionally load
     // animated sprite sheets below.
-    hero:            'Assets/Characters/Main_character.png',
-    hero_mage:       'Assets/Characters/Main_Mage.png',
-    hero_rogue:      'Assets/Characters/Main_Rogue.png',
-    hero_necromancer:'Assets/Characters/Main_Necromancer.png',
-    hero_paladin:    'Assets/Characters/Main_Paladin.png',
-    hero_ranger:     'Assets/Characters/Main_Ranger.png',
-    hero_berserker:  'Assets/Characters/Main_Beserker.png',     // user filename (typo Beserker)
+    hero:             'Assets/Characters/Main_character.png',
+    hero_mage:        'Assets/Characters/Main_Mage.png',
+    hero_rogue:       'Assets/Characters/Main_Rogue.png',
+    hero_necromancer: 'Assets/Characters/Main_Necromancer.png',
+    hero_paladin:     'Assets/Characters/Main_Paladin.png',
+    hero_ranger:      'Assets/Characters/Main_Ranger.png',
+    hero_berserker:   'Assets/Characters/Main_Beserker.png',     // user filename (typo Beserker)
+    hero_demonhunter: 'Assets/Characters/new/DemonHunter.png',
+    hero_frostknight: 'Assets/Characters/new/FrostKnight.png',
 
     // Animated hero sprite sheets — one per class.  Frame grids and per-
     // anim row specs live in HERO_ANIM (consumed by render.js).
-    hero_mage_sheet:        'Assets/Characters/new_mage_sprites.png',
+    hero_warrior_sheet:     'Assets/Characters/new_warrior_sprites.png',
+    hero_mage_sheet:        'Assets/Characters/new_mage_sprites_fire.png',
     hero_rogue_sheet:       'Assets/Characters/new_rogue_sprites.png',
-    hero_necromancer_sheet: 'Assets/Characters/Main_Necromancer_Sprites.png',
-    hero_paladin_sheet:     'Assets/Characters/Main_Paladin_Sprites.png',
-    hero_ranger_sheet:      'Assets/Characters/Main_Ranger_Sprites.png',
-    hero_berserker_sheet:   'Assets/Characters/Main_Beserker_Sprites.png',
+    hero_necromancer_sheet: 'Assets/Characters/new_necromancer_sprites.png',
+    hero_paladin_sheet:     'Assets/Characters/new_paladin_sprites.png',
+    hero_ranger_sheet:      'Assets/Characters/new_archer_sprites.png',
+    hero_berserker_sheet:   'Assets/Characters/new_beserker_sprites.png',
+    hero_demonhunter_sheet: 'Assets/Characters/new/DemonHunter_Sprites.png',
+    hero_frostknight_sheet: 'Assets/Characters/new/FrostKnight_Sprites.png',
 
     // Enemy single-portrait sprites (used as fallback if sheet missing)
     slime:         'Assets/Characters/Slime.png',
@@ -75,12 +80,18 @@ DDI.assets = (function () {
     frostground:         { cols: 5, rows: 3 },
     bonespear:           { cols: 5, rows: 3 },
     // Hero sheets — uniform grids inferred from the sprite-sheet artwork.
-    hero_mage_sheet:        { cols: 4, rows: 2 },     // 8 frames: walk row + cast row
-    hero_rogue_sheet:       { cols: 4, rows: 2 },     // 8 frames: walk row + cast row
-    hero_necromancer_sheet: { cols: 3, rows: 2 },     // 6 frames
+    // All "new_*_sprites" sheets are 1774x887 (or 1536x1024 for the mage fire
+    // variant) and use a 4x2 = 8-frame grid: row 0 walk cycle, row 1 cast.
+    // DemonHunter / FrostKnight are vertical 1024x1536 sheets with 3x2 = 6.
+    hero_warrior_sheet:     { cols: 4, rows: 2 },     // 8 frames
+    hero_mage_sheet:        { cols: 4, rows: 2 },     // 8 frames (fire variant)
+    hero_rogue_sheet:       { cols: 4, rows: 2 },     // 8 frames
+    hero_necromancer_sheet: { cols: 4, rows: 2 },     // 8 frames
     hero_paladin_sheet:     { cols: 4, rows: 2 },     // 8 frames
-    hero_ranger_sheet:      { cols: 4, rows: 2 },     // 8 frames
-    hero_berserker_sheet:   { cols: 5, rows: 2 },     // 10 frames
+    hero_ranger_sheet:      { cols: 4, rows: 2 },     // 8 frames (archer)
+    hero_berserker_sheet:   { cols: 4, rows: 2 },     // 8 frames
+    hero_demonhunter_sheet: { cols: 3, rows: 2 },     // 6 frames
+    hero_frostknight_sheet: { cols: 3, rows: 2 },     // 6 frames
   };
 
   const Assets = { images: {}, sheets: {}, ready: false };

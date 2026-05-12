@@ -1247,6 +1247,28 @@ DDI.data = (function () {
       starters: ['boneLance', 'raiseSkeleton'],
       pool:     ['boneLance', 'raiseSkeleton', 'curse', 'corpseBomb', 'soulDrain', 'deathGrip'],
     },
+    // Dark ranged mobility class — dual crossbows, shadow dashes, lifesteal.
+    // Pool reuses existing ranger/rogue mechanics whose flavour fits the
+    // demon-hunter fantasy: multishot bolts, shadowstep teleport-strike,
+    // piercing bolts (Explosive Bolt), huntersMark (Vampiric Mark),
+    // arrowVolley (Rain of Bolts), bats (Chakrams swarm orbit).
+    demonhunter: {
+      name: 'Demon Hunter',
+      requiredRank: 10,
+      starters: ['multishot', 'shadowstep'],
+      pool:     ['multishot', 'shadowstep', 'pierceShot', 'huntersMark', 'arrowVolley', 'bats'],
+    },
+    // Tanky frost-melee class — slows, shockwaves, frost trails.  Pool
+    // built from mage / paladin / berserker mechanics that thematically fit
+    // freezing AoE: frostAura (Frost Nova), tremor (Ice Crash), divineShield
+    // (Glacial Armor), chain lightning (Frozen Chains), meteor (Avalanche),
+    // whirlingAxe (Blizzard Spin).
+    frostknight: {
+      name: 'Frost Knight',
+      requiredRank: 12,
+      starters: ['frostAura', 'tremor'],
+      pool:     ['frostAura', 'tremor', 'divineShield', 'chain', 'meteor', 'whirlingAxe'],
+    },
   };
 
   // ============================================================

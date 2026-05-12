@@ -818,6 +818,7 @@ DDI.UI = (function () {
         const portraitIcons = {
           default: '⚔', rogue: '🗡', ranger: '🏹', mage: '🔥',
           paladin: '🛡', berserker: '🪓', necromancer: '💀',
+          demonhunter: '🏹', frostknight: '❄️',
         };
         let classChip = '';
         if (cls && portraitIcons[ck]) {
@@ -2463,6 +2464,7 @@ DDI.UI = (function () {
       const portraitIcons = {
         default: '⚔', rogue: '🗡', ranger: '🏹', mage: '🔥',
         paladin: '🛡', berserker: '🪓', necromancer: '💀',
+        demonhunter: '🏹', frostknight: '❄️',
       };
       const portraitIcon = portraitIcons[charKey] || '⚔';
       // If this character has a saved run, surface a quick CONTINUE button

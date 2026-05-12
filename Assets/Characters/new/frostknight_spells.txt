@@ -1,0 +1,33 @@
+Frost Knight
+
+Blue/icy heavily armored melee class.
+
+Gameplay:
+
+slows/freezes enemies
+ice shockwaves
+frost trails
+tanky bruiser
+huge satisfying slam effects
+
+Abilities:
+
+Frost Nova
+Ice Crash
+Glacial Armor
+Frozen Chains
+Avalanche
+Blizzard Spin
+
+Visual identity:
+
+glowing cyan armor
+ice particles
+frozen sword
+blue-white VFX
+
+This gives you:
+
+amazing icy effects
+tank melee archetype
+distinct from Paladin
