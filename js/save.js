@@ -27,7 +27,7 @@ DDI.save = (function () {
     upgrade1:      'Shift+1',
     upgrade2:      'Shift+2',
     upgrade3:      'Shift+3',
-    upgradeReroll: 't',
+    upgradeReroll: '4',
     upgradeSkip:   'y',
   };
 
@@ -132,6 +132,14 @@ DDI.save = (function () {
       k.upgrade3      = DEFAULT_KEYBINDS.upgrade3;
       k.upgradeReroll = DEFAULT_KEYBINDS.upgradeReroll;
       k.upgradeSkip   = DEFAULT_KEYBINDS.upgradeSkip;
+    }
+    // Secondary migration: reroll default flipped from 't' to '4'.  Only
+    // rewrite if the user still has the current Shift+1/2/3 picks AND the
+    // old 't' reroll, so a hand-rebound 't' on a non-default layout stays.
+    const onDefaultPicks =
+      k.upgrade1 === 'Shift+1' && k.upgrade2 === 'Shift+2' && k.upgrade3 === 'Shift+3';
+    if (onDefaultPicks && k.upgradeReroll === 't') {
+      k.upgradeReroll = DEFAULT_KEYBINDS.upgradeReroll;
     }
   }
 
