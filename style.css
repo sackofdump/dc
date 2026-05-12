@@ -1430,6 +1430,33 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
   background-size: 400% 200%;
   background-position: 0% 0%;
 }
+/* Other 4x2 hero sheets — frame (0,0) is always the idle/walk-start pose,
+   the cleanest "portrait" frame of the loop. */
+.warrior-frame {
+  background-image: url('Assets/Characters/new_warrior_sprites.png');
+  background-size: 400% 200%;
+  background-position: 0% 0%;
+}
+.ranger-frame {
+  background-image: url('Assets/Characters/new_archer_sprites.png');
+  background-size: 400% 200%;
+  background-position: 0% 0%;
+}
+.necromancer-frame {
+  background-image: url('Assets/Characters/new_necromancer_sprites.png');
+  background-size: 400% 200%;
+  background-position: 0% 0%;
+}
+.paladin-frame {
+  background-image: url('Assets/Characters/new_paladin_sprites.png');
+  background-size: 400% 200%;
+  background-position: 0% 0%;
+}
+.berserker-frame {
+  background-image: url('Assets/Characters/new_beserker_sprites.png');
+  background-size: 400% 200%;
+  background-position: 0% 0%;
+}
 .char-name {
   font-family: Cinzel, "Cinzel Decorative", serif;
   font-weight: 800; letter-spacing: 0.16em; font-size: 14px;

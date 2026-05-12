@@ -51,11 +51,13 @@ DDI.assets = (function () {
     // New enemy sheets — uniform 4x2 grid (walk row + cast/attack row),
     // same convention as the new_*_sprites hero sheets.  Render code
     // reads def.sheet + def.anim to drive frame selection.
-    skeleton_enemy_sheet:    'Assets/Characters/Enemies/skeleton_enemy.png',
-    slime_enemy_sheet:       'Assets/Characters/Enemies/slime_enemy.png',
-    cultist_enemy_sheet:     'Assets/Characters/Enemies/CultistMage_enemy.png',
-    crystal_enemy_sheet:     'Assets/Characters/Enemies/crystal_enemy.png',
-    cursedknight_enemy_sheet:'Assets/Characters/Enemies/cursedknight_enemy.png',
+    skeleton_enemy_sheet:        'Assets/Characters/Enemies/skeleton_enemy.png',
+    skel_archer_enemy_sheet:     'Assets/Characters/Enemies/SkeletonArcher_enemy.png',
+    slime_enemy_sheet:           'Assets/Characters/Enemies/slime_enemy.png',
+    cultist_enemy_sheet:         'Assets/Characters/Enemies/CultistMage_enemy.png',
+    mushroom_enemy_sheet:        'Assets/Characters/Enemies/mushroom_enemy.png',
+    crystal_enemy_sheet:         'Assets/Characters/Enemies/crystal_enemy.png',
+    cursedknight_enemy_sheet:    'Assets/Characters/Enemies/cursedknight_enemy.png',
 
     skeleton_sheet:      'Assets/Characters/Skeleton_Sprites.png',
     skel_archer_sheet:   'Assets/Characters/Skeleton_Archer_Sprites.png',
@@ -74,11 +76,13 @@ DDI.assets = (function () {
 
   const SHEETS = {
     // New enemy sheets — uniform 4x2 = 8 frames: walk row + cast/attack row.
-    skeleton_enemy_sheet:     { cols: 4, rows: 2 },
-    slime_enemy_sheet:        { cols: 4, rows: 2 },
-    cultist_enemy_sheet:      { cols: 4, rows: 2 },
-    crystal_enemy_sheet:      { cols: 4, rows: 2 },
-    cursedknight_enemy_sheet: { cols: 4, rows: 2 },
+    skeleton_enemy_sheet:        { cols: 4, rows: 2 },
+    skel_archer_enemy_sheet:     { cols: 4, rows: 2 },
+    slime_enemy_sheet:           { cols: 4, rows: 2 },
+    cultist_enemy_sheet:         { cols: 4, rows: 2 },
+    mushroom_enemy_sheet:        { cols: 4, rows: 2 },
+    crystal_enemy_sheet:         { cols: 4, rows: 2 },
+    cursedknight_enemy_sheet:    { cols: 4, rows: 2 },
 
     skeleton_sheet:      { cols: 4, rows: 3 },
     skel_archer_sheet:   { cols: 3, rows: 2 },
