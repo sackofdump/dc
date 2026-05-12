@@ -149,12 +149,19 @@ DDI.assets = (function () {
     // All "new_*_sprites" sheets are 1774x887 (or 1536x1024 for the mage fire
     // variant) and use a 4x2 = 8-frame grid: row 0 walk cycle, row 1 cast.
     // DemonHunter / FrostKnight are vertical 1024x1536 sheets with 3x2 = 6.
-    hero_warrior_sheet:     { cols: 4, rows: 2, insetPct: 0.05, insetMin: 10 },     // 8 frames — slight extra inset for the cast-row fire arc bleed
-    hero_mage_sheet:        { cols: 4, rows: 2 },     // 8 frames (fire variant)
+    // Warrior walk row needs heavy cropping to fight the cast-row fire
+    // arc bleeding upward; cast row needs minimal cropping or the
+    // user's own fire arc gets clipped.  Per-row insets split it.
+    hero_warrior_sheet:     { cols: 4, rows: 2, rowInsetPct: [0.10, 0], insetMin: 8 },
+    // Mage cast-row explosions occupy nearly the full cell — any inset
+    // clips them.  Zero inset on both rows.
+    hero_mage_sheet:        { cols: 4, rows: 2, rowInsetPct: [0, 0] },
     hero_rogue_sheet:       { cols: 4, rows: 2 },     // 8 frames
     hero_necromancer_sheet: { cols: 4, rows: 2 },     // 8 frames
     hero_paladin_sheet:     { cols: 4, rows: 2 },     // 8 frames
-    hero_ranger_sheet:      { cols: 4, rows: 2 },     // 8 frames (archer)
+    // Archer cast row col 2 firing-pose has cape extending past the cell
+    // edge; zero cast-row inset so the cape + arrow shot read fully.
+    hero_ranger_sheet:      { cols: 4, rows: 2, rowInsetPct: [0.04, 0] },
     hero_berserker_sheet:   { cols: 4, rows: 2 },     // 8 frames
     hero_demonhunter_sheet: { cols: 3, rows: 2 },     // 6 frames
     hero_frostknight_sheet: { cols: 3, rows: 2 },     // 6 frames
@@ -183,6 +190,7 @@ DDI.assets = (function () {
           img: im, cols: cfg.cols, rows: cfg.rows,
           fw: im.width / cfg.cols, fh: im.height / cfg.rows,
           insetPct: cfg.insetPct, insetMin: cfg.insetMin,
+          rowInsetPct: cfg.rowInsetPct,
         };
       }
       done++;
@@ -225,14 +233,17 @@ DDI.assets = (function () {
     if (s) {
       const col = frameIdx % s.cols;
       const row = Math.floor(frameIdx / s.cols) % s.rows;
-      // Inset a chunk of pixels inside the cell so adjacent-frame content
-      // (sword tips, cast-row fire arcs, billowing cloaks) doesn't bleed
-      // in.  Held at 4% — bumping to 6% started clipping the characters'
-      // OWN cast-row explosions on mage / archer / warrior, which the
-      // user flagged.  Bleed is a smaller eyesore than a chopped attack.
-      const insetPct = (s.insetPct != null ? s.insetPct : 0.04);
-      const insetMin = s.insetMin != null ? s.insetMin : 8;
-      const inset = Math.max(insetMin, Math.round(Math.min(s.fw, s.fh) * insetPct));
+      // Inset crops adjacent-frame leakage (neighboring sword tips, fire
+      // arcs, cloak edges).  Per-row override (`rowInsetPct[row]`) lets
+      // sheets whose walk row needs heavy cropping but whose cast row
+      // needs none — e.g. warrior — split the difference.  Falls back
+      // to a flat per-sheet `insetPct`, then to a 4% default.
+      const rowInsetPct = (s.rowInsetPct && s.rowInsetPct[row] != null)
+        ? s.rowInsetPct[row]
+        : (s.insetPct != null ? s.insetPct : 0.04);
+      const insetMinSheet = s.insetMin != null ? s.insetMin : 8;
+      const insetMin = (rowInsetPct === 0) ? 0 : insetMinSheet;
+      const inset = Math.max(insetMin, Math.round(Math.min(s.fw, s.fh) * rowInsetPct));
       const sw = s.fw - inset * 2;
       const sh = s.fh - inset * 2;
       const sx = col * s.fw + inset, sy = row * s.fh + inset;
