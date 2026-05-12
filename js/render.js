@@ -26,75 +26,76 @@ DDI.Renderer = (function () {
     // draw size — used to nudge specific classes up/down so the silhouette
     // matches their art (demon hunter is drawn smaller in the sheet so
     // we bump him +12%).
-    // Paladin's walk-fps 7 / 4-frame / idle-col-1 combo was reported as
-    // "PERFECT" — every other class is tuned relative to that baseline.
-    // The user also asked for paladin's legs slightly slower, so 7 -> 6.
+    // Berserker (fps 5, idle col 0) is the locked-in reference — user
+    // called it PERFECT, do not change it.  Other 4-frame classes
+    // hover one notch faster (fps 5) per user "TINY bit slower" notes.
     default: {
       sheet: 'hero_warrior_sheet',
-      walk: { row: 0, frames: 4, fps: 6 },
+      walk: { row: 0, frames: 4, fps: 5 },
       idle: { row: 0, frames: 1, fps: 1, col0: 1 },
       cast: { row: 1, frames: 4, fps: 12 },
+      // Mage size called PERFECT — warrior matches mage at base 1.0.
+      // Extra brightness lift — user flagged warrior as too dark.
+      brightnessLift: 0.32,
     },
     mage: {
       sheet: 'hero_mage_sheet',
-      walk: { row: 0, frames: 4, fps: 6 },
+      walk: { row: 0, frames: 4, fps: 6 },   // mage movement was called perfect — leave near previous
       idle: { row: 0, frames: 1, fps: 1, col0: 1 },
       cast: { row: 1, frames: 4, fps: 14 },
     },
     rogue: {
       sheet: 'hero_rogue_sheet',
-      walk: { row: 0, frames: 4, fps: 6 },
-      // Rogue's col 1 has the leg up — flip idle to col 0.
-      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
+      // "tiny bit more time between frames" -> fps 5.
+      walk: { row: 0, frames: 4, fps: 5 },
+      // Col 0 still showed a lifted leg — fall back to cast row col 0
+      // (same trick as necromancer) for the most-planted standing pose.
+      idle: { row: 1, frames: 1, fps: 1, col0: 0 },
       cast: { row: 1, frames: 4, fps: 13 },
     },
     necromancer: {
       sheet: 'hero_necromancer_sheet',
-      walk: { row: 0, frames: 4, fps: 6 },
-      // Necromancer's entire walk row has a leg lifted in every frame —
-      // cast row col 0 is the most-balanced standing pose on the sheet.
+      // "tiny bit more time between frames" -> fps 5.
+      walk: { row: 0, frames: 4, fps: 5 },
       idle: { row: 1, frames: 1, fps: 1, col0: 0 },
       cast: { row: 1, frames: 4, fps: 11 },
     },
     paladin: {
       sheet: 'hero_paladin_sheet',
-      walk: { row: 0, frames: 4, fps: 6 },
+      // "TINY bit too fast" -> drop fps 6 -> 5.
+      walk: { row: 0, frames: 4, fps: 5 },
       idle: { row: 0, frames: 1, fps: 1, col0: 1 },
       cast: { row: 1, frames: 4, fps: 11 },
     },
     ranger: {
       sheet: 'hero_ranger_sheet',
-      walk: { row: 0, frames: 4, fps: 6 },
-      // Ranger/hunter: col 1 has the leg up — flip idle to col 0.
-      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
+      walk: { row: 0, frames: 4, fps: 5 },
+      // Archer's col 0 had a lifted leg too — pull idle from cast row.
+      idle: { row: 1, frames: 1, fps: 1, col0: 0 },
       cast: { row: 1, frames: 4, fps: 12 },
     },
     berserker: {
       sheet: 'hero_berserker_sheet',
-      // Berserker walk was too fast and idle col 1 had a slight lifted
-      // leg — drop fps + flip idle col.
+      // *** DO NOT CHANGE — user called these settings PERFECT. ***
       walk: { row: 0, frames: 4, fps: 5 },
       idle: { row: 0, frames: 1, fps: 1, col0: 0 },
       cast: { row: 1, frames: 4, fps: 13 },
     },
     demonhunter: {
       sheet: 'hero_demonhunter_sheet',
-      // DemonHunter only has 3 walk frames and the leg motion in the
-      // artwork is very subtle (the heavy cloak hides the legs almost
-      // completely) — boost fps so the cycle hits the leg-up frame more
-      // often.  Can't be fully fixed without repainting the sheet.
-      walk: { row: 0, frames: 3, fps: 10 },
+      // 3-frame sheet, leg motion very subtle under the cloak.  fps 10
+      // read as "limping/gliding too fast"; drop to 6 — matches the
+      // other classes' cadence, the limp will read as a slower stride
+      // instead of a frantic shuffle.  True fix needs a sheet repaint.
+      walk: { row: 0, frames: 3, fps: 6 },
       idle: { row: 0, frames: 1, fps: 1, col0: 1 },
       cast: { row: 1, frames: 3, fps: 14 },
       renderScale: 1.12,
     },
     frostknight: {
       sheet: 'hero_frostknight_sheet',
-      // FrostKnight's 3 walk frames are nearly identical (heavy plate
-      // armor hides leg motion) — boost fps so frame changes are visible
-      // and the "gliding" feel softens.  Same caveat as demonhunter:
-      // really a re-paint job to fully fix.
-      walk: { row: 0, frames: 3, fps: 10 },
+      // Same situation as demonhunter — drop fps.
+      walk: { row: 0, frames: 3, fps: 6 },
       idle: { row: 0, frames: 1, fps: 1, col0: 1 },
       cast: { row: 1, frames: 3, fps: 10 },
     },
@@ -2004,12 +2005,9 @@ DDI.Renderer = (function () {
       ctx.restore();
 
       // Squash/stretch + forward-lean transform around the hero centre.
-      // Feet anchor: the sheet art puts the character roughly centered
-      // in the cell but the painted feet sit ~70% down, so centering on
-      // hero.y leaves the visible feet floating above the shadow.  Shift
-      // the draw origin down by ~8% of d (sheet-classes only) so the
-      // feet land on the ground.
-      const feetAnchor = usingSheet ? d * 0.08 : 0;
+      // Feet anchor: 8% wasn't enough — bumped to 14% so the painted
+      // feet land squarely on the shadow line instead of hovering.
+      const feetAnchor = usingSheet ? d * 0.14 : 0;
       ctx.save();
       ctx.translate(hero.x, hero.y - stepBob + feetAnchor);
       ctx.rotate(lean);
@@ -2057,11 +2055,12 @@ DDI.Renderer = (function () {
       }
       // Brightness lift — overdraw the sprite in 'screen' mode at low
       // alpha so the hero reads as lit by an ambient light source instead
-      // of swallowed by the dark world fog.  Doesn't change the sprite's
-      // own painted shading, just lifts the midtones a notch.
+      // of swallowed by the dark world fog.  Per-class override lets
+      // darker sheets (warrior's heavy black armor) lift further.
       if (drewSprite) {
+        const lift = (animDef && animDef.brightnessLift) || 0.22;
         ctx.globalCompositeOperation = 'screen';
-        ctx.globalAlpha = 0.22;
+        ctx.globalAlpha = lift;
         if (frame) drawFrameOrFallback(ctx, frame.sheetKey, frame.frameIdx, 0, 0, d, null);
         else       drawSpriteOrFallback(ctx, heroKey, 0, 0, d, null);
         ctx.globalAlpha = 1;
@@ -2152,7 +2151,7 @@ DDI.Renderer = (function () {
       // Sprite — same key system as the local hero.  Match the local
       // hero's feet anchor so partner's feet meet their shadow.
       const partnerUsingSheet = !!HERO_ANIM[ps.character];
-      const partnerFeetAnchor = partnerUsingSheet ? d * 0.08 : 0;
+      const partnerFeetAnchor = partnerUsingSheet ? d * 0.14 : 0;
       ctx.save();
       ctx.translate(px, py - stepBob + partnerFeetAnchor);
       ctx.rotate(lean);
@@ -2583,20 +2582,27 @@ DDI.Renderer = (function () {
         // procedural squash/stretch/lean so it doesn't fight the artwork
         // (full-body sprites read as "stuttering" with the old amplitudes).
         const hasAnim = !!(sheetKey && sheet(sheetKey) && animCfg);
+        // Slimes with a sheet should look like sheet-animated enemies, NOT
+        // get the loud procedural 22%/28% squash on top — that was the
+        // "glitchy between frames" feel on slimes.  Procedural-only slimes
+        // (no sheet) keep their bouncy values.
+        const proceduralSlime = isSlime && !hasAnim;
         const t = e.bobT || 0;
-        const bobAmount = isSlime ? 6 : (hasAnim ? 2 : 4);
+        const bobAmount = proceduralSlime ? 6 : (hasAnim ? 2 : 4);
         const by = -Math.abs(Math.sin(t)) * bobAmount;          // hop UP (negative y)
-        const sxA = isSlime ? 0.22 : (hasAnim ? 0.03 : 0.10);
-        const syA = isSlime ? 0.28 : (hasAnim ? 0.04 : 0.13);
+        const sxA = proceduralSlime ? 0.22 : (hasAnim ? 0.03 : 0.10);
+        const syA = proceduralSlime ? 0.28 : (hasAnim ? 0.04 : 0.13);
         const sxe = 1 + Math.cos(t) * sxA;
         const sye = 1 - Math.cos(t) * syA;
         const leanE = Math.sin(t * 2) * (hasAnim ? 0.03 : 0.10);
-        // Boss sprites center on the cell, but the painted feet sit
-        // around 65-70% down the cell with weapon/effects below — so
-        // anchoring at sprite-center makes the boss "float" above its
-        // shadow.  Push the draw origin down so the visible feet land
-        // near the ground shadow.
-        const feetAnchor = e.def.isBoss ? d * 0.18 : 0;
+        // Painted feet sit ~65-70% down the cell — center-anchoring on
+        // e.y leaves them floating above the shadow.  Bosses get a bigger
+        // shift because they're scaled larger and have weapon/effect tail
+        // hanging below the feet; elites and regular sheet enemies get a
+        // milder one.  Procedural drawings (no sheet) don't shift.
+        const feetAnchor = hasAnim
+          ? (e.def.isBoss ? d * 0.20 : d * 0.13)
+          : 0;
         ctx.translate(e.x, e.y + by + feetAnchor);
         ctx.rotate(leanE);
         ctx.scale(sxe, sye);
