@@ -93,17 +93,35 @@ DDI.Renderer = (function () {
     const moving = !!hero.moving;
     const sprinting = !!hero.sprinting;
     const casting = (hero._castFlashT || 0) > 0;
-    const t = (performance.now() / 1000);
     let role = casting ? anim.cast : (moving ? anim.walk : anim.idle);
     if (!role) role = anim.walk || anim.idle;
-    // Sprint speeds the walk cycle by 1.6x so the legs visibly hustle
-    // when the hero is moving fast.  Idle / cast keep their declared fps.
     const isWalkRole = (role === anim.walk);
-    const fpsMult = (isWalkRole && moving && sprinting) ? 1.6 : 1;
-    const fps = (role.fps || 6) * fpsMult;
+    // Walk frames drive off hero.walkT (motion-paced) instead of
+    // performance.now() (real-time).  Real-time made the cycle keep
+    // advancing while the player stood still, so resuming movement
+    // snapped the legs to a non-adjacent frame — that was the "warping
+    // mid-step" complaint.  walkT freezes when motion stops, so the
+    // walk cycle picks up exactly where it left off.  Sprint multiplies
+    // the cycle speed; idle / cast still use real time so they read
+    // as breathing / casting independent of motion.
+    // For walk: drive off hero.walkT (motion-paced) so the cycle
+    // freezes when the player stops and resumes from the same frame.
+    // walkT already speeds up 1.5x while sprinting in main.js, so we
+    // don't apply an extra fpsMult here.  For idle / cast, real time
+    // is fine — those should breathe / cast independent of motion.
     const frames = Math.max(1, role.frames || 1);
     const col0 = role.col0 || 0;
-    const col = col0 + (Math.floor(t * fps) % frames);
+    let phase;
+    if (isWalkRole) {
+      const walkT = hero.walkT || 0;
+      // walkT advances ~8 units/sec at base walking input.  Multiply
+      // by fps/8 so a fps=8 sheet roughly matches one frame per
+      // unit-walkT (i.e. original real-time pacing while moving).
+      phase = walkT * ((role.fps || 6) / 8);
+    } else {
+      phase = (performance.now() / 1000) * (role.fps || 6);
+    }
+    const col = col0 + (Math.floor(phase) % frames);
     const row = role.row || 0;
     const cols = s.cols || (frames + col0);
     const frameIdx = row * cols + col;
@@ -1968,9 +1986,15 @@ DDI.Renderer = (function () {
       ctx.fill();
       ctx.restore();
 
-      // Squash/stretch + forward-lean transform around the hero centre
+      // Squash/stretch + forward-lean transform around the hero centre.
+      // Feet anchor: the sheet art puts the character roughly centered
+      // in the cell but the painted feet sit ~70% down, so centering on
+      // hero.y leaves the visible feet floating above the shadow.  Shift
+      // the draw origin down by ~8% of d (sheet-classes only) so the
+      // feet land on the ground.
+      const feetAnchor = usingSheet ? d * 0.08 : 0;
       ctx.save();
-      ctx.translate(hero.x, hero.y - stepBob);
+      ctx.translate(hero.x, hero.y - stepBob + feetAnchor);
       ctx.rotate(lean);
       ctx.scale((flipX ? -sxx : sxx), syy);
 
@@ -2108,9 +2132,12 @@ DDI.Renderer = (function () {
       ctx.fill();
       ctx.restore();
 
-      // Sprite — same key system as the local hero
+      // Sprite — same key system as the local hero.  Match the local
+      // hero's feet anchor so partner's feet meet their shadow.
+      const partnerUsingSheet = !!HERO_ANIM[ps.character];
+      const partnerFeetAnchor = partnerUsingSheet ? d * 0.08 : 0;
       ctx.save();
-      ctx.translate(px, py - stepBob);
+      ctx.translate(px, py - stepBob + partnerFeetAnchor);
       ctx.rotate(lean);
       ctx.scale((flipX ? -sxx : sxx), syy);
       const charPick = ps.character || 'default';
