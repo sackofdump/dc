@@ -20,12 +20,13 @@ DDI.save = (function () {
     potionHp:   '1',
     potionUlt:  '2',
     potionStam: '3',
-    // Level-up choices — Q / E / R, all close to the resting WASD hand
-    // but NOT W (which is moveUp).  Reroll + skip continue rightward on
-    // the top row so the whole modal lives under the left hand.
-    upgrade1:      'q',
-    upgrade2:      'e',
-    upgrade3:      'r',
+    // Level-up choices — Shift+1 / Shift+2 / Shift+3.  Distinct from the
+    // unmodified 1/2/3 potion binds so a combat-reactive potion mash
+    // can't pick an upgrade by accident.  Reroll + skip stay on letter
+    // keys nearby (T / Y) for the resting hand.
+    upgrade1:      'Shift+1',
+    upgrade2:      'Shift+2',
+    upgrade3:      'Shift+3',
     upgradeReroll: 't',
     upgradeSkip:   'y',
   };
@@ -114,14 +115,18 @@ DDI.save = (function () {
     writeProfiles(profiles);
   }
 
-  // One-time keybind migration: the older default for upgrade-pick #2 was
-  // 'w' (which collides with moveUp).  Newer default is 'e'.  Detect the
-  // legacy layout (q / w / e + reroll on r + skip on t) and rewrite to
-  // the current defaults so existing saves don't keep the broken W bind.
+  // One-time keybind migration: legacy upgrade-pick defaults have been
+  // swapped twice (1/2/3 -> q/w/e -> q/e/r -> Shift+1/2/3).  Detect any
+  // of the older default layouts and rewrite to the current one so
+  // existing saves auto-upgrade without the player digging through
+  // Settings -> Keybinds.
   function _migrateUpgradeKeybinds(save) {
     if (!save || !save.keybinds) return;
     const k = save.keybinds;
-    if (k.upgrade2 === 'w' && k.upgrade1 === 'q' && k.upgrade3 === 'e') {
+    const isLegacyQWE = k.upgrade1 === 'q' && k.upgrade2 === 'w' && k.upgrade3 === 'e';
+    const isLegacyQER = k.upgrade1 === 'q' && k.upgrade2 === 'e' && k.upgrade3 === 'r';
+    const isLegacy123 = k.upgrade1 === '1' && k.upgrade2 === '2' && k.upgrade3 === '3';
+    if (isLegacyQWE || isLegacyQER || isLegacy123) {
       k.upgrade1      = DEFAULT_KEYBINDS.upgrade1;
       k.upgrade2      = DEFAULT_KEYBINDS.upgrade2;
       k.upgrade3      = DEFAULT_KEYBINDS.upgrade3;

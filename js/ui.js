@@ -7,9 +7,26 @@ DDI.UI = (function () {
   const { shortNum, fmtTime, clamp } = DDI.util;
   const { Leveling } = DDI.systems;
 
+  // Format a single key token (single char, named key, or full compound
+  // "Shift+1" string).  Compound bindings render their modifier with a
+  // glyph (⇧ / ⌃ / ⌥) so the on-screen hint stays compact.
   function displayKey(k) {
     if (k == null) return '?';
-    if (k === ' ') return 'SPACE';
+    if (typeof k === 'string' && k.indexOf('+') >= 0) {
+      const parts = k.split('+').map(function (s) { return s.trim(); });
+      return parts.map(function (p) {
+        if (/^shift$/i.test(p))   return '⇧';
+        if (/^ctrl|control$/i.test(p)) return '⌃';
+        if (/^alt$/i.test(p))     return '⌥';
+        if (/^meta|cmd$/i.test(p)) return '⌘';
+        return _displayKeyPart(p);
+      }).join('');
+    }
+    return _displayKeyPart(k);
+  }
+  function _displayKeyPart(k) {
+    if (k == null) return '?';
+    if (k === ' ' || k === 'Space') return 'SPACE';
     if (k === 'Escape') return 'ESC';
     if (k === 'Shift') return 'SHIFT';
     if (k === 'Control') return 'CTRL';
@@ -19,6 +36,44 @@ DDI.UI = (function () {
     if (k === 'ArrowRight') return '→';
     if (k.length === 1) return k.toUpperCase();
     return k;
+  }
+  // Match a "Shift+1" / "q" / "Escape" style binding against a keydown
+  // event.  Letter / digit bases use e.code so Shift-mangled keys (Shift+1
+  // surfacing as '!') still register.
+  function matchKeybind(e, bind) {
+    if (!bind) return false;
+    const parts = String(bind).split('+').map(function (s) { return s.trim(); });
+    const base = parts[parts.length - 1];
+    const wantsShift = parts.length > 1 && /^shift$/i.test(parts[0]);
+    const wantsCtrl  = parts.length > 1 && /^ctrl|control$/i.test(parts[0]);
+    const wantsAlt   = parts.length > 1 && /^alt$/i.test(parts[0]);
+    if ((!!e.shiftKey) !== wantsShift) return false;
+    if ((!!e.ctrlKey)  !== wantsCtrl)  return false;
+    if ((!!e.altKey)   !== wantsAlt)   return false;
+    if (/^[a-z]$/i.test(base)) {
+      return (e.code === 'Key' + base.toUpperCase())
+          || (e.key && e.key.toLowerCase() === base.toLowerCase());
+    }
+    if (/^[0-9]$/.test(base)) {
+      return e.code === 'Digit' + base || e.code === 'Numpad' + base;
+    }
+    if (base === ' ' || base === 'Space') return e.code === 'Space' || e.key === ' ';
+    return e.key === base;
+  }
+  // Convert a keydown event to the string we store in save.keybinds.
+  // Captures Shift / Ctrl / Alt as prefix tokens when held.
+  function eventToKeybind(e) {
+    const mods = [];
+    if (e.shiftKey) mods.push('Shift');
+    if (e.ctrlKey)  mods.push('Ctrl');
+    if (e.altKey)   mods.push('Alt');
+    // Prefer the unmodified char so Shift+1 stores as "Shift+1" not "Shift+!".
+    let base = e.key;
+    if (e.code && e.code.indexOf('Digit') === 0)      base = e.code.slice(5);
+    else if (e.code && e.code.indexOf('Numpad') === 0 && e.code.length > 6) base = e.code.slice(6);
+    else if (e.code && e.code.indexOf('Key') === 0)   base = e.code.slice(3).toLowerCase();
+    if (mods.length === 0) return base;
+    return mods.join('+') + '+' + base;
   }
 
   class UI {
@@ -37,16 +92,15 @@ DDI.UI = (function () {
       addEventListener('keydown', function (e) {
         const lvl = self.$('modal-levelup');
         if (!lvl || lvl.classList.contains('hidden')) return;
-        const key = (e.key || '').toLowerCase();
         const kb = (self.app && self.app.save && self.app.save.keybinds) || {};
         const defaults = (DDI.save && DDI.save.DEFAULT_KEYBINDS) || {};
-        const k = function (id) { return (kb[id] || defaults[id] || '').toLowerCase(); };
-        if (key === k('upgradeReroll')) { self.rerollChoices(); e.preventDefault(); return; }
-        if (key === k('upgradeSkip'))   { self.skipChoice();    e.preventDefault(); return; }
+        const bind = function (id) { return kb[id] || defaults[id] || ''; };
+        if (matchKeybind(e, bind('upgradeReroll'))) { self.rerollChoices(); e.preventDefault(); return; }
+        if (matchKeybind(e, bind('upgradeSkip')))   { self.skipChoice();    e.preventDefault(); return; }
         let idx = -1;
-        if      (key === k('upgrade1')) idx = 0;
-        else if (key === k('upgrade2')) idx = 1;
-        else if (key === k('upgrade3')) idx = 2;
+        if      (matchKeybind(e, bind('upgrade1'))) idx = 0;
+        else if (matchKeybind(e, bind('upgrade2'))) idx = 1;
+        else if (matchKeybind(e, bind('upgrade3'))) idx = 2;
         if (idx < 0) return;
         const wrap = self.$('levelup-choices');
         const btn = wrap && wrap.children[idx];
@@ -361,21 +415,18 @@ DDI.UI = (function () {
       // gear or level-up — when the user has a heart-thumping moment they
       // can chug.  But suppress when typing in inputs.
       addEventListener('keydown', function (e) {
-        const key = (e.key || '').toLowerCase();
         const tgt = e.target;
         if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA')) return;
         const kb = (self.app && self.app.save && self.app.save.keybinds) || {};
         const defaults = (DDI.save && DDI.save.DEFAULT_KEYBINDS) || {};
-        const kHp   = (kb.potionHp   || defaults.potionHp   || '1').toLowerCase();
-        const kUlt  = (kb.potionUlt  || defaults.potionUlt  || '2').toLowerCase();
-        const kStam = (kb.potionStam || defaults.potionStam || '3').toLowerCase();
         let slot = null;
-        if      (key === kHp)   slot = 'hp';
-        else if (key === kUlt)  slot = 'ult';
-        else if (key === kStam) slot = 'stam';
+        if      (matchKeybind(e, kb.potionHp   || defaults.potionHp))   slot = 'hp';
+        else if (matchKeybind(e, kb.potionUlt  || defaults.potionUlt))  slot = 'ult';
+        else if (matchKeybind(e, kb.potionStam || defaults.potionStam)) slot = 'stam';
         if (!slot) return;
         // Don't steal from the level-up picker — that modal owns its own
-        // bindings.  (Defaults no longer collide, but a custom rebind might.)
+        // bindings.  (Upgrade picks default to Shift+digit, potions are
+        // unmodified digit — they no longer collide.)
         const lvl = self.$('modal-levelup');
         if (lvl && !lvl.classList.contains('hidden')) return;
         if (!self.app || !self.app.game || !self.app.game.running) return;
@@ -2000,11 +2051,14 @@ DDI.UI = (function () {
             e.preventDefault();
             return;
           }
+          // Capture modifiers (Shift / Ctrl / Alt) along with the base key
+          // so bindings like "Shift+1" can be set from Settings.
+          const bind = eventToKeybind(e);
           self.app.save.keybinds = self.app.save.keybinds || {};
-          self.app.save.keybinds[self._listeningId] = e.key;
+          self.app.save.keybinds[self._listeningId] = bind;
           self.app.persist();
           self._listeningKey.classList.remove('listening');
-          self._listeningKey.textContent = displayKey(e.key);
+          self._listeningKey.textContent = displayKey(bind);
           self._listeningKey = null;
           self._listeningId = null;
           e.preventDefault();
