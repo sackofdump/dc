@@ -1994,6 +1994,18 @@ DDI.Renderer = (function () {
         ctx.globalAlpha = 1;
         ctx.globalCompositeOperation = 'source-over';
       }
+      // Brightness lift — overdraw the sprite in 'screen' mode at low
+      // alpha so the hero reads as lit by an ambient light source instead
+      // of swallowed by the dark world fog.  Doesn't change the sprite's
+      // own painted shading, just lifts the midtones a notch.
+      if (drewSprite) {
+        ctx.globalCompositeOperation = 'screen';
+        ctx.globalAlpha = 0.22;
+        if (frame) drawFrameOrFallback(ctx, frame.sheetKey, frame.frameIdx, 0, 0, d, null);
+        else       drawSpriteOrFallback(ctx, heroKey, 0, 0, d, null);
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'source-over';
+      }
       ctx.restore();
 
       // Foot-plant dust when walking and stepping down
