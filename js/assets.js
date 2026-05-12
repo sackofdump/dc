@@ -19,7 +19,7 @@ DDI.assets = (function () {
 
     // Animated hero sprite sheets — one per class.  Frame grids and per-
     // anim row specs live in HERO_ANIM (consumed by render.js).
-    hero_mage_sheet:        'Assets/Characters/Main_Mage_Sprites.png',
+    hero_mage_sheet:        'Assets/Characters/new_mage_sprites.png',
     hero_rogue_sheet:       'Assets/Characters/Main_Rogue_Sprites.png',
     hero_necromancer_sheet: 'Assets/Characters/Main_Necromancer_Sprites.png',
     hero_paladin_sheet:     'Assets/Characters/Main_Paladin_Sprites.png',
@@ -75,7 +75,7 @@ DDI.assets = (function () {
     frostground:         { cols: 5, rows: 3 },
     bonespear:           { cols: 5, rows: 3 },
     // Hero sheets — uniform grids inferred from the sprite-sheet artwork.
-    hero_mage_sheet:        { cols: 5, rows: 4 },     // 20 frames
+    hero_mage_sheet:        { cols: 4, rows: 2 },     // 8 frames: walk row + cast row
     hero_rogue_sheet:       { cols: 3, rows: 2 },     // 6 frames
     hero_necromancer_sheet: { cols: 3, rows: 2 },     // 6 frames
     hero_paladin_sheet:     { cols: 4, rows: 2 },     // 8 frames

@@ -16,9 +16,9 @@ DDI.Renderer = (function () {
   const HERO_ANIM = {
     mage: {
       sheet: 'hero_mage_sheet',
-      walk: { row: 0, frames: 5, fps: 8 },
-      idle: { row: 0, frames: 5, fps: 3 },
-      cast: { row: 1, frames: 5, fps: 14 },
+      walk: { row: 0, frames: 4, fps: 8 },
+      idle: { row: 0, frames: 4, fps: 2.5 },
+      cast: { row: 1, frames: 4, fps: 14 },
     },
     rogue: {
       sheet: 'hero_rogue_sheet',
