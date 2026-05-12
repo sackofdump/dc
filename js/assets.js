@@ -149,7 +149,7 @@ DDI.assets = (function () {
     // All "new_*_sprites" sheets are 1774x887 (or 1536x1024 for the mage fire
     // variant) and use a 4x2 = 8-frame grid: row 0 walk cycle, row 1 cast.
     // DemonHunter / FrostKnight are vertical 1024x1536 sheets with 3x2 = 6.
-    hero_warrior_sheet:     { cols: 4, rows: 2 },     // 8 frames
+    hero_warrior_sheet:     { cols: 4, rows: 2, insetPct: 0.085, insetMin: 16 },     // 8 frames — bigger inset, cast-row fire arc bleed
     hero_mage_sheet:        { cols: 4, rows: 2 },     // 8 frames (fire variant)
     hero_rogue_sheet:       { cols: 4, rows: 2 },     // 8 frames
     hero_necromancer_sheet: { cols: 4, rows: 2 },     // 8 frames
@@ -182,6 +182,7 @@ DDI.assets = (function () {
         Assets.sheets[k] = {
           img: im, cols: cfg.cols, rows: cfg.rows,
           fw: im.width / cfg.cols, fh: im.height / cfg.rows,
+          insetPct: cfg.insetPct, insetMin: cfg.insetMin,
         };
       }
       done++;
@@ -226,11 +227,12 @@ DDI.assets = (function () {
       const row = Math.floor(frameIdx / s.cols) % s.rows;
       // Inset a chunk of pixels inside the cell so adjacent-frame content
       // (sword tips, cast-row fire arcs, billowing cloaks) doesn't bleed
-      // in.  Scales with cell size — about 4% per side, min 8px.  The
-      // warrior sheet's mid-cast fire arc was sticking ~20px past its
-      // cell edge into the neighbouring walk-row frames at the previous
-      // 1.5% setting; 4% covers that comfortably.
-      const inset = Math.max(8, Math.round(Math.min(s.fw, s.fh) * 0.04));
+      // in.  The warrior sheet still leaked at 4% because its cast-row
+      // fire arc is huge; bumped to 6% / min 12px.  Per-sheet override
+      // via SHEETS[key].insetPct lets specific bleedy sheets crop more.
+      const insetPct = (s.insetPct != null ? s.insetPct : 0.06);
+      const insetMin = s.insetMin != null ? s.insetMin : 12;
+      const inset = Math.max(insetMin, Math.round(Math.min(s.fw, s.fh) * insetPct));
       const sw = s.fw - inset * 2;
       const sh = s.fh - inset * 2;
       const sx = col * s.fw + inset, sy = row * s.fh + inset;

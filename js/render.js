@@ -17,63 +17,68 @@ DDI.Renderer = (function () {
     // All "new_*_sprites" sheets share a 4x2 layout (4-frame walk row +
     // 4-frame cast row).  DemonHunter / FrostKnight are 3x2.
     //
-    // Idle locks to frame 0 of the walk row (the cleanest standing pose).
-    // The earlier "row 0, frames N, fps 2.5" config cycled through the
-    // whole walk strip slowly, which read as "perpetually shuffling in
-    // place" — that was the paladin-walks-while-idle bug.  Procedural
-    // squash/bob in drawHero gives the static pose some breathing life.
+    // Idle locks to the "passing" pose (col 1 — feet under the body,
+    // weight centred).  Col 0 is a contact pose with one leg lifted
+    // mid-step, which read as "frozen mid-stride" when held as the idle
+    // frame.  The squash/bob in drawHero adds subtle breathing on top.
+    //
+    // `renderScale` is a per-class multiplier on the base 4.0 hero
+    // draw size — used to nudge specific classes up/down so the silhouette
+    // matches their art (demon hunter is drawn smaller in the sheet so
+    // we bump him +12%).
     default: {
       sheet: 'hero_warrior_sheet',
       walk: { row: 0, frames: 4, fps: 8 },
-      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
+      idle: { row: 0, frames: 1, fps: 1, col0: 1 },
       cast: { row: 1, frames: 4, fps: 12 },
     },
     mage: {
       sheet: 'hero_mage_sheet',
       walk: { row: 0, frames: 4, fps: 8 },
-      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
+      idle: { row: 0, frames: 1, fps: 1, col0: 1 },
       cast: { row: 1, frames: 4, fps: 14 },
     },
     rogue: {
       sheet: 'hero_rogue_sheet',
       walk: { row: 0, frames: 4, fps: 8 },
-      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
+      idle: { row: 0, frames: 1, fps: 1, col0: 1 },
       cast: { row: 1, frames: 4, fps: 13 },
     },
     necromancer: {
       sheet: 'hero_necromancer_sheet',
       walk: { row: 0, frames: 4, fps: 7 },
-      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
+      idle: { row: 0, frames: 1, fps: 1, col0: 1 },
       cast: { row: 1, frames: 4, fps: 11 },
     },
     paladin: {
       sheet: 'hero_paladin_sheet',
       walk: { row: 0, frames: 4, fps: 7 },
-      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
+      idle: { row: 0, frames: 1, fps: 1, col0: 1 },
       cast: { row: 1, frames: 4, fps: 11 },
     },
     ranger: {
       sheet: 'hero_ranger_sheet',
       walk: { row: 0, frames: 4, fps: 7 },
-      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
+      idle: { row: 0, frames: 1, fps: 1, col0: 1 },
       cast: { row: 1, frames: 4, fps: 12 },
     },
     berserker: {
       sheet: 'hero_berserker_sheet',
       walk: { row: 0, frames: 4, fps: 8 },
-      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
+      idle: { row: 0, frames: 1, fps: 1, col0: 1 },
       cast: { row: 1, frames: 4, fps: 13 },
     },
     demonhunter: {
       sheet: 'hero_demonhunter_sheet',
       walk: { row: 0, frames: 3, fps: 8 },
-      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
+      idle: { row: 0, frames: 1, fps: 1, col0: 1 },
       cast: { row: 1, frames: 3, fps: 14 },
+      renderScale: 1.12,
     },
     frostknight: {
       sheet: 'hero_frostknight_sheet',
       walk: { row: 0, frames: 3, fps: 6 },
-      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
+      idle: { row: 0, frames: 1, fps: 1, col0: 1 },
       cast: { row: 1, frames: 3, fps: 10 },
     },
   };
@@ -143,7 +148,15 @@ DDI.Renderer = (function () {
       this.app.viewH = h;
     }
 
-    flash(color, alpha) { this.flashColor = color; this.flashAlpha = alpha != null ? alpha : 0.18; }
+    flash(color, alpha) {
+      // Bonus / pickup / level-up flashes used to wash the screen with
+      // 0.5-0.85 alpha which was visually loud.  Cap the max here so a
+      // call site asking for a bright flash still reads as a subtle
+      // tint, while the HP-loss flash (already 0.18) is unchanged.
+      const a = alpha != null ? alpha : 0.18;
+      this.flashColor = color;
+      this.flashAlpha = Math.min(0.20, a);
+    }
     // Diminishing returns: when current shake is already high, new additions
     // contribute less. Prevents projectile spam from constantly maxing out the
     // jitter — each hit still registers, but a barrage doesn't compound.
@@ -1916,28 +1929,35 @@ DDI.Renderer = (function () {
       const t = hero.walkT || 0;
       const moving = !!hero.moving;
       const sprinting = !!hero.sprinting;
-      // With the sheet now playing the walk cycle visually, the procedural
-      // squash/bob/lean is dialled WAY back — just enough to add bounce on
-      // top of the frame loop without fighting it.  Idle state keeps the
-      // tiniest hint of motion so the hero never reads as a frozen poster.
-      const usingSheet = !!HERO_ANIM[this.app.save && this.app.save.character];
-      const bobAmpMove = usingSheet ? (sprinting ? 3 : 2) : (sprinting ? 7 : 5);
-      const stepBob = Math.abs(Math.sin(t)) * (moving ? bobAmpMove : 0.6);
-      const sxAmt = usingSheet ? (moving ? 0.025 : 0.01) : (moving ? 0.07 : 0.02);
-      const syAmt = usingSheet ? (moving ? 0.035 : 0.012) : (moving ? 0.09 : 0.025);
+      // When the class has its own animated sheet, kill the procedural
+      // squash/bob/lean entirely while MOVING — the painted walk cycle
+      // does the motion, and overlaying a desync'd bob (driven by
+      // hero.walkT, while the sheet advances on performance.now()) makes
+      // the sprite warp between frames.  Idle state keeps a tiny breathing
+      // wobble so a held pose doesn't read as a frozen poster.
+      const charPickEarly = this.app.save && this.app.save.character;
+      const animDef = HERO_ANIM[charPickEarly];
+      const usingSheet = !!animDef;
+      const procActive = !usingSheet || !moving;
+      const bobAmpMove = usingSheet ? 0 : (sprinting ? 7 : 5);
+      const stepBob = procActive ? Math.abs(Math.sin(t)) * (moving ? bobAmpMove : 0.6) : 0;
+      const sxAmt = usingSheet ? (moving ? 0 : 0.01) : (moving ? 0.07 : 0.02);
+      const syAmt = usingSheet ? (moving ? 0 : 0.012) : (moving ? 0.09 : 0.025);
       const sxx = 1 + Math.cos(t) * sxAmt;
       const syy = 1 - Math.cos(t) * syAmt;
       const dirSign  = (hero.lastMoveX || 0) >= 0 ? 1 : -1;
-      const leanAmt  = usingSheet ? 0.025 : 0.05;
+      const leanAmt  = usingSheet ? 0 : 0.05;
       const fwdLean  = moving ? leanAmt * dirSign * (sprinting ? 1.3 : 1) : 0;
-      const microSway = Math.sin(t * 2) * (moving ? (usingSheet ? 0.01 : 0.025) : 0.005);
+      const microSway = procActive
+        ? Math.sin(t * 2) * (moving ? (usingSheet ? 0 : 0.025) : 0.005)
+        : 0;
       const lean = fwdLean + microSway;
       const flash = hero.flash > 0 ? Math.min(1, hero.flash * 4) : 0;
       const flipX = hero.lastMoveX < 0;
-      // Render size multiplier — tuned to 4.0 (down from 4.4) for a
-      // slightly more compact hero silhouette.  Collision radius
-      // (hero.radius) is unchanged, so gameplay hitboxes stay the same.
-      const d = hero.radius * 4.0;
+      // Render size multiplier — base 4.0, with per-class override
+      // (e.g. demon hunter is drawn slightly larger).
+      const renderScale = (animDef && animDef.renderScale) || 1;
+      const d = hero.radius * 4.0 * renderScale;
 
       // shadow (subtle stretch with bob)
       ctx.save();
@@ -2124,6 +2144,15 @@ DDI.Renderer = (function () {
           c.beginPath(); c.arc(x, y - dd * 0.10, dd * 0.22, 0, TAU); c.fill();
           c.restore();
         });
+      }
+      // Brightness lift — same overdraw the local hero gets, so the
+      // partner reads as lit instead of buried in fog.
+      if (drewPartner) {
+        ctx.globalCompositeOperation = 'screen';
+        ctx.globalAlpha = 0.22;
+        drawFrameOrFallback(ctx, partnerFrame.sheetKey, partnerFrame.frameIdx, 0, 0, d, null);
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'source-over';
       }
       ctx.restore();
 
@@ -2518,7 +2547,13 @@ DDI.Renderer = (function () {
         const sxe = 1 + Math.cos(t) * sxA;
         const sye = 1 - Math.cos(t) * syA;
         const leanE = Math.sin(t * 2) * (hasAnim ? 0.03 : 0.10);
-        ctx.translate(e.x, e.y + by);
+        // Boss sprites center on the cell, but the painted feet sit
+        // around 65-70% down the cell with weapon/effects below — so
+        // anchoring at sprite-center makes the boss "float" above its
+        // shadow.  Push the draw origin down so the visible feet land
+        // near the ground shadow.
+        const feetAnchor = e.def.isBoss ? d * 0.18 : 0;
+        ctx.translate(e.x, e.y + by + feetAnchor);
         ctx.rotate(leanE);
         ctx.scale(sxe, sye);
         // Painted portraits aren't directional - don't flip them, they always face forward.

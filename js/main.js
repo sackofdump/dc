@@ -1683,31 +1683,37 @@
         }
 
         if (p.kind === 'meteor') {
-          // BIG flame + smoke trail while falling
+          // Trail colors track the projectile's element — frost meteors
+          // (Avalanche / any frost-tagged meteor) leave a blue-white
+          // shower of ice motes instead of fire embers.
+          const isFrost = (p.element === 'frost');
           if (p.y < p.gravityFall) {
+            const trailColors = isFrost
+              ? ['#e6f7ff', '#a8e0ff', '#66d9ff', '#66d9ff']
+              : ['#ffe14d', '#ff7b1f', '#ff7b1f', '#ff3d52'];
             for (let n = 0; n < 3; n++) {
               if (Math.random() < 0.85) {
                 const j = 18;
-                const colors = ['#ffe14d', '#ff7b1f', '#ff7b1f', '#ff3d52'];
                 self.particles.spawn({
                   x: p.x + (Math.random() - 0.5) * j,
                   y: p.y + (Math.random() - 0.5) * j,
                   vx: -p.vx * 0.05 + (Math.random() - 0.5) * 40,
                   vy: -p.vy * 0.05 + (Math.random() - 0.5) * 40 - 30,
                   life: 0.45 + Math.random() * 0.30,
-                  color: colors[Math.floor(Math.random() * colors.length)],
+                  color: trailColors[Math.floor(Math.random() * trailColors.length)],
                   size: 7 + Math.random() * 9,
                   kind: 'spark',
                 });
               }
             }
+            // Frost meteors trail pale frost-mist instead of dark smoke
             if (Math.random() < 0.4) {
               self.particles.spawn({
                 x: p.x + (Math.random() - 0.5) * 16,
                 y: p.y - 12,
                 vx: (Math.random() - 0.5) * 20, vy: -30,
                 life: 0.7,
-                color: 'rgba(60,40,20,0.55)',
+                color: isFrost ? 'rgba(200,230,255,0.55)' : 'rgba(60,40,20,0.55)',
                 size: 14 + Math.random() * 10,
                 kind: 'smoke',
               });
@@ -1716,8 +1722,10 @@
           p.x += p.vx * dt;
           p.y += p.vy * dt;
           if (p.y >= p.gravityFall) {
-            // Big animated explosion at impact
-            if (self.fx.fireballImpact) {
+            // Big animated explosion at impact — fire meteors get the
+            // orange fireball burst, frost meteors get a cold shockwave
+            // using their own color so they don't bloom orange on landing.
+            if (!isFrost && self.fx.fireballImpact) {
               self.fx.fireballImpact(p.x, p.gravityFall, p.areaOnHit, p.crit);
             } else {
               self.fx.shake(5);
@@ -1829,6 +1837,24 @@
             }
             if (p.pierce <= 0) {
               p.x = cx; p.y = cy;
+              // Explosive Bolt (Demon Hunter): the bolt itself reads as a
+              // small arrow, but on impact it detonates an AoE using the
+              // larger blast radius stored on areaOnHit.
+              if (p.blast && p.areaOnHit) {
+                if (self.fx.fireballImpact) {
+                  self.fx.fireballImpact(cx, cy, p.areaOnHit, p.crit);
+                } else {
+                  self.fx.nova(cx, cy, p.areaOnHit, p.color);
+                }
+                const br2 = p.areaOnHit * p.areaOnHit;
+                self.enemies.forEach(function (other) {
+                  if (!other._alive) return;
+                  if (other.id === e.id) return;
+                  if (dist2(cx, cy, other.x, other.y) <= br2) {
+                    Combat.dealDamage(other, p.damage * 0.6, p.element, false, cx, cy, p.color);
+                  }
+                });
+              }
               p._alive = false;
             } else {
               p.pierce--;

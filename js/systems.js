@@ -305,6 +305,12 @@ DDI.systems = (function () {
         const d = dist2(hero.x, hero.y, e.x, e.y);
         if (d < bestD) { bestD = d; target = e; }
       });
+      // Shadow Dash (Demon Hunter): pure enemy-blink.  No target -> no leap;
+      // the ability waits its short cooldown and retries.  Prevents the
+      // "blink to an empty spot" gripe.
+      if (!target && def.id === 'shadowDash') {
+        return false;
+      }
       let tx, ty;
       if (target) {
         tx = target.x; ty = target.y;
@@ -356,9 +362,14 @@ DDI.systems = (function () {
           e.knockY = (dy / len) * 700;
           if (e.applySlow) e.applySlow(0.5, 0.8);
         });
-        // Slam visuals — shake + double-ring shockwave + dust kick
+        // Slam visuals — shake + double-ring shockwave + dust kick.
+        // ShadowDash (demon-hunter blink) skips the screen flash entirely:
+        // the user reads any red wash on screen as "I'm taking damage",
+        // not "I just leapt".  The shockwave rings carry the impact.
         app.fx.shake(22);
-        app.fx.flash('#ff7b1f', 0.45);
+        if (def.id !== 'shadowDash') {
+          app.fx.flash(def.color || '#ff7b1f', 0.45);
+        }
         app.particles.spawn({ x: ax, y: ay, life: 0.55, size: radius, color: '#ff7b1f', kind: 'ring', fade: 1 });
         app.particles.spawn({ x: ax, y: ay, life: 0.85, size: radius * 1.4, color: '#ffe14d', kind: 'ring', fade: 1 });
         for (let i = 0; i < 22; i++) {
@@ -394,6 +405,7 @@ DDI.systems = (function () {
       const isHolyHammer  = (def.id === 'holyHammer');
       const isArrow       = (def.id === 'multishot' || def.id === 'ricochet' || def.id === 'pierceShot');
       const isWhirlAxe    = (def.id === 'whirlingAxe');
+      const isExplosiveBolt = (def.id === 'explosiveBolt');
       for (let i = 0; i < total; i++) {
         const a = baseAng + (total === 1 ? 0 : (i / (total - 1) - 0.5) * spread);
         const isCrit = hero.rollCrit(stats.critBonus || 0);
@@ -445,6 +457,16 @@ DDI.systems = (function () {
           opts.shape = 'axe';
           opts.spin = true;
           opts.radius = Math.max(opts.radius, 16);
+        }
+        if (isExplosiveBolt) {
+          // The bolt was rendering as a 60px red ball because `area`
+          // doubles as projectile radius — we cap the in-flight visual
+          // to an arrow silhouette and stash the real blast radius on
+          // `areaOnHit` so the impact handler can detonate properly.
+          opts.shape = 'arrow';
+          opts.radius = 10;
+          opts.areaOnHit = (stats.area || 60) * (hero.areaMult || 1);
+          opts.blast = true;
         }
         app.projectiles.spawn(opts);
       }
