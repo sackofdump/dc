@@ -237,11 +237,15 @@ DDI.data = (function () {
       id: 'slime', name: 'Slimeling', kind: 'slime',
       radius: 22, hp: 18, dmg: 6, speed: 70, xp: 2, gold: 1,
       color: '#a8ff66', tier: 1,
+      sheet: 'slime_enemy_sheet',
+      anim: { row: 0, frames: 4, col0: 0, fps: 7 },
     },
     skeleton: {
       id: 'skeleton', name: 'Skeleton Warrior', kind: 'skeleton',
       radius: 26, hp: 36, dmg: 9, speed: 90, xp: 4, gold: 2,
       color: '#e8dcc0', tier: 1,
+      sheet: 'skeleton_enemy_sheet',
+      anim: { row: 0, frames: 4, col0: 0, fps: 7 },
     },
     archer: {
       id: 'archer', name: 'Bone Archer', kind: 'archer',
@@ -264,6 +268,8 @@ DDI.data = (function () {
       id: 'cultist', name: 'Cultist Mage', kind: 'cultist',
       radius: 28, hp: 36, dmg: 12, speed: 75, xp: 9, gold: 5,
       color: '#b266ff', tier: 2, ranged: true, rangedDmg: 10,
+      sheet: 'cultist_enemy_sheet',
+      anim: { row: 0, frames: 4, col0: 0, fps: 6 },
     },
     brute: {
       id: 'brute', name: 'Bone Brute', kind: 'brute',
@@ -300,6 +306,25 @@ DDI.data = (function () {
       sprite: null,
       radius: 30, hp: 75, dmg: 14, speed: 50, xp: 12, gold: 5,
       color: '#ff7b1f', tier: 2, scale: 1.2,
+    },
+    // ---- NEW SHEET-DRIVEN ENEMIES ----
+    // Crystal Golem — slow-moving tank with a heavy crystal-spike attack.
+    // Drops into cosmic / cursed / frost pools for that "void crystal" vibe.
+    crystal_golem: {
+      id: 'crystal_golem', name: 'Crystal Golem', kind: 'crystal_golem',
+      radius: 38, hp: 160, dmg: 18, speed: 55, xp: 24, gold: 10,
+      color: '#7a3aff', tier: 2, scale: 1.4,
+      sheet: 'crystal_enemy_sheet',
+      anim: { row: 0, frames: 4, col0: 0, fps: 5 },
+    },
+    // Cursed Knight — armored melee, faster than the golem.  Heavy hitter
+    // for the cursed / cosmic biomes.
+    cursed_knight: {
+      id: 'cursed_knight', name: 'Cursed Knight', kind: 'cursed_knight',
+      radius: 32, hp: 96, dmg: 16, speed: 80, xp: 14, gold: 6,
+      color: '#7a3aff', tier: 2, scale: 1.2,
+      sheet: 'cursedknight_enemy_sheet',
+      anim: { row: 0, frames: 4, col0: 0, fps: 7 },
     },
 
     // ---- TIER 3 (rare ambient + elite) ----
@@ -487,21 +512,24 @@ DDI.data = (function () {
     frost: {
       name: 'FROZEN RUINS',
       palette: { ground: '#0e1c2a', edge: '#04101c', accent: '#66d9ff', fog: 'rgba(40,90,140,0.2)' },
-      enemyPool: ['frost_wisp','frost_wisp','skeleton','archer','cursed_eye','wraith','imp'],
+      // Crystal Golems fit the frozen-ruin vibe (ice-spike enemies).
+      enemyPool: ['frost_wisp','frost_wisp','skeleton','archer','crystal_golem','wraith','imp'],
       elitePool: ['elite_skel','elite_zombie','elite_wraith'],
       bossPool:  ['boss_warden'],
     },
     cursed: {
       name: 'CURSED FOREST',
       palette: { ground: '#1a0e26', edge: '#0a0410', accent: '#b266ff', fog: 'rgba(80,30,120,0.2)' },
-      enemyPool: ['cursed_eye','cursed_eye','wraith','cultist','cultist','goblin_rogue','pumpkin','slime'],
+      // Cursed Knights anchor the cursed pool as the heavy melee threat.
+      enemyPool: ['cursed_knight','cursed_eye','wraith','cultist','cultist','goblin_rogue','pumpkin','slime'],
       elitePool: ['elite_slime','elite_wraith','elite_pumpkin'],
       bossPool:  ['boss_mushroom'],
     },
     cosmic: {
       name: 'COSMIC REALM',
       palette: { ground: '#0a0a3a', edge: '#040420', accent: '#ffe14d', fog: 'rgba(60,60,180,0.2)' },
-      enemyPool: ['cursed_eye','frost_wisp','lava_imp','cultist','wraith','goblin_rogue','goblin_bomber'],
+      // Crystal Golems + Cursed Knights both read as "void/cosmic" threats.
+      enemyPool: ['crystal_golem','cursed_knight','cursed_eye','cultist','wraith','goblin_rogue','goblin_bomber'],
       elitePool: ['elite_eye','elite_slime','elite_zombie'],
       bossPool:  ['boss_lich'],
     },

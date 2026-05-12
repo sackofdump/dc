@@ -41,22 +41,31 @@ DDI.assets = (function () {
     frostground:   'Assets/Actions/FrostGround.png',
     bonespear:     'Assets/Actions/BoneSpear.png',
     raise_skeleton: 'Assets/Actions/raise_skeleton.png',
-    cultist:       'Assets/Characters/CultistMage.png',
     goblin_bomber: 'Assets/Characters/GoblinBomber.png',
     goblin_rogue:  'Assets/Characters/GoblinRogue.png',
-    mushroom:      'Assets/Characters/MushroomCreature.png',
     zombie:        'Assets/Characters/ZombieBrute.png',
+    // CultistMage.png + MushroomCreature.png removed — cultist now uses
+    // cultist_enemy_sheet, mushroom procedural-only.
 
     // Sprite sheets (sliced & animated)
+    // New enemy sheets — uniform 4x2 grid (walk row + cast/attack row),
+    // same convention as the new_*_sprites hero sheets.  Render code
+    // reads def.sheet + def.anim to drive frame selection.
+    skeleton_enemy_sheet:    'Assets/Characters/Enemies/skeleton_enemy.png',
+    slime_enemy_sheet:       'Assets/Characters/Enemies/slime_enemy.png',
+    cultist_enemy_sheet:     'Assets/Characters/Enemies/CultistMage_enemy.png',
+    crystal_enemy_sheet:     'Assets/Characters/Enemies/crystal_enemy.png',
+    cursedknight_enemy_sheet:'Assets/Characters/Enemies/cursedknight_enemy.png',
+
     skeleton_sheet:      'Assets/Characters/Skeleton_Sprites.png',
     skel_archer_sheet:   'Assets/Characters/Skeleton_Archer_Sprites.png',
     slime_sheet:         'Assets/Characters/Slime_Sprites.png',
     zombie_sheet:        'Assets/Characters/ZombieBrute_Sprites.png',
     goblin_rogue_sheet:  'Assets/Characters/GoblinRogue_Sprites.png',
     goblin_bomber_sheet: 'Assets/Characters/GoblinBomber_Sprites.png',
-    cultist_sheet:       'Assets/Characters/CultistMage_Sprites.png',
-    mushroom_sheet:      'Assets/Characters/MushroomCreature_Sprites.png',
     bats_sheet:          'Assets/Characters/BatSwarm_Sprites.png',
+    // CultistMage_Sprites + MushroomCreature_Sprites removed — cultist now
+    // uses the new cultist_enemy_sheet, mushroom isn't sheet-driven.
 
     // Objects + UI
     // (treasure chest is now drawn procedurally — no asset needed)
@@ -64,14 +73,19 @@ DDI.assets = (function () {
   };
 
   const SHEETS = {
+    // New enemy sheets — uniform 4x2 = 8 frames: walk row + cast/attack row.
+    skeleton_enemy_sheet:     { cols: 4, rows: 2 },
+    slime_enemy_sheet:        { cols: 4, rows: 2 },
+    cultist_enemy_sheet:      { cols: 4, rows: 2 },
+    crystal_enemy_sheet:      { cols: 4, rows: 2 },
+    cursedknight_enemy_sheet: { cols: 4, rows: 2 },
+
     skeleton_sheet:      { cols: 4, rows: 3 },
     skel_archer_sheet:   { cols: 3, rows: 2 },
     slime_sheet:         { cols: 4, rows: 3 },
     zombie_sheet:        { cols: 7, rows: 6 },
     goblin_rogue_sheet:  { cols: 6, rows: 6 },
     goblin_bomber_sheet: { cols: 6, rows: 6 },
-    cultist_sheet:       { cols: 6, rows: 6 },
-    mushroom_sheet:      { cols: 7, rows: 7 },
     bats_sheet:          { cols: 3, rows: 5 },
     knives:              { cols: 7, rows: 4 },
     newknives:           { cols: 3, rows: 2 },
@@ -158,8 +172,16 @@ DDI.assets = (function () {
     if (s) {
       const col = frameIdx % s.cols;
       const row = Math.floor(frameIdx / s.cols) % s.rows;
-      const sx = col * s.fw, sy = row * s.fh;
-      const aspect = s.fw / s.fh;
+      // Inset a few pixels inside the cell so a stray pixel from the
+      // adjacent frame (sword tip, cloak edge) doesn't bleed in.  Scales
+      // with cell size — about 1.5% per side, min 4px.  Without this the
+      // warrior + paladin sheets show a tiny slice of the next frame on
+      // the right edge.
+      const inset = Math.max(4, Math.round(Math.min(s.fw, s.fh) * 0.015));
+      const sw = s.fw - inset * 2;
+      const sh = s.fh - inset * 2;
+      const sx = col * s.fw + inset, sy = row * s.fh + inset;
+      const aspect = sw / sh;
       let w, h;
       if (aspect >= 1) { w = d; h = d / aspect; }
       else             { h = d; w = d * aspect; }
@@ -167,10 +189,10 @@ DDI.assets = (function () {
         ctx.save();
         ctx.translate(x, y);
         ctx.scale(-1, 1);
-        ctx.drawImage(s.img, sx, sy, s.fw, s.fh, -w/2, -h/2, w, h);
+        ctx.drawImage(s.img, sx, sy, sw, sh, -w/2, -h/2, w, h);
         ctx.restore();
       } else {
-        ctx.drawImage(s.img, sx, sy, s.fw, s.fh, x - w/2, y - h/2, w, h);
+        ctx.drawImage(s.img, sx, sy, sw, sh, x - w/2, y - h/2, w, h);
       }
       return true;
     } else if (fallback) {
