@@ -21,15 +21,15 @@ DDI.assets = (function () {
 
     // Animated hero sprite sheets — one per class.  Frame grids and per-
     // anim row specs live in HERO_ANIM (consumed by render.js).
-    hero_warrior_sheet:     'Assets/Characters/new_warrior_sprites.png',
-    hero_mage_sheet:        'Assets/Characters/new_mage_sprites_fire.png',
+    hero_warrior_sheet:     'Assets/Characters/chars/warrior.png',
+    hero_mage_sheet:        'Assets/Characters/Chars/newmage.png',
     hero_rogue_sheet:       'Assets/Characters/new_rogue_sprites.png',
     hero_necromancer_sheet: 'Assets/Characters/new_necromancer_sprites.png',
     hero_paladin_sheet:     'Assets/Characters/new_paladin_sprites.png',
-    hero_ranger_sheet:      'Assets/Characters/new_archer_sprites.png',
+    hero_ranger_sheet:      'Assets/Characters/Chars/hunter.png',
     hero_berserker_sheet:   'Assets/Characters/new_beserker_sprites.png',
-    hero_demonhunter_sheet: 'Assets/Characters/new/DemonHunter_Sprites.png',
-    hero_frostknight_sheet: 'Assets/Characters/new/FrostKnight_Sprites.png',
+    hero_demonhunter_sheet: 'Assets/Characters/chars/DemonHunter.png',
+    hero_frostknight_sheet: 'Assets/Characters/chars/frostknight.png',
 
     // Enemy single-portrait sprites (used as fallback if sheet missing)
     slime:         'Assets/Characters/Slime.png',
@@ -56,6 +56,14 @@ DDI.assets = (function () {
     skel_archer_enemy_sheet:     'Assets/Characters/Enemies/Regular/SkeletonArcher_enemy.png',
     slime_enemy_sheet:           'Assets/Characters/Enemies/Regular/slime_enemy.png',
     cultist_enemy_sheet:         'Assets/Characters/Enemies/Regular/CultistMage_enemy.png',
+    zombie_enemy_sheet:          'Assets/Characters/Enemies/Regular/zombie_enemy.png',
+    goblin_bomber_enemy_sheet:   'Assets/Characters/Enemies/Regular/goblinbomber_enemy.png',
+    goblin_warrior_enemy_sheet:  'Assets/Characters/Enemies/Regular/goblinwarrior_enemy.png',
+    imp_fireball_enemy_sheet:    'Assets/Characters/Enemies/Regular/impfireball_enemy.png',
+    orc_1h_enemy_sheet:          'Assets/Characters/Enemies/Regular/orc1h_enemy.png',
+    orc_2h_enemy_sheet:          'Assets/Characters/Enemies/Regular/orc2h_enemy.png',
+    orc_2h2_enemy_sheet:         'Assets/Characters/Enemies/Regular/orc2h2_enemy.png',
+    ghoul_enemy_sheet:           'Assets/Characters/Enemies/Regular/67b0fab9-d43e-4c70-9524-ba0b9d8565be-Photoroom.png',
 
     // ELITE sheets — Enemies/Elite/.  4 tier-3 elites that fight at a
     // distinct visual scale from their swarm counterparts.
@@ -101,14 +109,38 @@ DDI.assets = (function () {
     // Objects + UI
     // (treasure chest is now drawn procedurally — no asset needed)
     ui_sprites: 'Assets/UI/UI_Sprites.png',
+
+    // Building exteriors — when an image is loaded for a style, render.js
+    // draws it in place of the procedural canvas shape (see drawBuildingFeature).
+    // Missing entries just fall back to the procedural exterior.
+    building_ruins:  'Assets/Objects/Ruins.png',
+    building_temple: 'Assets/Objects/Temple.png',
+    building_tower:  'Assets/Objects/Tower.png',
+
+    // Tileable floor textures — drawn as a CanvasPattern repeat under the
+    // vignette overlay in render.js drawFloor.  One per biome; ZONE_THEMES
+    // entries reference these by key.
+    floor_magma:  'Assets/Objects/MagmaFloor.png',
+    floor_frost:  'Assets/Objects/FrostFloor.png',
+    floor_cursed: 'Assets/Objects/CursedFloor.png',
+    floor_cosmic: 'Assets/Objects/CosmicFloor.png',
   };
 
   const SHEETS = {
-    // New enemy sheets — uniform 4x2 = 8 frames: walk row + cast/attack row.
+    // Regular enemy sheets.  Most are 4x2 (walk row + cast/attack row);
+    // a few wider sheets (1536x1024) use 8x2 for richer cycles.
     skeleton_enemy_sheet:        { cols: 4, rows: 2 },
     skel_archer_enemy_sheet:     { cols: 4, rows: 2 },
     slime_enemy_sheet:           { cols: 4, rows: 2 },
     cultist_enemy_sheet:         { cols: 4, rows: 2 },
+    zombie_enemy_sheet:          { cols: 4, rows: 2 },     // 1536x1024 4x2
+    goblin_bomber_enemy_sheet:   { cols: 8, rows: 2 },     // 1536x1024 8x2
+    goblin_warrior_enemy_sheet:  { cols: 8, rows: 2 },     // 1536x1024 8x2
+    imp_fireball_enemy_sheet:    { cols: 4, rows: 2 },     // 1200x896 4x2
+    orc_1h_enemy_sheet:          { cols: 4, rows: 2 },     // 1200x896 4x2
+    orc_2h_enemy_sheet:          { cols: 4, rows: 2 },     // 1200x896 4x2
+    orc_2h2_enemy_sheet:         { cols: 4, rows: 2 },     // 1200x896 4x2
+    ghoul_enemy_sheet:           { cols: 8, rows: 2 },     // 1536x1024 8x2
     elite_slime_sheet:           { cols: 4, rows: 2 },
     elite_eye_sheet:             { cols: 4, rows: 2 },
     elite_mushroom_sheet:        { cols: 4, rows: 2 },
@@ -118,7 +150,17 @@ DDI.assets = (function () {
     boss_warden_sheet:        { cols: 4, rows: 2 },
     boss_mushroom_sheet:      { cols: 4, rows: 2 },
     boss_lich_sheet:          { cols: 4, rows: 2 },
-    boss_lava_sheet:          { cols: 4, rows: 2 },
+    // Magma boss cast-row col 2 has a massive skull-blast effect that
+    // intrudes into walk-row col 2's bottom (~50 px of fiery debris at
+    // y=425-442).  Bottom-only crop on walk row chops the bleed.
+    // Adjacent-frame weapons (fire-axe tip on the previous frame's right)
+    // bleed ~60-70 px past the cell boundary.  Bigger left-only inset
+    // chops the intrusion without clipping the centered figure's own
+    // weapon, which extends to the cell's RIGHT edge — keep right at 0.
+    boss_lava_sheet:          { cols: 4, rows: 2, rowInsetPct: [
+      { left: 0.16, right: 0, top: 0, bottom: 0.10 },
+      { left: 0.16, right: 0 },
+    ] },
     boss_huntress_sheet:      { cols: 4, rows: 2 },
     boss_archmage_sheet:      { cols: 4, rows: 2 },
     boss_pyromancer_sheet:    { cols: 4, rows: 2 },
@@ -148,23 +190,56 @@ DDI.assets = (function () {
     // Hero sheets — uniform grids inferred from the sprite-sheet artwork.
     // All "new_*_sprites" sheets are 1774x887 (or 1536x1024 for the mage fire
     // variant) and use a 4x2 = 8-frame grid: row 0 walk cycle, row 1 cast.
-    // DemonHunter / FrostKnight are vertical 1024x1536 sheets with 3x2 = 6.
-    // Warrior walk row needs heavy cropping to fight the cast-row fire
+    // DemonHunter is an 8x2 sheet rebuilt from per-pose PNGs (walk row +
+    // partial cast row).  FrostKnight is 8x2 (full cast row).
+    // Warrior walk row needs VERTICAL cropping to fight the cast-row fire
     // arc bleeding upward; cast row needs minimal cropping or the
-    // user's own fire arc gets clipped.  Per-row insets split it.
-    hero_warrior_sheet:     { cols: 4, rows: 2, rowInsetPct: [0.10, 0], insetMin: 8 },
-    // Mage cast-row explosions occupy nearly the full cell — any inset
-    // clips them.  Zero inset on both rows.
-    hero_mage_sheet:        { cols: 4, rows: 2, rowInsetPct: [0, 0] },
+    // user's own fire arc gets clipped.  Horizontal cropping cut off the
+    // sword tip when the user faced left/right — keep X inset at zero
+    // and apply Y-only cropping on the walk row.
+    // New warrior sheet: 8 cols × 2 rows on a 1536×1024 canvas (cells
+    // 192×512).  Figures aren't centered in their cells — walk-row
+    // figures sit at y=226-469 of each cell (bottom 56%), cast-row
+    // figures sit at y=62-266 (top 40%), with dead space between rows.
+    // Per-row asymmetric top/bottom inset crops each row to just the
+    // figure band so the rendered sprite stays at the hero's anchor.
+    // New chars/warrior.png: 1536x1024, 8x2 grid (cells 192x512).
+    // Walk row figures sit at y=228-422 of the 0-512 cell band.
+    // Cast row figures at y=65-284 of the 512-1024 cell band.
+    // Figures touch horizontally — each cell's content fills x=0..191,
+    // and the touching is the PREVIOUS figure's axe bleeding into the
+    // current cell's LEFT, while the CURRENT figure's axe extends to
+    // the cell's RIGHT edge.  Asymmetric x: crop the left to drop the
+    // neighbor's axe, but keep the right at 0 so the own axe is intact.
+    hero_warrior_sheet:     { cols: 8, rows: 2, rowInsetPct: [
+      { left: 0.06, right: 0, top: 0.42, bottom: 0.16 },   // walk row — crop left bleed, keep own axe
+      { x: 0,                  top: 0.11, bottom: 0.45 },   // cast row — fire VFX bleeds, leave x at 0
+    ] },
+    // Replaced newmage.png: 1200x896, 4x2 grid (cells 300x448).
+    // Row 0 walk, row 1 cast (staff raise).  Clean margins, no insets.
+    hero_mage_sheet:        { cols: 4, rows: 2 },
     hero_rogue_sheet:       { cols: 4, rows: 2 },     // 8 frames
     hero_necromancer_sheet: { cols: 4, rows: 2 },     // 8 frames
     hero_paladin_sheet:     { cols: 4, rows: 2 },     // 8 frames
-    // Archer cast row col 2 firing-pose has cape extending past the cell
-    // edge; zero cast-row inset so the cape + arrow shot read fully.
-    hero_ranger_sheet:      { cols: 4, rows: 2, rowInsetPct: [0.04, 0] },
+    // hunter.png: 1200x896, 4x2 grid (cells 300x448).
+    // Horned-helm hunter figure centered in each cell with clean margins —
+    // no row insets needed at this resolution.
+    hero_ranger_sheet:      { cols: 4, rows: 2 },
     hero_berserker_sheet:   { cols: 4, rows: 2 },     // 8 frames
-    hero_demonhunter_sheet: { cols: 3, rows: 2 },     // 6 frames
-    hero_frostknight_sheet: { cols: 3, rows: 2 },     // 6 frames
+    // Replaced chars/demonhunter.png: 1200x896, 4x2 grid (cells 300x448).
+    // Hooded twin-blade figure centered in each cell, clean margins —
+    // no row insets needed.
+    hero_demonhunter_sheet: { cols: 4, rows: 2 },
+    // New frostknight.png: 1536x1024 with an 8x2 grid (same layout as
+    // the new mage sheet).  Walk row figures (with horns + staff)
+    // top at cell-local y=203; cast row col 1 staff tops at y=44.
+    // Top insets keep buffer past those edges or horns/staff clip.
+    // Cast row has the same ice-beam bleed across cells as the mage —
+    // x-inset 0 and trim cycle in HERO_ANIM.
+    hero_frostknight_sheet: { cols: 8, rows: 2, rowInsetPct: [
+      { x: 0.04, top: 0.28, bottom: 0.19 },   // walk row — top 0.28 (~143 px) leaves ~60 px above horns
+      { x: 0,    top: 0.05, bottom: 0.48 },   // cast row — top 0.05 (~26 px) keeps highest staff (col 1 y=44)
+    ] },
   };
 
   const Assets = { images: {}, sheets: {}, ready: false };
@@ -191,6 +266,12 @@ DDI.assets = (function () {
           fw: im.width / cfg.cols, fh: im.height / cfg.rows,
           insetPct: cfg.insetPct, insetMin: cfg.insetMin,
           rowInsetPct: cfg.rowInsetPct,
+          // Optional per-frame source-rect expansion. Keys are global frame
+          // indices (row*cols + col); values are {top, right, bottom, left}
+          // in source pixels. Used for art that bleeds past a cell edge
+          // (e.g. a fire-blast tail) — pulls those pixels in without
+          // shifting the figure's draw center.
+          cellPad: cfg.cellPad,
         };
       }
       done++;
@@ -238,27 +319,80 @@ DDI.assets = (function () {
       // sheets whose walk row needs heavy cropping but whose cast row
       // needs none — e.g. warrior — split the difference.  Falls back
       // to a flat per-sheet `insetPct`, then to a 4% default.
-      const rowInsetPct = (s.rowInsetPct && s.rowInsetPct[row] != null)
+      // rowInsetPct[row] may be a number (symmetric, legacy behavior)
+      // OR an object {x, y} for axis-specific cropping — used by sheets
+      // where sword tips extend horizontally past the cell but adjacent
+      // rows still bleed vertically (e.g. warrior, frost knight).
+      const rip = (s.rowInsetPct && s.rowInsetPct[row] != null)
         ? s.rowInsetPct[row]
         : (s.insetPct != null ? s.insetPct : 0.04);
       const insetMinSheet = s.insetMin != null ? s.insetMin : 8;
-      const insetMin = (rowInsetPct === 0) ? 0 : insetMinSheet;
-      const inset = Math.max(insetMin, Math.round(Math.min(s.fw, s.fh) * rowInsetPct));
-      const sw = s.fw - inset * 2;
-      const sh = s.fh - inset * 2;
-      const sx = col * s.fw + inset, sy = row * s.fh + inset;
-      const aspect = sw / sh;
-      let w, h;
-      if (aspect >= 1) { w = d; h = d / aspect; }
-      else             { h = d; w = d * aspect; }
+      let insetLeft, insetRight, insetTop, insetBot;
+      if (rip && typeof rip === 'object') {
+        const ripX = rip.x != null ? rip.x : 0;
+        // Asymmetric: rip.top/bottom override rip.y; rip.left/right
+        // override rip.x.  Asymmetric x is used by sheets where one side
+        // bleeds neighbor content (the previous figure's sword/staff
+        // tip) but the same-cell figure's weapon extends to the
+        // opposite cell edge — cropping symmetrically would clip the
+        // own weapon to remove the neighbor.  e.g. warrior axe.
+        const ripL = rip.left  != null ? rip.left  : ripX;
+        const ripR = rip.right != null ? rip.right : ripX;
+        const ripTop = rip.top    != null ? rip.top    : (rip.y != null ? rip.y : 0);
+        const ripBot = rip.bottom != null ? rip.bottom : (rip.y != null ? rip.y : 0);
+        const minL = (ripL === 0) ? 0 : insetMinSheet;
+        const minR = (ripR === 0) ? 0 : insetMinSheet;
+        const minT = (ripTop === 0) ? 0 : insetMinSheet;
+        const minB = (ripBot === 0) ? 0 : insetMinSheet;
+        insetLeft  = Math.max(minL, Math.round(s.fw * ripL));
+        insetRight = Math.max(minR, Math.round(s.fw * ripR));
+        insetTop   = Math.max(minT, Math.round(s.fh * ripTop));
+        insetBot   = Math.max(minB, Math.round(s.fh * ripBot));
+      } else {
+        // Legacy: symmetric absolute inset based on the smaller dimension.
+        const minSym = (rip === 0) ? 0 : insetMinSheet;
+        const inset = Math.max(minSym, Math.round(Math.min(s.fw, s.fh) * rip));
+        insetLeft = insetRight = inset;
+        insetTop = insetBot = inset;
+      }
+      // Per-frame source padding: lets a specific frame pull a few extra
+      // pixels from the neighboring cell (e.g. mage's mid-cast fire blast
+      // whose leading edge spills into col 3). Figure stays centered at
+      // (x, y); the extra src extends the dest rect on the matching side.
+      const pad = (s.cellPad && s.cellPad[frameIdx]) || null;
+      const padL = (pad && pad.left)   || 0;
+      const padR = (pad && pad.right)  || 0;
+      const padT = (pad && pad.top)    || 0;
+      const padB = (pad && pad.bottom) || 0;
+      const swBase = s.fw - insetLeft - insetRight;
+      const shBase = s.fh - insetTop - insetBot;
+      const sw = swBase + padL + padR;
+      const sh = shBase + padT + padB;
+      const sx = col * s.fw + insetLeft - padL;
+      const sy = row * s.fh + insetTop - padT;
+      const aspect = swBase / shBase;
+      let wBase, hBase;
+      if (aspect >= 1) { wBase = d; hBase = d / aspect; }
+      else             { hBase = d; wBase = d * aspect; }
+      const scaleX = wBase / swBase;
+      const scaleY = hBase / shBase;
+      const w = wBase + (padL + padR) * scaleX;
+      const h = hBase + (padT + padB) * scaleY;
+      // Figure (centered in the base cell) draws centered at (x, y); the
+      // pads extend asymmetrically beyond that center.
+      const dx = -wBase / 2 - padL * scaleX;
+      const dy = -hBase / 2 - padT * scaleY;
       if (opts.flipX) {
         ctx.save();
         ctx.translate(x, y);
         ctx.scale(-1, 1);
-        ctx.drawImage(s.img, sx, sy, sw, sh, -w/2, -h/2, w, h);
+        ctx.drawImage(s.img, sx, sy, sw, sh, dx, dy, w, h);
         ctx.restore();
       } else {
-        ctx.drawImage(s.img, sx, sy, sw, sh, x - w/2, y - h/2, w, h);
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.drawImage(s.img, sx, sy, sw, sh, dx, dy, w, h);
+        ctx.restore();
       }
       return true;
     } else if (fallback) {

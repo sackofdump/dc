@@ -918,6 +918,16 @@
           if (collides) continue;
           const id = types[Math.floor(Math.random() * types.length)];
           const def = (D && D.BUILDINGS && D.BUILDINGS[id]) || null;
+          // Default door sits at the front-bottom of the procedural exterior
+          // (yBase = y + 90).  Image-based exteriors put the visible doorway
+          // higher in the sprite, so per-style offsets shift the trigger to
+          // line up with the actual hole.  See BUILDING_ART in render.js.
+          const STYLE_DOOR_OFFSET = {
+            ruins:  { x: -10, y: -90 },
+            temple: { x:   0, y: -100 },
+            tower:  { x:   0, y: -30 },
+          };
+          const off = STYLE_DOOR_OFFSET[def && def.style] || { x: 0, y: 90 };
           this.features.push({
             type: 'building', kind: 'building',
             x, y,
@@ -926,8 +936,7 @@
             color: (def && def.color) || '#a8a08a',
             entered: false,
             cooldown: 0,
-            // Door is at the bottom-front of the (now larger) building
-            doorX: x, doorY: y + 90,
+            doorX: x + off.x, doorY: y + off.y,
           });
           placed++;
         }
@@ -978,6 +987,10 @@
       // Hand-roll a tele-zone-shaped object so render.js's `app.zoneTheme.palette` lookup
       // works on the main map for acts > 1 too (and for act 1 it's a no-op tint match).
       this.zoneTheme = { name: theme.mainName, palette: theme.mainPalette };
+      // Show the magma floor texture on the starting zone so it's visible
+      // right away (was previously only on the MAGMA CAVES tele-zone).
+      // TODO: swap per-act once frost/cursed/cosmic floor textures exist.
+      this.zoneTheme.floorTexture = 'floor_magma';
       if (this.zone) this.zone.displayName = theme.mainName;
     }
 
@@ -1181,7 +1194,7 @@
       // Sprint: Shift held + moving + stamina available
       const wantSprint = !!this.input.sprintHeld && h.moving && h.stamina > 0.02;
       h.sprinting = wantSprint;
-      const sprintMult = wantSprint ? 1.6 : 1;
+      const sprintMult = wantSprint ? 1.35 : 1;
       // Stamina drains while sprinting, refills otherwise.
       // MEGA stamina potion buff (_staminaRushT) triples regen and halves
       // drain for its duration.
@@ -1796,6 +1809,22 @@
             });
           }
         }
+        // Wind whisp trail for cleaving gust
+        if (p.shape === 'gust' && !p.hostile) {
+          if (Math.random() < 0.7) {
+            const colors = ['rgba(240,248,255,0.85)', 'rgba(200,225,245,0.75)', 'rgba(255,255,255,0.6)'];
+            self.particles.spawn({
+              x: p.x + (Math.random()-0.5) * 10,
+              y: p.y + (Math.random()-0.5) * 10,
+              vx: -p.vx * 0.18 + (Math.random()-0.5) * 30,
+              vy: -p.vy * 0.18 + (Math.random()-0.5) * 30,
+              life: 0.20 + Math.random() * 0.18,
+              color: colors[Math.floor(Math.random() * colors.length)],
+              size: 2 + Math.random() * 3,
+              kind: 'spark',
+            });
+          }
+        }
         // Bone dust trail for spear-shape projectiles
         if (p.shape === 'spear' && !p.hostile) {
           if (Math.random() < 0.55) {
@@ -2124,7 +2153,7 @@
             self.fx.shake(10);
             // Spawn a cluster of enemies around the trap
             const ENEMIES = DDI.data.ENEMIES;
-            const pool = ['skeleton','goblin_rogue','goblin_bomber','imp','lava_imp','cursed_eye'];
+            const pool = ['skeleton','goblin_warrior','goblin_bomber','imp_fireball','orc_1h','ghoul'];
             for (let i = 0; i < 8; i++) {
               const id = pool[Math.floor(Math.random() * pool.length)];
               const def = ENEMIES[id];
@@ -2521,7 +2550,7 @@
       // way to the exit.
       const enemyCount = (def && def.enemies) || 4;
       const ENEMIES = D.ENEMIES;
-      const pool = ['skeleton','zombie','goblin_rogue','imp','cultist','cursed_eye','archer'];
+      const pool = ['skeleton','zombie','goblin_warrior','imp_fireball','cultist','ghoul','archer'];
       for (let i = 0; i < enemyCount; i++) {
         const id = pool[Math.floor(Math.random() * pool.length)];
         const ed = ENEMIES[id];

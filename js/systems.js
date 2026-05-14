@@ -36,10 +36,24 @@ DDI.systems = (function () {
       // SURVIVE THE ONSLAUGHT: pump up density + spawn rate so it actually
       // feels like a horde rush.  Other zones use normal pacing.
       const onslaught = !!(app.zone && app.zone.objective === 'survival');
-      const densityCap = onslaught ? Math.min(120, diff.density * 2) : diff.density;
-      const spawnCdMin = onslaught ? 0.15 : 0.4;
-      const spawnCdMax = onslaught ? 0.45 : 1.2;
-      const burstBonus = onslaught ? 3 : 0;
+      // SHARD SWEEP: once the standard-objective kill goal is met but the
+      // player still has shards to collect, throttle spawns hard so hunting
+      // the remaining shards isn't a constant fight off respawning mobs.
+      const z = app.zone;
+      const shardSweep = !!(z && (z.objective === 'standard' || !z.objective)
+        && z.name && z.name !== 'main' && !z.fadeOutBegan
+        && (z.killsInZone || 0) >= (z.killsNeeded || 0)
+        && (z.itemsCollected || 0) < (z.itemsTotal || 0));
+      let densityCap = onslaught ? Math.min(120, diff.density * 2) : diff.density;
+      let spawnCdMin = onslaught ? 0.15 : 0.4;
+      let spawnCdMax = onslaught ? 0.45 : 1.2;
+      let burstBonus = onslaught ? 3 : 0;
+      if (shardSweep) {
+        densityCap = Math.min(densityCap, 6);
+        spawnCdMin = 2.5;
+        spawnCdMax = 5.0;
+        burstBonus = -99;     // clamp burst to 1 below
+      }
 
       // Initial burst — small, just enough to start combat (heavier on onslaught)
       if (!this.didInitialBurst && game.time > 0.2) {
@@ -51,7 +65,7 @@ DDI.systems = (function () {
       this.spawnT -= dt;
       if (this.spawnT <= 0 && enemyCount < densityCap) {
         this.spawnT = clamp(spawnCdMax - game.time * 0.002, spawnCdMin, spawnCdMax);
-        const burst = 1 + Math.floor(game.time / 60) + burstBonus;
+        const burst = Math.max(1, 1 + Math.floor(game.time / 60) + burstBonus);
         for (let i = 0; i < burst; i++) this.spawnOne(app, diff);
       }
 
@@ -406,6 +420,7 @@ DDI.systems = (function () {
       const isArrow       = (def.id === 'multishot' || def.id === 'ricochet' || def.id === 'pierceShot');
       const isWhirlAxe    = (def.id === 'whirlingAxe');
       const isExplosiveBolt = (def.id === 'explosiveBolt');
+      const isCleave      = (def.id === 'cleavingStrike');
       for (let i = 0; i < total; i++) {
         const a = baseAng + (total === 1 ? 0 : (i / (total - 1) - 0.5) * spread);
         const isCrit = hero.rollCrit(stats.critBonus || 0);
@@ -457,6 +472,10 @@ DDI.systems = (function () {
           opts.shape = 'axe';
           opts.spin = true;
           opts.radius = Math.max(opts.radius, 16);
+        }
+        if (isCleave) {
+          opts.shape = 'gust';
+          opts.radius = Math.max(opts.radius, 22);
         }
         if (isExplosiveBolt) {
           // The bolt was rendering as a 60px red ball because `area`
@@ -816,8 +835,14 @@ DDI.systems = (function () {
           kind: 'sprite', sprite: 'bats',
           rot: rand(-0.2, 0.2), spin: rand(-1, 1), fade: 1,
         });
+        const range = stats.range || 320;
+        const r2 = range * range;
         const live = [];
-        app.enemies.forEach(function (e) { if (e._alive) live.push(e); });
+        app.enemies.forEach(function (e) {
+          if (!e._alive) return;
+          if (dist2(hero.x, hero.y, e.x, e.y) > r2) return;
+          live.push(e);
+        });
         live.sort(function (a, b) {
           return dist2(hero.x, hero.y, a.x, a.y) - dist2(hero.x, hero.y, b.x, b.y);
         });

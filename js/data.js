@@ -148,7 +148,7 @@ DDI.data = (function () {
       id: 'bats', name: 'Bat Swarm', icon: '🦇', element: 'curse', color: '#b266ff',
       desc: 'Releases homing bats that hunt enemies.',
       type: 'homing', maxLevel: 8,
-      base: { cooldown: 2.0, damage: 11, count: 4, speed: 240, life: 1.6, pierce: 0 },
+      base: { cooldown: 2.0, damage: 11, count: 4, speed: 240, life: 1.6, pierce: 0, range: 320 },
       scale: function (lvl, b) {
         return Object.assign({}, b, {
           count:  b.count  + Math.floor((lvl + 1) / 2),
@@ -180,7 +180,7 @@ DDI.data = (function () {
     // visual reach matches a sword swing, generous area so a single
     // cast clears a small front arc.
     cleavingStrike: {
-      id: 'cleavingStrike', name: 'Cleaving Strike', icon: '⚔️', element: 'physical', color: '#ff7b1f',
+      id: 'cleavingStrike', name: 'Cleaving Strike', icon: '⚔️', element: 'physical', color: '#dcecff',
       desc: 'A heavy forward sword sweep — pierces every foe in its arc.',
       type: 'projectile', maxLevel: 8,
       base: { cooldown: 0.85, damage: 16, count: 1, speed: 320, pierce: 4, area: 32, life: 0.55 },
@@ -271,11 +271,29 @@ DDI.data = (function () {
       id: 'archer', name: 'Bone Archer', kind: 'archer',
       radius: 24, hp: 28, dmg: 8, speed: 100, xp: 4, gold: 2,
       color: '#cdd5e0', tier: 1, ranged: true, rangedDmg: 8,
+      sheet: 'skel_archer_enemy_sheet',
+      anim: { row: 0, frames: 4, col0: 0, fps: 7 },
     },
-    goblin_rogue: {
-      id: 'goblin_rogue', name: 'Goblin Rogue', kind: 'goblin_rogue',
-      radius: 22, hp: 16, dmg: 8, speed: 145, xp: 4, gold: 2,
+    goblin_warrior: {
+      id: 'goblin_warrior', name: 'Goblin Warrior', kind: 'goblin_warrior',
+      radius: 24, hp: 32, dmg: 10, speed: 95, xp: 4, gold: 2,
       color: '#7fb84d', tier: 1,
+      sheet: 'goblin_warrior_enemy_sheet',
+      anim: { row: 0, frames: 8, col0: 0, fps: 8 },
+    },
+    orc_1h: {
+      id: 'orc_1h', name: 'Orc Raider', kind: 'orc_1h',
+      radius: 28, hp: 44, dmg: 11, speed: 85, xp: 5, gold: 3,
+      color: '#7a9a4a', tier: 1,
+      sheet: 'orc_1h_enemy_sheet',
+      anim: { row: 0, frames: 4, col0: 0, fps: 6 },
+    },
+    imp_fireball: {
+      id: 'imp_fireball', name: 'Hellspawn Imp', kind: 'imp_fireball',
+      radius: 20, hp: 18, dmg: 7, speed: 130, xp: 4, gold: 2,
+      color: '#ff5030', tier: 1, ranged: true, rangedDmg: 8,
+      sheet: 'imp_fireball_enemy_sheet',
+      anim: { row: 0, frames: 4, col0: 0, fps: 7 },
     },
 
     // ---- TIER 2 ----
@@ -283,6 +301,8 @@ DDI.data = (function () {
       id: 'goblin_bomber', name: 'Goblin Bomber', kind: 'goblin_bomber',
       radius: 24, hp: 26, dmg: 12, speed: 85, xp: 7, gold: 4,
       color: '#a86a2a', tier: 2, ranged: true, rangedDmg: 12,
+      sheet: 'goblin_bomber_enemy_sheet',
+      anim: { row: 0, frames: 8, col0: 0, fps: 8 },
     },
     cultist: {
       id: 'cultist', name: 'Cultist Mage', kind: 'cultist',
@@ -291,76 +311,33 @@ DDI.data = (function () {
       sheet: 'cultist_enemy_sheet',
       anim: { row: 0, frames: 4, col0: 0, fps: 6 },
     },
-    brute: {
-      id: 'brute', name: 'Bone Brute', kind: 'brute',
-      radius: 38, hp: 110, dmg: 16, speed: 60, xp: 18, gold: 8,
-      color: '#cdd5e0', tier: 2, scale: 1.3,
+    orc_2h: {
+      id: 'orc_2h', name: 'Orc Berserker', kind: 'orc_2h',
+      radius: 32, hp: 88, dmg: 16, speed: 72, xp: 10, gold: 5,
+      color: '#5a7a3a', tier: 2, scale: 1.15,
+      sheet: 'orc_2h_enemy_sheet',
+      anim: { row: 0, frames: 4, col0: 0, fps: 5 },
+    },
+    orc_2h2: {
+      id: 'orc_2h2', name: 'Orc Warchief', kind: 'orc_2h2',
+      radius: 32, hp: 96, dmg: 17, speed: 70, xp: 11, gold: 6,
+      color: '#7a6a2a', tier: 2, scale: 1.15,
+      sheet: 'orc_2h2_enemy_sheet',
+      anim: { row: 0, frames: 4, col0: 0, fps: 5 },
+    },
+    ghoul: {
+      id: 'ghoul', name: 'Feral Ghoul', kind: 'ghoul',
+      radius: 26, hp: 56, dmg: 14, speed: 125, xp: 7, gold: 3,
+      color: '#9a8a78', tier: 2,
+      sheet: 'ghoul_enemy_sheet',
+      anim: { row: 0, frames: 8, col0: 0, fps: 9 },
     },
     zombie: {
       id: 'zombie', name: 'Zombie Brute', kind: 'zombie',
       radius: 36, hp: 130, dmg: 18, speed: 55, xp: 22, gold: 9,
       color: '#7faf6d', tier: 2, scale: 1.3,
-    },
-
-    // ---- PROCEDURAL ENEMIES ----
-    cursed_eye: {
-      id: 'cursed_eye', name: 'Cursed Eye', kind: 'cursed_eye',
-      sprite: null,
-      radius: 26, hp: 32, dmg: 9, speed: 95, xp: 5, gold: 2,
-      color: '#b266ff', tier: 2,
-    },
-    lava_imp: {
-      id: 'lava_imp', name: 'Lava Imp', kind: 'lava_imp',
-      sprite: null,
-      radius: 18, hp: 16, dmg: 7, speed: 150, xp: 3, gold: 1,
-      color: '#ff5030', tier: 1,
-    },
-    frost_wisp: {
-      id: 'frost_wisp', name: 'Frost Wisp', kind: 'frost_wisp',
-      sprite: null,
-      radius: 22, hp: 22, dmg: 6, speed: 75, xp: 4, gold: 2,
-      color: '#66d9ff', tier: 2, ranged: true, rangedDmg: 6,
-    },
-    pumpkin: {
-      id: 'pumpkin', name: 'Patched Pumpkin', kind: 'pumpkin',
-      sprite: null,
-      radius: 30, hp: 75, dmg: 14, speed: 50, xp: 12, gold: 5,
-      color: '#ff7b1f', tier: 2, scale: 1.2,
-    },
-    // ---- NEW SHEET-DRIVEN ENEMIES ----
-    // Crystal Golem — slow-moving tank with a heavy crystal-spike attack.
-    // Reuses the elite_crystal sheet at smaller scale; the big version
-    // lives as `elite_crystal` below.
-    crystal_golem: {
-      id: 'crystal_golem', name: 'Crystal Golem', kind: 'crystal_golem',
-      radius: 38, hp: 160, dmg: 18, speed: 55, xp: 24, gold: 10,
-      color: '#7a3aff', tier: 2, scale: 1.4,
-      sheet: 'elite_crystal_sheet',
+      sheet: 'zombie_enemy_sheet',
       anim: { row: 0, frames: 4, col0: 0, fps: 5 },
-    },
-    // Cursed Knight — armored melee, faster than the golem.  Reuses the
-    // boss_bloodfiend sheet rendered at the regular enemy radius (looks
-    // like a smaller crowned knight — the boss is the full-scale version).
-    cursed_knight: {
-      id: 'cursed_knight', name: 'Cursed Knight', kind: 'cursed_knight',
-      radius: 32, hp: 96, dmg: 16, speed: 80, xp: 14, gold: 6,
-      color: '#7a3aff', tier: 2, scale: 1.2,
-      sheet: 'boss_bloodfiend_sheet',
-      anim: { row: 0, frames: 4, col0: 0, fps: 7 },
-    },
-
-    // ---- TIER 3 (rare ambient + elite) ----
-    imp: {
-      id: 'imp', name: 'Imp', kind: 'imp',
-      sprite: null,
-      radius: 18, hp: 14, dmg: 5, speed: 130, xp: 3, gold: 1,
-      color: '#ff7b66', tier: 1,
-    },
-    wraith: {
-      id: 'wraith', name: 'Wraith', kind: 'wraith',
-      sprite: null,
-      radius: 22, hp: 26, dmg: 8, speed: 110, xp: 5, gold: 2,
-      color: '#b266ff', tier: 2,
     },
 
     // ---- ELITE ----
@@ -562,7 +539,7 @@ DDI.data = (function () {
     crypts: {
       id: 'crypts', name: 'Whispering Crypts',
       palette: { ground: '#1c1426', edge: '#0c081a', accent: '#3a2a55', fog: 'rgba(60,30,90,0.18)' },
-      enemies: ['slime','skeleton','archer','goblin_rogue','goblin_bomber','cultist','zombie','brute','imp','wraith','cursed_eye','lava_imp','frost_wisp','pumpkin'],
+      enemies: ['slime','skeleton','archer','goblin_warrior','orc_1h','goblin_bomber','cultist','zombie','ghoul','imp_fireball'],
       boss: 'boss_warden',
     },
   };
@@ -572,31 +549,35 @@ DDI.data = (function () {
     magma: {
       name: 'MAGMA CAVES',
       palette: { ground: '#3a1208', edge: '#1a0500', accent: '#ff5030', fog: 'rgba(120,30,10,0.2)' },
-      enemyPool: ['lava_imp','lava_imp','lava_imp','imp','goblin_bomber','pumpkin','cultist','brute'],
+      floorTexture: 'floor_magma',
+      enemyPool: ['imp_fireball','imp_fireball','orc_1h','orc_2h2','goblin_bomber','ghoul'],
       elitePool: ['elite_imp','elite_pumpkin','elite_skel'],
       bossPool:  ['boss_lava'],
     },
     frost: {
       name: 'FROZEN RUINS',
       palette: { ground: '#0e1c2a', edge: '#04101c', accent: '#66d9ff', fog: 'rgba(40,90,140,0.2)' },
+      floorTexture: 'floor_frost',
       // Crystal Golems fit the frozen-ruin vibe (ice-spike enemies).
-      enemyPool: ['frost_wisp','frost_wisp','skeleton','archer','crystal_golem','wraith','imp'],
+      enemyPool: ['skeleton','skeleton','archer','zombie','ghoul','orc_2h2'],
       elitePool: ['elite_skel','elite_zombie','elite_wraith','elite_crystal'],
       bossPool:  ['boss_warden'],
     },
     cursed: {
       name: 'CURSED FOREST',
       palette: { ground: '#1a0e26', edge: '#0a0410', accent: '#b266ff', fog: 'rgba(80,30,120,0.2)' },
+      floorTexture: 'floor_cursed',
       // Cursed Knights anchor the cursed pool as the heavy melee threat.
-      enemyPool: ['cursed_knight','cursed_eye','wraith','cultist','cultist','goblin_rogue','pumpkin','slime'],
+      enemyPool: ['cultist','cultist','ghoul','goblin_warrior','slime','orc_1h','imp_fireball'],
       elitePool: ['elite_slime','elite_wraith','elite_pumpkin'],
       bossPool:  ['boss_mushroom'],
     },
     cosmic: {
       name: 'COSMIC REALM',
       palette: { ground: '#0a0a3a', edge: '#040420', accent: '#ffe14d', fog: 'rgba(60,60,180,0.2)' },
+      floorTexture: 'floor_cosmic',
       // Crystal Golems + Cursed Knights both read as "void/cosmic" threats.
-      enemyPool: ['crystal_golem','cursed_knight','cursed_eye','cultist','wraith','goblin_rogue','goblin_bomber'],
+      enemyPool: ['cultist','archer','orc_2h2','ghoul','zombie','goblin_bomber'],
       elitePool: ['elite_eye','elite_slime','elite_zombie','elite_crystal'],
       bossPool:  ['boss_lich'],
     },
@@ -1505,7 +1486,7 @@ DDI.data = (function () {
       pool:     ['venomStrike', 'cruelty', 'shadowstep', 'smokeBomb', 'kunaiFan', 'backstab'],
     },
     ranger: {
-      name: 'Ranger',
+      name: 'Hunter',
       requiredRank: 1,    // unlocked from the start alongside Mage + Warrior
       starters: ['multishot', 'huntersMark'],
       pool:     ['multishot', 'ricochet', 'pierceShot', 'arrowVolley', 'bearTrap', 'huntersMark'],
@@ -1525,7 +1506,10 @@ DDI.data = (function () {
     berserker: {
       name: 'Berserker',
       requiredRank: 6,
-      starters: ['greatAxe', 'rage'],
+      // Whirling Axe is the berserker's identity ability — thrown
+      // physical projectile that pierces and returns.  Great Axe (the
+      // orbital) stays in the level-up pool for a defensive pickup.
+      starters: ['whirlingAxe', 'rage'],
       pool:     ['greatAxe', 'tremor', 'rage', 'bloodthirst', 'whirlingAxe', 'berserkerRoar'],
     },
     necromancer: {

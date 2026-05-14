@@ -943,7 +943,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
 #boot-splash.hidden { display: none !important; }
 #boot-splash.fading { animation: boot-splash-fade-out 0.5s ease-in forwards; }
 .boot-logo {
-  width: min(420px, 78vw);
+  width: min(820px, 92vw);
   height: auto;
   object-fit: contain;
   filter: drop-shadow(0 0 28px rgba(178,102,255,0.7));
@@ -1416,46 +1416,79 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #000; colo
   background-color: transparent;
   filter: drop-shadow(0 4px 12px rgba(0,0,0,0.7));
 }
-/* Mage sheet: 4 cols x 2 rows (fire variant).  Show frame (col 0, row 0) —
-   the neutral standing pose with the fire-torch staff. */
-.mage-frame {
-  background-image: url('Assets/Characters/new_mage_sprites_fire.png');
-  background-size: 400% 200%;
-  background-position: 0% 0%;
+/* All char-select portraits crop one cell out of the same sheet the
+   in-game renderer uses, with bg-position matching that class's idle
+   col/row in HERO_ANIM (render.js) — so the preview is exactly the
+   pose the player sees standing still.
+
+   bg-size formula preserves the source cell's aspect ratio inside a
+   square portrait container:
+      x_pct = cols * (cellW / cellH) * 100%
+      y_pct = rows * 100%
+   Square cells (rogue/necro/paladin/berserker — 443×443) hit the
+   familiar 400% 200%.  Tall cells (hunter/mage/demonhunter —
+   300×448) use 267.857% 200% (1.5× narrower so the figure isn't
+   stretched horizontally to fit a square).  Very tall cells
+   (warrior/frostknight — 192×512) would shrink the figure too far,
+   so those two stay on pre-cropped single-portrait PNGs in
+   Assets/Characters/new/ (already match the current sheet's col 7
+   / col 4 idle poses). */
+
+/* Warrior — pre-cropped idle portrait (sheet cells too tall to fit square). */
+.warrior-frame {
+  background-image: url('Assets/Characters/new/Warrior.png');
+  background-size: contain;
+  background-position: center;
 }
-/* Rogue sheet: 4 cols x 2 rows.  Frame (col 0, row 0) — hooded assassin
-   facing camera with dual daggers. */
+/* Tall 4×2 sheets (mage/hunter/demonhunter — 300×448 cells):
+   bg-size 400% 298.667% makes the cell fill container width and
+   overflow vertically.  Bottom-align (24.83%) so the figure's FEET
+   land at the portrait bottom; only the empty space above the head
+   gets cropped. */
+.mage-frame {
+  background-image: url('Assets/Characters/Chars/newmage.png');
+  background-size: 400% 298.667%;
+  background-position: 0% 5%;
+}
+.ranger-frame {
+  background-image: url('Assets/Characters/Chars/hunter.png');
+  background-size: 400% 298.667%;
+  background-position: 0% 24.83%;
+}
+.demonhunter-frame {
+  background-image: url('Assets/Characters/Chars/demonhunter.png');
+  background-size: 400% 298.667%;
+  background-position: 0% 5%;
+}
+/* Square 4×2 sheets (rogue/necromancer/paladin/berserker — 443×443):
+   cell already fills the square portrait exactly at 400% 200% — no
+   zoom, so the figure shows full head-to-toe.  A bit of adjacent-cell
+   weapon may sliver in on the edges; preferable to losing feet. */
 .rogue-frame {
   background-image: url('Assets/Characters/new_rogue_sprites.png');
   background-size: 400% 200%;
-  background-position: 0% 0%;
-}
-/* Other 4x2 hero sheets — frame (0,0) is always the idle/walk-start pose,
-   the cleanest "portrait" frame of the loop. */
-.warrior-frame {
-  background-image: url('Assets/Characters/new_warrior_sprites.png');
-  background-size: 400% 200%;
-  background-position: 0% 0%;
-}
-.ranger-frame {
-  background-image: url('Assets/Characters/new_archer_sprites.png');
-  background-size: 400% 200%;
-  background-position: 0% 0%;
+  background-position: 0% 100%;
 }
 .necromancer-frame {
   background-image: url('Assets/Characters/new_necromancer_sprites.png');
   background-size: 400% 200%;
-  background-position: 0% 0%;
+  background-position: 0% 100%;
 }
 .paladin-frame {
   background-image: url('Assets/Characters/new_paladin_sprites.png');
   background-size: 400% 200%;
-  background-position: 0% 0%;
+  background-position: 33.333% 0%;
 }
 .berserker-frame {
   background-image: url('Assets/Characters/new_beserker_sprites.png');
   background-size: 400% 200%;
-  background-position: 0% 0%;
+  background-position: 33.333% 0%;
+}
+/* Frost Knight — pre-cropped idle portrait (sheet cells too tall to fit square). */
+.frostknight-frame {
+  background-image: url('Assets/Characters/new/FrostKnight.png');
+  background-size: contain;
+  background-position: center;
 }
 .char-name {
   font-family: Cinzel, "Cinzel Decorative", serif;

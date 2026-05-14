@@ -15,7 +15,8 @@ DDI.Renderer = (function () {
   // portrait below since Main_character.png isn't a uniform grid.
   const HERO_ANIM = {
     // All "new_*_sprites" sheets share a 4x2 layout (4-frame walk row +
-    // 4-frame cast row).  DemonHunter / FrostKnight are 3x2.
+    // 4-frame cast row).  FrostKnight is 8x2.  DemonHunter is 8x2 with
+    // a partial cast row (3 frames at cols 0-2).
     //
     // Idle locks to the "passing" pose (col 1 — feet under the body,
     // weight centred).  Col 0 is a contact pose with one leg lifted
@@ -31,18 +32,38 @@ DDI.Renderer = (function () {
     // hover one notch faster (fps 5) per user "TINY bit slower" notes.
     default: {
       sheet: 'hero_warrior_sheet',
-      walk: { row: 0, frames: 4, fps: 5 },
-      idle: { row: 0, frames: 1, fps: 1, col0: 1 },
-      cast: { row: 1, frames: 4, fps: 12 },
-      // Mage size called PERFECT — warrior matches mage at base 1.0.
-      // Extra brightness lift — user flagged warrior as too dark.
+      // New 8×2 sheet — 8-frame walk + 8-frame cast.  Sequential 0..7
+      // reads as two static halves (cols 0-3 share one stance cluster,
+      // cols 4-7 another) so the back leg barely moves.  Interleave
+      // wide↔narrow every frame for visible swing — same fix as mage.
+      // Idle uses col 7 — the only walk-row frame with both feet
+      // planted and the figure upright.  Col 1 (previous idle) had a
+      // visible leg-up mid-step pose that read as "frozen mid-stride".
+      walk: { row: 0, seq: [0, 5, 7, 1], fps: 5 },
+      idle: { row: 0, frames: 1, fps: 1, col0: 7 },
+      worldShade: 0.4,
+      cast: { row: 1, frames: 8, fps: 20 },
+      // Cells crop to the figure (~192×243 walk, ~192×204 cast) — aspect
+      // is ~0.79-0.94 so the rendered figure is close to other classes'
+      // 64×64 default.  renderScale 1.0 since cropping already brought
+      // the visible figure to the right proportions.
+      renderScale: 1.00,
       brightnessLift: 0.32,
+      // Cropped sample puts feet near the bottom of the rendered
+      // sprite — pull the sprite UP so feet land on the shadow line
+      // instead of sinking below it.  -0.27 floated the warrior above
+      // the shadow; -0.18 lands feet on the shadow line.
+      feetAnchorPct: -0.18,
     },
     mage: {
       sheet: 'hero_mage_sheet',
-      walk: { row: 0, frames: 4, fps: 6 },   // mage movement was called perfect — leave near previous
-      idle: { row: 0, frames: 1, fps: 1, col0: 1 },
-      cast: { row: 1, frames: 4, fps: 14 },
+      // Replaced newmage.png: 4x2 staff-mage sheet.  Row 0 walk,
+      // row 1 cast (staff raise → swing).
+      walk: { row: 0, frames: 4, fps: 5 },
+      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
+      cast: { row: 1, frames: 4, fps: 10 },
+      renderScale: 1.0,
+      worldShade: 0.55,
     },
     rogue: {
       sheet: 'hero_rogue_sheet',
@@ -59,45 +80,62 @@ DDI.Renderer = (function () {
       walk: { row: 0, frames: 4, fps: 5 },
       idle: { row: 1, frames: 1, fps: 1, col0: 0 },
       cast: { row: 1, frames: 4, fps: 11 },
+      worldShade: 0.55,
     },
     paladin: {
       sheet: 'hero_paladin_sheet',
-      // "TINY bit too fast" -> drop fps 6 -> 5.
-      walk: { row: 0, frames: 4, fps: 5 },
+      // "TINY bit too fast" -> drop fps 6 -> 5 -> 4.
+      walk: { row: 0, frames: 4, fps: 4 },
       idle: { row: 0, frames: 1, fps: 1, col0: 1 },
       cast: { row: 1, frames: 4, fps: 11 },
+      worldShade: 0.55,
     },
     ranger: {
       sheet: 'hero_ranger_sheet',
-      walk: { row: 0, frames: 4, fps: 5 },
-      // Archer's col 0 had a lifted leg too — pull idle from cast row.
-      idle: { row: 1, frames: 1, fps: 1, col0: 0 },
+      // hunter.png: 4x2 horned-helm hunter sheet.  Row 0 is a 4-frame
+      // walk cycle, row 1 is a 4-frame bow draw → release.
+      walk: { row: 0, frames: 4, fps: 4 },
+      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
       cast: { row: 1, frames: 4, fps: 12 },
+      renderScale: 1.1,
+      worldShade: 0.4,
     },
     berserker: {
       sheet: 'hero_berserker_sheet',
-      // *** DO NOT CHANGE — user called these settings PERFECT. ***
       walk: { row: 0, frames: 4, fps: 5 },
-      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
+      // Col 0 had the front foot mid-lift — read as "frozen mid-step".
+      // Col 1 plants both feet wide for a grounded idle stance.
+      idle: { row: 0, frames: 1, fps: 1, col0: 1 },
       cast: { row: 1, frames: 4, fps: 13 },
+      worldShade: 0.4,
     },
     demonhunter: {
       sheet: 'hero_demonhunter_sheet',
-      // 3-frame sheet, leg motion very subtle under the cloak.  fps 10
-      // read as "limping/gliding too fast"; drop to 6 — matches the
-      // other classes' cadence, the limp will read as a slower stride
-      // instead of a frantic shuffle.  True fix needs a sheet repaint.
-      walk: { row: 0, frames: 3, fps: 6 },
-      idle: { row: 0, frames: 1, fps: 1, col0: 1 },
-      cast: { row: 1, frames: 3, fps: 14 },
-      renderScale: 1.12,
+      // Replaced demonhunter.png: 4x2 hooded twin-blade sheet.  Row 0
+      // is a 4-frame walk cycle, row 1 is a 4-frame attack swing.
+      walk: { row: 0, frames: 4, fps: 5 },
+      idle: { row: 0, frames: 1, fps: 1, col0: 0 },
+      cast: { row: 1, frames: 4, fps: 12 },
+      renderScale: 1.0,
+      worldShade: 0.7,
     },
     frostknight: {
       sheet: 'hero_frostknight_sheet',
-      // Same situation as demonhunter — drop fps.
-      walk: { row: 0, frames: 3, fps: 6 },
-      idle: { row: 0, frames: 1, fps: 1, col0: 1 },
-      cast: { row: 1, frames: 3, fps: 10 },
+      // New 8x2 frostknight.png.  Walk row alternates contact (cols
+      // 0/3/6 — feet apart with gap) and passing (cols 1/2/4/5/7 — feet
+      // closer) naturally enough that a straight 0..7 cycle reads as a
+      // proper stride — no `seq` needed.  Cast row 1 has the same ice-
+      // beam bleed problem as the mage; trim to cols 0-3 (wind-up +
+      // initial cast) and skip the merged-beam frames.  Idle holds
+      // col 4 (narrowest passing pose, most planted).
+      walk: { row: 0, frames: 8, fps: 8 },
+      idle: { row: 0, frames: 1, fps: 1, col0: 4 },
+      cast: { row: 1, frames: 4, fps: 10 },
+      // Dark armor + blue accents need the brightness lift to separate
+      // from dark biome floors (same reason as before).
+      brightnessLift: 0.36,
+      renderScale: 0.94,
+      worldShade: 0.4,
     },
   };
   // Resolve {sheetKey, frameIdx} for the hero in its current state.
@@ -127,7 +165,14 @@ DDI.Renderer = (function () {
     // walkT already speeds up 1.5x while sprinting in main.js, so we
     // don't apply an extra fpsMult here.  For idle / cast, real time
     // is fine — those should breathe / cast independent of motion.
-    const frames = Math.max(1, role.frames || 1);
+    // `role.seq` (optional) is an explicit list of cols to cycle through —
+    // used when the sheet doesn't lay out a clean contiguous walk cycle.
+    // The mage sheet, for example, has 4 contact frames (cols 0-3) then
+    // 4 passing frames (cols 4-7); seq lets us alternate contact-passing
+    // (e.g. [0,4,2,6]) for a proper step rhythm.  Falls back to the
+    // legacy col0 + frames sequential walk when `seq` is absent.
+    const seq = role.seq;
+    const cycleLen = seq ? seq.length : Math.max(1, role.frames || 1);
     const col0 = role.col0 || 0;
     let phase;
     if (isWalkRole) {
@@ -139,7 +184,8 @@ DDI.Renderer = (function () {
     } else {
       phase = (performance.now() / 1000) * (role.fps || 6);
     }
-    const col = col0 + (Math.floor(phase) % frames);
+    const cycleIdx = Math.floor(phase) % cycleLen;
+    const col = seq ? seq[cycleIdx] : (col0 + cycleIdx);
     const row = role.row || 0;
     const cols = s.cols || (frames + col0);
     const frameIdx = row * cols + col;
@@ -233,7 +279,12 @@ DDI.Renderer = (function () {
       this.drawHero(ctx, app.hero);
       // Phase 2a co-op: draw the partner avatar from their broadcast state.
       // No sim — pure render based on last-known position with smoothing.
-      if (DDI.party && DDI.party.partnerState) this.drawPartner(ctx);
+      // TEMP DIAGNOSTIC: drawPartner disabled entirely while we chase
+      // the "two frost knights" / "two mages" doubling.  inParty() guard
+      // alone wasn't enough — re-enable once we confirm partner render
+      // is the culprit (and that the partner state isn't getting set
+      // through some other path).
+      // if (DDI.party && DDI.party.inParty && DDI.party.inParty() && DDI.party.partnerState) this.drawPartner(ctx);
       // Revive circle around a downed partner's body
       if (DDI.party && DDI.party.partnerDowned) this.drawReviveCircle(ctx);
       // Phase 2c: partner's friendly projectiles, dead-reckoned between
@@ -257,19 +308,62 @@ DDI.Renderer = (function () {
       const ox = Math.floor((camX - app.viewW) / tile) * tile;
       const oy = Math.floor((camY - app.viewH) / tile) * tile;
       const w = app.viewW + tile * 2, h = app.viewH + tile * 2;
+      // Per-biome tileable floor texture (Diablo-style painted stone).
+      // When the asset is loaded, draw it as a repeating CanvasPattern in
+      // world space, then overlay a soft radial vignette to keep the
+      // "lit by a torch" falloff at the screen edges.  Without a texture,
+      // fall back to the original ground/edge gradient.
+      const floorKey = app.zoneTheme && app.zoneTheme.floorTexture;
+      const floorImg = floorKey ? img(floorKey) : null;
       ctx.save();
-      const grd = ctx.createRadialGradient(camX, camY, 40, camX, camY, Math.max(app.viewW, app.viewH) * 0.7);
-      grd.addColorStop(0, palette.ground);
-      grd.addColorStop(1, palette.edge);
-      ctx.fillStyle = grd;
-      ctx.fillRect(camX - app.viewW, camY - app.viewH, app.viewW * 2, app.viewH * 2);
-      ctx.strokeStyle = palette.accent;
-      ctx.globalAlpha = 0.06;     // very subtle — just a hint of grid, not visible boxes
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (let x = ox; x <= ox + w; x += tile) { ctx.moveTo(x, oy); ctx.lineTo(x, oy + h); }
-      for (let y = oy; y <= oy + h; y += tile) { ctx.moveTo(ox, y); ctx.lineTo(ox + w, y); }
-      ctx.stroke();
+      if (floorImg) {
+        if (!this._floorPatterns) this._floorPatterns = {};
+        let pat = this._floorPatterns[floorKey];
+        if (!pat) {
+          // Pre-bake the source PNG onto a smaller offscreen canvas before
+          // making the CanvasPattern.  Sampling a 1254x1254 source across
+          // a multi-megapixel destination every frame stalls integrated
+          // GPUs; 384 keeps enough detail at our typical viewing scale
+          // while sitting comfortably in GPU texture cache.
+          const PAT_SIZE = 384;
+          const oc = document.createElement('canvas');
+          oc.width = PAT_SIZE; oc.height = PAT_SIZE;
+          oc.getContext('2d').drawImage(floorImg, 0, 0, PAT_SIZE, PAT_SIZE);
+          pat = ctx.createPattern(oc, 'repeat');
+          this._floorPatterns[floorKey] = pat;
+        }
+        // Tight fill: viewport + a small camera-shake margin.  The gradient
+        // path used 2x viewport because gradients are cheap; high-detail
+        // textures aren't, so doubling the painted area was the lag.
+        const PAD = 96;
+        const fx = camX - app.viewW/2 - PAD;
+        const fy = camY - app.viewH/2 - PAD;
+        const fw = app.viewW + PAD * 2;
+        const fh = app.viewH + PAD * 2;
+        ctx.fillStyle = pat;
+        ctx.fillRect(fx, fy, fw, fh);
+        // Vignette: transparent at the hero, dark at the edges — gives the
+        // floor the "lit by your torch" reading without hiding the texture.
+        const vg = ctx.createRadialGradient(camX, camY, 40, camX, camY, Math.max(app.viewW, app.viewH) * 0.6);
+        vg.addColorStop(0, 'rgba(0,0,0,0)');
+        vg.addColorStop(0.55, 'rgba(0,0,0,0.25)');
+        vg.addColorStop(1, hexA(palette.edge, 0.85));
+        ctx.fillStyle = vg;
+        ctx.fillRect(fx, fy, fw, fh);
+      } else {
+        const grd = ctx.createRadialGradient(camX, camY, 40, camX, camY, Math.max(app.viewW, app.viewH) * 0.7);
+        grd.addColorStop(0, palette.ground);
+        grd.addColorStop(1, palette.edge);
+        ctx.fillStyle = grd;
+        ctx.fillRect(camX - app.viewW, camY - app.viewH, app.viewW * 2, app.viewH * 2);
+        ctx.strokeStyle = palette.accent;
+        ctx.globalAlpha = 0.06;     // very subtle — just a hint of grid, not visible boxes
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let x = ox; x <= ox + w; x += tile) { ctx.moveTo(x, oy); ctx.lineTo(x, oy + h); }
+        for (let y = oy; y <= oy + h; y += tile) { ctx.moveTo(ox, y); ctx.lineTo(ox + w, y); }
+        ctx.stroke();
+      }
       ctx.restore();
 
       // ============================================================
@@ -793,7 +887,26 @@ DDI.Renderer = (function () {
       ctx.save();
       if (explored) ctx.globalAlpha = 0.55;
 
-      if (id === 'tower') {
+      // Image-based exterior: if an Assets/Objects/<Style>.png is loaded
+      // for this style, draw it instead of the procedural shape.  The
+      // image's bottom edge aligns to yBase (f.y + 90) so it sits on the
+      // same ground line as the procedural exteriors.  Drop shadow,
+      // explored-alpha wrap, ambient particles, and door banner all
+      // continue to apply.
+      const BUILDING_ART = {
+        ruins:  'building_ruins',
+        temple: 'building_temple',
+        tower:  'building_tower',
+      };
+      const artKey = BUILDING_ART[id];
+      const artImg = artKey && DDI.assets.img ? DDI.assets.img(artKey) : null;
+      if (artImg) {
+        const targetW = 260;
+        const w = targetW;
+        const h = w * (artImg.height / artImg.width);
+        const yBase = f.y + 90;
+        ctx.drawImage(artImg, f.x - w / 2, yBase - h, w, h);
+      } else if (id === 'tower') {
         // ===== OBSIDIAN TOWER — tall narrow column with crenellated top =====
         const cx = f.x;
         const baseW = 110, topW = 88, h = 200;
@@ -2005,9 +2118,12 @@ DDI.Renderer = (function () {
       ctx.restore();
 
       // Squash/stretch + forward-lean transform around the hero centre.
-      // Feet anchor: 8% wasn't enough — bumped to 14% so the painted
-      // feet land squarely on the shadow line instead of hovering.
-      const feetAnchor = usingSheet ? d * 0.14 : 0;
+      // Feet anchor: default 14% works when figures sit roughly centred
+      // in their cell with empty space below the feet (most older sheets).
+      // Sheets that crop tightly to feet-flush need a NEGATIVE anchor so
+      // the sprite is pulled UP onto the shadow.  Per-class override.
+      const feetPct = (animDef && animDef.feetAnchorPct != null) ? animDef.feetAnchorPct : 0.14;
+      const feetAnchor = usingSheet ? d * feetPct : 0;
       ctx.save();
       ctx.translate(hero.x, hero.y - stepBob + feetAnchor);
       ctx.rotate(lean);
@@ -2026,6 +2142,18 @@ DDI.Renderer = (function () {
       // Prefer the animated sprite sheet for this class; fall back to the
       // static portrait, and to a procedural silhouette if even the
       // portrait failed to load.
+      // `worldShade` (per-class, optional) is a 0..1 strength that
+      // desaturates + darkens the sprite via ctx.filter so it recedes
+      // into the world atmosphere instead of popping forward.  Used for
+      // the new high-fidelity sheets (mage / warrior / frostknight) that
+      // were drawn with stronger contrast than the surrounding world.
+      const worldShade = (animDef && animDef.worldShade) || 0;
+      if (worldShade) {
+        const bright = (1 - worldShade * 0.30).toFixed(3);
+        const sat    = (1 - worldShade * 0.55).toFixed(3);
+        const con    = (1 - worldShade * 0.15).toFixed(3);
+        ctx.filter = `brightness(${bright}) saturate(${sat}) contrast(${con})`;
+      }
       const frame = pickHeroFrame(charPick, hero);
       let drewSprite = false;
       if (frame) {
@@ -2044,6 +2172,7 @@ DDI.Renderer = (function () {
           c.restore();
         });
       }
+      if (worldShade) ctx.filter = 'none';
 
       if (drewSprite && flash > 0.1) {
         ctx.globalCompositeOperation = 'lighter';
@@ -2057,14 +2186,19 @@ DDI.Renderer = (function () {
       // alpha so the hero reads as lit by an ambient light source instead
       // of swallowed by the dark world fog.  Per-class override lets
       // darker sheets (warrior's heavy black armor) lift further.
+      // When worldShade is active, drop the lift proportionally so the
+      // shading isn't re-brightened away.
       if (drewSprite) {
-        const lift = (animDef && animDef.brightnessLift) || 0.22;
-        ctx.globalCompositeOperation = 'screen';
-        ctx.globalAlpha = lift;
-        if (frame) drawFrameOrFallback(ctx, frame.sheetKey, frame.frameIdx, 0, 0, d, null);
-        else       drawSpriteOrFallback(ctx, heroKey, 0, 0, d, null);
-        ctx.globalAlpha = 1;
-        ctx.globalCompositeOperation = 'source-over';
+        const liftBase = (animDef && animDef.brightnessLift != null) ? animDef.brightnessLift : 0.22;
+        const lift = liftBase * (1 - worldShade * 0.85);
+        if (lift > 0.01) {
+          ctx.globalCompositeOperation = 'screen';
+          ctx.globalAlpha = lift;
+          if (frame) drawFrameOrFallback(ctx, frame.sheetKey, frame.frameIdx, 0, 0, d, null);
+          else       drawSpriteOrFallback(ctx, heroKey, 0, 0, d, null);
+          ctx.globalAlpha = 1;
+          ctx.globalCompositeOperation = 'source-over';
+        }
       }
       ctx.restore();
 
@@ -2577,6 +2711,16 @@ DDI.Renderer = (function () {
         const hasImg = spriteKey && img(spriteKey);
 
         ctx.save();
+        // Shade elites + bosses so their high-contrast painted portraits
+        // recede into the world atmosphere rather than popping forward.
+        // Same brightness/saturate/contrast formula as the hero worldShade.
+        const enemyShade = e.def.isBoss ? 0.4 : (e.def.isElite ? 0.4 : 0);
+        if (enemyShade) {
+          const bright = (1 - enemyShade * 0.30).toFixed(3);
+          const sat    = (1 - enemyShade * 0.55).toFixed(3);
+          const con    = (1 - enemyShade * 0.15).toFixed(3);
+          ctx.filter = `brightness(${bright}) saturate(${sat}) contrast(${con})`;
+        }
         const isSlime = e.def.kind === 'slime';
         // Sheet-animated enemies bring their own pose changes — damp the
         // procedural squash/stretch/lean so it doesn't fight the artwork
@@ -2601,7 +2745,7 @@ DDI.Renderer = (function () {
         // hanging below the feet; elites and regular sheet enemies get a
         // milder one.  Procedural drawings (no sheet) don't shift.
         const feetAnchor = hasAnim
-          ? (e.def.isBoss ? d * 0.20 : d * 0.13)
+          ? (e.def.isBoss ? d * 0.34 : d * 0.26)
           : 0;
         ctx.translate(e.x, e.y + by + feetAnchor);
         ctx.rotate(leanE);
@@ -4221,6 +4365,39 @@ DDI.Renderer = (function () {
           for (let i = 0; i < 4; i++) {
             ctx.fillRect(-len*0.35 + i * len*0.16, -wid*0.5, 1.5, wid);
           }
+          ctx.restore();
+          return;
+        }
+
+        // ----- GUST — sweeping wind crescent (Warrior Cleaving Strike) -----
+        if (p.shape === 'gust') {
+          const ang = Math.atan2(p.vy, p.vx);
+          const r = Math.max(20, p.radius * 1.0);
+          const lifeFrac = Math.max(0, Math.min(1, 1 - (p.life || 0) / (p.maxLife || 0.55)));
+          const fade = 0.45 + 0.55 * lifeFrac;
+          ctx.save();
+          ctx.translate(p.x, p.y); ctx.rotate(ang);
+          ctx.globalCompositeOperation = 'screen';
+          // Wide soft halo elongated along motion
+          const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 1.4);
+          glow.addColorStop(0, 'rgba(220,238,255,' + (0.40 * fade).toFixed(3) + ')');
+          glow.addColorStop(1, 'rgba(220,238,255,0)');
+          ctx.fillStyle = glow;
+          ctx.beginPath(); ctx.ellipse(0, 0, r * 1.5, r * 0.7, 0, 0, TAU); ctx.fill();
+          // Three stacked crescent arcs — curved wind blades fanning forward
+          for (let i = 0; i < 3; i++) {
+            const cx = -r * 0.30 + i * r * 0.18;
+            const arcR = r * (0.55 + i * 0.12);
+            const alpha = (0.55 - i * 0.13) * fade;
+            ctx.strokeStyle = 'rgba(240,248,255,' + alpha.toFixed(3) + ')';
+            ctx.lineWidth = 2.6 - i * 0.6;
+            ctx.beginPath();
+            ctx.arc(cx, 0, arcR, -Math.PI * 0.55, Math.PI * 0.55);
+            ctx.stroke();
+          }
+          // Bright leading whisp
+          ctx.fillStyle = 'rgba(255,255,255,' + (0.7 * fade).toFixed(3) + ')';
+          ctx.beginPath(); ctx.ellipse(r * 0.50, 0, r * 0.20, r * 0.06, 0, 0, TAU); ctx.fill();
           ctx.restore();
           return;
         }
