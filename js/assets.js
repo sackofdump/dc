@@ -21,15 +21,15 @@ DDI.assets = (function () {
 
     // Animated hero sprite sheets — one per class.  Frame grids and per-
     // anim row specs live in HERO_ANIM (consumed by render.js).
-    hero_warrior_sheet:     'Assets/Characters/chars/warrior.png',
+    hero_warrior_sheet:     'Assets/Characters/Chars/warrior.png',
     hero_mage_sheet:        'Assets/Characters/Chars/newmage.png',
     hero_rogue_sheet:       'Assets/Characters/new_rogue_sprites.png',
     hero_necromancer_sheet: 'Assets/Characters/new_necromancer_sprites.png',
     hero_paladin_sheet:     'Assets/Characters/new_paladin_sprites.png',
     hero_ranger_sheet:      'Assets/Characters/Chars/hunter.png',
     hero_berserker_sheet:   'Assets/Characters/new_beserker_sprites.png',
-    hero_demonhunter_sheet: 'Assets/Characters/chars/DemonHunter.png',
-    hero_frostknight_sheet: 'Assets/Characters/chars/frostknight.png',
+    hero_demonhunter_sheet: 'Assets/Characters/Chars/demonhunter.png',
+    hero_frostknight_sheet: 'Assets/Characters/Chars/frostknight.png',
 
     // Enemy single-portrait sprites (used as fallback if sheet missing)
     slime:         'Assets/Characters/Slime.png',
