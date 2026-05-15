@@ -36,7 +36,7 @@ DDI.save = (function () {
     bestAct: 1, act1ClearSeconds: null,
     accountXp: 0, accountRank: 1,    // persistent rank — gates character unlocks
     character: null,         // 'default' | 'mage' — null until first character pick
-    unlockedClasses: ['mage'],
+    unlockedClasses: ['mage', 'default', 'ranger', 'rogue', 'paladin', 'berserker', 'necromancer', 'demonhunter', 'frostknight'],
     permUpgrades: {},
     settings: { sound: true, autoAim: true, screenShake: true },
     keybinds: Object.assign({}, DEFAULT_KEYBINDS),

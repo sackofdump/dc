@@ -1481,7 +1481,7 @@ DDI.data = (function () {
     },
     rogue: {
       name: 'Rogue',
-      requiredRank: 2,
+      requiredRank: 1,
       starters: ['venomStrike', 'cruelty'],
       pool:     ['venomStrike', 'cruelty', 'shadowstep', 'smokeBomb', 'kunaiFan', 'backstab'],
     },
@@ -1499,13 +1499,13 @@ DDI.data = (function () {
     },
     paladin: {
       name: 'Paladin',
-      requiredRank: 5,
+      requiredRank: 1,
       starters: ['holyHammer', 'divineShield'],
       pool:     ['holyHammer', 'divineShield', 'consecration', 'judgment', 'lightWrath', 'guardianOrb'],
     },
     berserker: {
       name: 'Berserker',
-      requiredRank: 6,
+      requiredRank: 1,
       // Whirling Axe is the berserker's identity ability — thrown
       // physical projectile that pierces and returns.  Great Axe (the
       // orbital) stays in the level-up pool for a defensive pickup.
@@ -1514,7 +1514,7 @@ DDI.data = (function () {
     },
     necromancer: {
       name: 'Necromancer',
-      requiredRank: 8,
+      requiredRank: 1,
       // Bone Lance + Raise Skeleton — two on-target damage abilities so the
       // necromancer plays aggressive from turn one (curse aura felt too
       // passive as a starter).
@@ -1526,7 +1526,7 @@ DDI.data = (function () {
     // etc. above for stats / scaling.
     demonhunter: {
       name: 'Demon Hunter',
-      requiredRank: 10,
+      requiredRank: 1,
       starters: ['crossbowSalvo', 'shadowDash'],
       pool:     ['crossbowSalvo', 'shadowDash', 'explosiveBolt', 'vampiricShot', 'chakram', 'rainOfBolts'],
     },
@@ -1535,7 +1535,7 @@ DDI.data = (function () {
     // etc. above.
     frostknight: {
       name: 'Frost Knight',
-      requiredRank: 12,
+      requiredRank: 1,
       starters: ['frostNova', 'iceCrash'],
       pool:     ['frostNova', 'iceCrash', 'glacialArmor', 'frozenChains', 'avalanche', 'blizzardSpin'],
     },
